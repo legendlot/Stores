@@ -1429,40 +1429,22 @@ function logout() {
 }
 
 // ══ API ══════════════════════════════════════════════════════
-// Apps Script returns HtmlService response (allows CORS)
-// Response body is raw JSON inside an HTML page — we parse the text content
+// Apps Script deployed as "Anyone" returns CORS headers on final response
+// Plain fetch with redirect:follow gets clean JSON from googleusercontent.com
 async function api(action, params = {}) {
   const p = { action, pin: currentPin || params.pin || '' };
   Object.keys(params).forEach(k => { if (k !== 'pin') p[k] = params[k]; });
   const qs = new URLSearchParams(p).toString();
-  const res = await fetch(`${API}?${qs}`, { redirect: 'follow' });
-  const text = await res.text();
-  // HtmlService wraps content in <html><head></head><body>JSON</body></html>
-  // Extract the JSON from the body
-  const match = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const json = match ? match[1].trim() : text.trim();
-  try { return JSON.parse(json); }
-  catch(e) {
-    // Try parsing raw text (JSONP path or direct JSON)
-    try { return JSON.parse(text); }
-    catch(e2) { throw new Error('Parse error: ' + text.slice(0, 200)); }
-  }
+  const res = await fetch(`${API}?${qs}`);
+  return res.json();
 }
 
 async function apiPost(action, data = {}) {
   const res = await fetch(API, {
     method: 'POST',
-    redirect: 'follow',
     body: JSON.stringify({ action, pin: currentPin, ...data }),
   });
-  const text = await res.text();
-  const match = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const json = match ? match[1].trim() : text.trim();
-  try { return JSON.parse(json); }
-  catch(e) {
-    try { return JSON.parse(text); }
-    catch(e2) { throw new Error('Parse error: ' + text.slice(0, 200)); }
-  }
+  return res.json();
 }
 
 // ══ NAVIGATION ═══════════════════════════════════════════════
