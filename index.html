@@ -1436,7 +1436,10 @@ async function api(action, params = {}) {
   Object.keys(params).forEach(k => { if (k !== 'pin') p[k] = params[k]; });
   const qs = new URLSearchParams(p).toString();
   const res = await fetch(`${API}?${qs}`);
-  return res.json();
+  const text = await res.text();
+  console.log('[API]', action, '→', text.slice(0, 120));
+  try { return JSON.parse(text); }
+  catch(e) { console.error('[API PARSE ERROR]', action, text.slice(0, 300)); throw e; }
 }
 
 async function apiPost(action, data = {}) {
@@ -1548,7 +1551,17 @@ async function loadDashboard() {
         </tr>`).join('')
       : '<tr><td colspan="4" class="empty">No issues today</td></tr>';
 
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error('Dashboard error:', e);
+    // Clear loading states even on error
+    const reorderList = document.getElementById('reorder-list');
+    if (reorderList && reorderList.innerHTML.includes('Loading'))
+      reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
+    const psl = document.getElementById('product-stock-list');
+    if (psl && psl.innerHTML.includes('Loading'))
+      psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
+    document.getElementById('dash-timestamp').textContent = 'Error loading — retrying...';
+  }
 }
 
 // ══ STOCK ════════════════════════════════════════════════════
