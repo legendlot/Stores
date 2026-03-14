@@ -1,0 +1,1981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOT OPS — Store Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0e0e0e;
+  --bg2:      #161616;
+  --bg3:      #1e1e1e;
+  --border:   #2a2a2a;
+  --border2:  #333;
+  --yellow:   #F2CD1A;
+  --yellow2:  #d4b200;
+  --blue:     #213CE2;
+  --blue2:    #1a30c0;
+  --red:      #DE2A2A;
+  --green:    #22c55e;
+  --text:     #e8e8e8;
+  --text2:    #999;
+  --text3:    #555;
+  --mono:     'Share Tech Mono', monospace;
+  --sans:     'Barlow', sans-serif;
+  --cond:     'Barlow Condensed', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scan lines texture ── */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 4px
+  );
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* ── PIN SCREEN ── */
+#pin-screen {
+  position:fixed; inset:0;
+  background: var(--bg);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:1000;
+  gap:0;
+}
+
+.pin-logo {
+  font-family: var(--cond);
+  font-weight:900;
+  font-size:11px;
+  letter-spacing:.35em;
+  color: var(--text3);
+  text-transform:uppercase;
+  margin-bottom:48px;
+}
+
+.pin-logo span { color: var(--yellow); }
+
+.pin-title {
+  font-family: var(--cond);
+  font-weight:700;
+  font-size:32px;
+  letter-spacing:.05em;
+  color: var(--text);
+  margin-bottom:6px;
+}
+
+.pin-sub {
+  font-size:12px;
+  color: var(--text3);
+  letter-spacing:.1em;
+  margin-bottom:40px;
+}
+
+.pin-dots {
+  display:flex; gap:12px; margin-bottom:32px;
+}
+
+.pin-dot {
+  width:12px; height:12px;
+  border-radius:50%;
+  border: 1.5px solid var(--border2);
+  background: transparent;
+  transition: all .15s;
+}
+
+.pin-dot.filled {
+  background: var(--yellow);
+  border-color: var(--yellow);
+  box-shadow: 0 0 8px rgba(242,205,26,.5);
+}
+
+.pin-pad {
+  display:grid;
+  grid-template-columns: repeat(3, 64px);
+  gap:8px;
+}
+
+.pin-btn {
+  height:64px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius:4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size:20px;
+  cursor:pointer;
+  transition: all .1s;
+  position:relative;
+  overflow:hidden;
+}
+
+.pin-btn:hover { background: var(--bg2); border-color: var(--border2); }
+.pin-btn:active { transform:scale(.95); }
+
+.pin-btn.del {
+  font-family: var(--sans);
+  font-size:13px;
+  color: var(--text2);
+}
+
+.pin-error {
+  margin-top:20px;
+  font-size:12px;
+  color: var(--red);
+  letter-spacing:.05em;
+  height:16px;
+  opacity:0;
+  transition: opacity .2s;
+}
+.pin-error.show { opacity:1; }
+
+/* ── MAIN LAYOUT ── */
+#app {
+  display:none;
+  flex-direction:column;
+  min-height:100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height:48px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display:flex;
+  align-items:center;
+  padding:0 20px;
+  gap:16px;
+  position:sticky; top:0; z-index:100;
+}
+
+.topbar-logo {
+  font-family: var(--cond);
+  font-weight:900;
+  font-size:15px;
+  letter-spacing:.08em;
+  color: var(--yellow);
+  white-space:nowrap;
+}
+
+.topbar-sep { width:1px; height:20px; background:var(--border); }
+
+.topbar-nav {
+  display:flex; gap:2px; flex:1;
+}
+
+.nav-btn {
+  padding:6px 14px;
+  background:transparent;
+  border:none;
+  border-radius:3px;
+  color: var(--text2);
+  font-family: var(--cond);
+  font-weight:600;
+  font-size:13px;
+  letter-spacing:.04em;
+  cursor:pointer;
+  transition: all .15s;
+  white-space:nowrap;
+}
+
+.nav-btn:hover { color:var(--text); background:var(--bg3); }
+.nav-btn.active { color:var(--yellow); background:rgba(242,205,26,.08); }
+
+.topbar-right {
+  display:flex; align-items:center; gap:12px;
+  margin-left:auto;
+}
+
+.role-badge {
+  font-family: var(--mono);
+  font-size:10px;
+  letter-spacing:.1em;
+  padding:3px 8px;
+  border-radius:2px;
+  text-transform:uppercase;
+}
+
+.role-badge.ops   { background:rgba(242,205,26,.12); color:var(--yellow); border:1px solid rgba(242,205,26,.2); }
+.role-badge.reann { background:rgba(34,197,94,.12);  color:var(--green);  border:1px solid rgba(34,197,94,.2); }
+.role-badge.vinay { background:rgba(33,60,226,.2);   color:#7b93ff;       border:1px solid rgba(33,60,226,.3); }
+
+.refresh-btn {
+  width:32px; height:32px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:3px;
+  color:var(--text2);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px;
+  transition:all .15s;
+}
+.refresh-btn:hover { color:var(--text); border-color:var(--border2); }
+.refresh-btn.spinning { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.logout-btn {
+  padding:5px 12px;
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:3px;
+  color:var(--text3);
+  font-size:11px;
+  letter-spacing:.05em;
+  cursor:pointer;
+  transition:all .15s;
+}
+.logout-btn:hover { border-color:var(--red); color:var(--red); }
+
+/* ── CONTENT ── */
+.content {
+  flex:1;
+  padding:24px;
+  max-width:1400px;
+  width:100%;
+  margin:0 auto;
+}
+
+/* ── VIEWS ── */
+.view { display:none; }
+.view.active { display:block; animation: fadeUp .2s ease; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── PAGE HEADER ── */
+.page-header {
+  display:flex; align-items:baseline; gap:12px;
+  margin-bottom:24px;
+}
+
+.page-title {
+  font-family: var(--cond);
+  font-weight:900;
+  font-size:28px;
+  letter-spacing:.03em;
+  color: var(--text);
+}
+
+.page-subtitle {
+  font-size:12px;
+  color: var(--text3);
+  letter-spacing:.05em;
+}
+
+/* ── KPI GRID ── */
+.kpi-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap:12px;
+  margin-bottom:24px;
+}
+
+.kpi-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius:4px;
+  padding:16px;
+  position:relative;
+  overflow:hidden;
+}
+
+.kpi-card::before {
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:2px;
+}
+
+.kpi-card.yellow::before { background:var(--yellow); }
+.kpi-card.blue::before   { background:var(--blue); }
+.kpi-card.green::before  { background:var(--green); }
+.kpi-card.red::before    { background:var(--red); }
+
+.kpi-label {
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color: var(--text3);
+  margin-bottom:8px;
+  font-family: var(--mono);
+}
+
+.kpi-value {
+  font-family: var(--mono);
+  font-size:28px;
+  color: var(--text);
+  line-height:1;
+}
+
+.kpi-value.warn { color: var(--red); }
+.kpi-value.ok   { color: var(--green); }
+
+.kpi-sub {
+  font-size:11px;
+  color: var(--text3);
+  margin-top:4px;
+}
+
+/* ── GRID 2-COL ── */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+@media(max-width:900px) {
+  .grid-2, .grid-3 { grid-template-columns:1fr; }
+}
+
+/* ── PANEL ── */
+.panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius:4px;
+  overflow:hidden;
+}
+
+.panel-header {
+  padding:12px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+
+.panel-title {
+  font-family: var(--cond);
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color: var(--text2);
+}
+
+.panel-body { padding:16px; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x:auto; }
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+
+th {
+  font-family: var(--mono);
+  font-size:10px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color: var(--text3);
+  padding:8px 10px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+
+td {
+  padding:9px 10px;
+  border-bottom:1px solid rgba(42,42,42,.6);
+  color: var(--text);
+  font-size:12px;
+  white-space:nowrap;
+}
+
+tr:last-child td { border-bottom:none; }
+
+tr:hover td { background:rgba(255,255,255,.02); }
+
+.mono { font-family:var(--mono); }
+
+.badge {
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:2px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.04em;
+}
+
+.badge-red    { background:rgba(222,42,42,.15);  color:#ff7070; border:1px solid rgba(222,42,42,.25); }
+.badge-green  { background:rgba(34,197,94,.12);  color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+.badge-yellow { background:rgba(242,205,26,.12); color:#f2cd1a; border:1px solid rgba(242,205,26,.2); }
+.badge-blue   { background:rgba(33,60,226,.2);   color:#7b93ff; border:1px solid rgba(33,60,226,.3); }
+.badge-gray   { background:rgba(80,80,80,.2);    color:#888;    border:1px solid rgba(80,80,80,.3); }
+
+/* ── FORMS ── */
+.form-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.form-group { display:flex; flex-direction:column; gap:6px; }
+
+.form-label {
+  font-family: var(--mono);
+  font-size:10px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color: var(--text3);
+}
+
+.form-input, .form-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius:3px;
+  padding:9px 12px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size:13px;
+  outline:none;
+  transition: border-color .15s;
+  width:100%;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--yellow);
+}
+
+.form-select option { background:var(--bg3); }
+
+.form-input::placeholder { color:var(--text3); }
+
+/* ── BUTTONS ── */
+.btn {
+  padding:9px 18px;
+  border-radius:3px;
+  font-family: var(--cond);
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:all .15s;
+  border:none;
+}
+
+.btn-primary {
+  background:var(--yellow);
+  color:#000;
+}
+.btn-primary:hover { background:var(--yellow2); }
+
+.btn-secondary {
+  background:var(--bg3);
+  color:var(--text);
+  border:1px solid var(--border);
+}
+.btn-secondary:hover { border-color:var(--border2); }
+
+.btn-danger {
+  background:rgba(222,42,42,.15);
+  color:var(--red);
+  border:1px solid rgba(222,42,42,.3);
+}
+.btn-danger:hover { background:rgba(222,42,42,.25); }
+
+.btn-blue {
+  background:var(--blue);
+  color:#fff;
+}
+.btn-blue:hover { background:var(--blue2); }
+
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+
+.btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+/* ── STOCK TABLE ROW STATES ── */
+.stock-low td:first-child { border-left:2px solid var(--red); }
+.stock-ok  td:first-child { border-left:2px solid var(--green); }
+
+/* ── REORDER FLAG LIST ── */
+.flag-list { display:flex; flex-direction:column; gap:8px; }
+
+.flag-item {
+  padding:10px 12px;
+  background:rgba(222,42,42,.06);
+  border:1px solid rgba(222,42,42,.15);
+  border-radius:3px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+
+.flag-item-name { font-size:12px; color:var(--text); }
+.flag-item-code { font-family:var(--mono); font-size:10px; color:var(--text3); }
+.flag-item-qty  { font-family:var(--mono); font-size:13px; color:var(--red); }
+
+/* ── KIT RESULT ── */
+.kit-summary {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(120px,1fr));
+  gap:8px;
+  margin-bottom:16px;
+}
+
+.kit-stat {
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:3px;
+  padding:10px 12px;
+  text-align:center;
+}
+
+.kit-stat-val {
+  font-family:var(--mono);
+  font-size:20px;
+  color:var(--text);
+}
+.kit-stat-val.warn { color:var(--red); }
+.kit-stat-val.ok   { color:var(--green); }
+
+.kit-stat-label {
+  font-size:10px;
+  color:var(--text3);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin-top:3px;
+}
+
+/* ── LOADING / EMPTY ── */
+.loading {
+  display:flex; align-items:center; justify-content:center;
+  padding:40px;
+  color:var(--text3);
+  font-family:var(--mono);
+  font-size:12px;
+  gap:8px;
+}
+
+.spinner {
+  width:16px; height:16px;
+  border:2px solid var(--border2);
+  border-top-color:var(--yellow);
+  border-radius:50%;
+  animation:spin .6s linear infinite;
+}
+
+.empty {
+  padding:40px;
+  text-align:center;
+  color:var(--text3);
+  font-size:12px;
+  font-family:var(--mono);
+}
+
+/* ── TOAST ── */
+#toast-container {
+  position:fixed; bottom:24px; right:24px;
+  display:flex; flex-direction:column; gap:8px;
+  z-index:9998;
+}
+
+.toast {
+  padding:10px 16px;
+  border-radius:3px;
+  font-size:12px;
+  font-family:var(--mono);
+  letter-spacing:.03em;
+  animation: toastIn .2s ease;
+  max-width:320px;
+}
+
+.toast.success { background:#1a3a1a; border:1px solid rgba(34,197,94,.3); color:var(--green); }
+.toast.error   { background:#3a1a1a; border:1px solid rgba(222,42,42,.3); color:#ff7070; }
+.toast.info    { background:#1a1a2a; border:1px solid rgba(33,60,226,.3);  color:#7b93ff; }
+
+@keyframes toastIn {
+  from { opacity:0; transform:translateX(16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+
+/* ── SECTION DIVIDER ── */
+.section-label {
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:10px;
+  margin-top:20px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
+.section-label:first-child { margin-top:0; }
+
+/* ── LINE ITEMS ── */
+.line-items { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+
+.line-item {
+  display:grid;
+  grid-template-columns:120px 1fr 80px 32px;
+  gap:8px;
+  align-items:center;
+  padding:6px 8px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:3px;
+}
+
+.line-item input {
+  background:transparent;
+  border:none;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:12px;
+  outline:none;
+  width:100%;
+}
+
+.line-item .remove-btn {
+  width:24px; height:24px;
+  background:transparent;
+  border:none;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:14px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:2px;
+  transition:all .1s;
+}
+
+.line-item .remove-btn:hover { color:var(--red); background:rgba(222,42,42,.1); }
+
+/* ── AS-OF TIMESTAMP ── */
+.as-of {
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--text3);
+  letter-spacing:.05em;
+}
+
+/* ── DOWNLOAD ROW ── */
+.download-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px,1fr));
+  gap:10px;
+}
+
+.download-card {
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:16px;
+  cursor:pointer;
+  transition:all .15s;
+  display:flex; flex-direction:column; gap:6px;
+}
+
+.download-card:hover { border-color:var(--yellow); background:var(--bg2); }
+
+.download-card-title {
+  font-family:var(--cond);
+  font-weight:700;
+  font-size:14px;
+  letter-spacing:.04em;
+  color:var(--text);
+}
+
+.download-card-desc {
+  font-size:11px;
+  color:var(--text3);
+}
+
+.download-card-icon {
+  font-size:20px;
+  margin-bottom:2px;
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px) {
+  .topbar-nav .nav-btn span { display:none; }
+  .content { padding:16px; }
+  .kpi-grid { grid-template-columns:1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ PIN SCREEN ══════════════════════════════════════════ -->
+<div id="pin-screen">
+  <div class="pin-logo">LEGEND OF TOYS &nbsp;·&nbsp; <span>OPS</span></div>
+  <div class="pin-title">STORE CONTROL</div>
+  <div class="pin-sub">ENTER ACCESS PIN</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
+    <button class="pin-btn del" onclick="pinClear()">CLR</button>
+    <button class="pin-btn" onclick="pinPress('0')">0</button>
+    <button class="pin-btn del" onclick="pinBack()">⌫</button>
+  </div>
+  <div class="pin-error" id="pin-error">INVALID PIN — TRY AGAIN</div>
+</div>
+
+<!-- ══ APP ══════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">LOT OPS</div>
+    <div class="topbar-sep"></div>
+    <nav class="topbar-nav">
+      <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard">DASHBOARD</button>
+      <button class="nav-btn" onclick="showView('stock')"     id="nav-stock">STOCK</button>
+      <button class="nav-btn" onclick="showView('grn')"       id="nav-grn"  id="nav-grn">GRN</button>
+      <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
+      <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">ISSUE</button>
+      <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
+      <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
+    </nav>
+    <div class="topbar-right">
+      <span class="as-of" id="as-of-time"></span>
+      <button class="refresh-btn" onclick="refreshCurrent()" id="refresh-btn" title="Refresh">↻</button>
+      <span class="role-badge" id="role-badge"></span>
+      <button class="logout-btn" onclick="logout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div class="page-title">DASHBOARD</div>
+        <div class="page-subtitle" id="dash-timestamp">Loading...</div>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Open Work Orders</div>
+          <div class="kpi-value" id="kpi-wo">—</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Today's GRNs</div>
+          <div class="kpi-value" id="kpi-grn">—</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">WOs Issued Today</div>
+          <div class="kpi-value" id="kpi-issued">—</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Reorder Flags</div>
+          <div class="kpi-value" id="kpi-reorder">—</div>
+        </div>
+        <div class="kpi-card yellow" id="kpi-cost-card" style="display:none">
+          <div class="kpi-label">Stock Value (₹)</div>
+          <div class="kpi-value" id="kpi-value">—</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Pending Returns</div>
+          <div class="kpi-value" id="kpi-returns">—</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🔴 Reorder Flags</div>
+            <span class="badge badge-red" id="reorder-count-badge">0</span>
+          </div>
+          <div class="panel-body">
+            <div id="reorder-list"><div class="empty">Loading...</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Stock by Product</div>
+          </div>
+          <div class="panel-body">
+            <div id="product-stock-list"><div class="empty">Loading...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Recent GRNs</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>GRN</th><th>Batch</th><th>Part</th><th>Qty</th></tr></thead>
+              <tbody id="recent-grns"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Issue</th><th>WO</th><th>Product</th><th>Parts</th></tr></thead>
+              <tbody id="recent-issues"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STOCK ── -->
+    <div class="view" id="view-stock">
+      <div class="page-header">
+        <div class="page-title">STOCK LEDGER</div>
+        <div class="page-subtitle">Live inventory position per part code</div>
+      </div>
+
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-body" style="padding:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input class="form-input" id="stock-search" placeholder="Search part code or name..." style="max-width:280px" oninput="filterStock()">
+            <select class="form-select" id="stock-product-filter" style="max-width:160px" onchange="filterStock()">
+              <option value="">All Products</option>
+            </select>
+            <select class="form-select" id="stock-status-filter" style="max-width:160px" onchange="filterStock()">
+              <option value="">All Status</option>
+              <option value="low">Low / Reorder</option>
+              <option value="ok">OK</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part Code</th>
+                <th>Product</th>
+                <th>Part Name</th>
+                <th>Category</th>
+                <th>Opening</th>
+                <th>Received</th>
+                <th>Issued</th>
+                <th>Returned</th>
+                <th>Closing</th>
+                <th>Reorder</th>
+                <th>Location</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="stock-table-body">
+              <tr><td colspan="12"><div class="loading"><div class="spinner"></div>Loading stock...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GRN ── -->
+    <div class="view" id="view-grn">
+      <div class="page-header">
+        <div class="page-title">GRN ENTRY</div>
+        <div class="page-subtitle">Goods Received Note — log every inward shipment</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">New GRN</div></div>
+          <div class="panel-body">
+            <div class="section-label">Header</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">GRN Date</label>
+                <input class="form-input" type="date" id="grn-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="grn-product">
+                  <option value="">Select product...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Supplier</label>
+                <input class="form-input" id="grn-supplier" placeholder="Supplier name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PO Reference</label>
+                <input class="form-input" id="grn-po" placeholder="PO-XXX">
+              </div>
+            </div>
+
+            <div class="section-label">Line Items</div>
+            <div class="line-items" id="grn-lines"></div>
+            <button class="btn btn-secondary" onclick="addGRNLine()" style="width:100%;margin-bottom:16px">+ ADD PART</button>
+
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitGRN()">SUBMIT GRN</button>
+              <button class="btn btn-secondary" onclick="clearGRN()">CLEAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Recent GRNs</div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>GRN No.</th><th>Date</th><th>Supplier</th><th>Part Code</th><th>Qty Recv</th><th>Insp</th></tr>
+              </thead>
+              <tbody id="grn-history">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WORK ORDER ── -->
+    <div class="view" id="view-workorder">
+      <div class="page-header">
+        <div class="page-title">WORK ORDER</div>
+        <div class="page-subtitle">Create production runs and calculate kit requirements</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">New Work Order</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="wo-product" onchange="loadVariants('wo')">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant</label>
+                <select class="form-select" id="wo-variant">
+                  <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Units to Build</label>
+                <input class="form-input" type="number" id="wo-qty" placeholder="0" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Line</label>
+                <select class="form-select" id="wo-line">
+                  <option value="L1">L1</option>
+                  <option value="L2">L2</option>
+                  <option value="L3">L3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shift</label>
+                <select class="form-select" id="wo-shift">
+                  <option value="Morning">Morning</option>
+                  <option value="Afternoon">Afternoon</option>
+                  <option value="Night">Night</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date</label>
+                <input class="form-input" type="date" id="wo-date">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="calcKit()">CALCULATE KIT</button>
+              <button class="btn btn-blue" onclick="createWO()">CREATE WORK ORDER</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Open Work Orders</div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>WO No.</th><th>Product</th><th>Variant</th><th>Qty</th><th>Line</th><th>Status</th></tr></thead>
+              <tbody id="wo-list">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kit Result -->
+      <div id="kit-result" style="display:none;margin-top:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">KIT CALCULATION RESULT</div>
+            <span id="kit-header-badge" class="badge badge-green">OK</span>
+          </div>
+          <div class="panel-body">
+            <div class="kit-summary" id="kit-summary"></div>
+            <div class="section-label">⚠ Shortfalls</div>
+            <div id="kit-shorts"></div>
+            <div class="section-label">Full Pick List</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr><th>Part Code</th><th>Part Name</th><th>Category</th><th>Type</th><th>BOM Qty</th><th>Total Req</th><th>Available</th><th>Shortfall</th><th>Status</th></tr>
+                </thead>
+                <tbody id="kit-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ISSUE ── -->
+    <div class="view" id="view-issue">
+      <div class="page-header">
+        <div class="page-title">ISSUE REGISTER</div>
+        <div class="page-subtitle">Log material issued to production</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">New Issue</div></div>
+          <div class="panel-body">
+            <div class="section-label">Issue Details</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Work Order No.</label>
+                <input class="form-input" id="iss-wo" placeholder="WO-001">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Batch No.</label>
+                <input class="form-input" id="iss-batch" placeholder="Auto-generated">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="iss-product">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant</label>
+                <select class="form-select" id="iss-variant">
+                  <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Units</label>
+                <input class="form-input" type="number" id="iss-units" placeholder="0" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shift</label>
+                <select class="form-select" id="iss-shift">
+                  <option>Morning</option>
+                  <option>Afternoon</option>
+                  <option>Night</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Line</label>
+                <select class="form-select" id="iss-line">
+                  <option>L1</option><option>L2</option><option>L3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Issue Date</label>
+                <input class="form-input" type="date" id="iss-date">
+              </div>
+            </div>
+
+            <div class="section-label">Line Items (Part Code + Actual Qty)</div>
+            <div class="line-items" id="iss-lines"></div>
+            <button class="btn btn-secondary" onclick="addIssLine()" style="width:100%;margin-bottom:16px">+ ADD PART</button>
+
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitIssue()">SUBMIT ISSUE</button>
+              <button class="btn btn-secondary" onclick="clearIssue()">CLEAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Issue No.</th><th>WO</th><th>Product</th><th>Variant</th><th>Lines</th><th>Date</th></tr></thead>
+              <tbody id="issue-history">
+                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RETURNS ── -->
+    <div class="view" id="view-returns">
+      <div class="page-header">
+        <div class="page-title">RETURNS</div>
+        <div class="page-subtitle">RTO and RTV returns from all channels</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Log Return</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Return Date</label>
+                <input class="form-input" type="date" id="ret-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Channel</label>
+                <select class="form-select" id="ret-channel">
+                  <option>Amazon</option><option>Flipkart</option><option>Website</option>
+                  <option>Blinkit</option><option>Zepto</option><option>Instamart</option><option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Order ID</label>
+                <input class="form-input" id="ret-orderid" placeholder="Platform order ID">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="ret-product">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant</label>
+                <input class="form-input" id="ret-variant" placeholder="e.g. Track, Adventure">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Return Type</label>
+                <select class="form-select" id="ret-type">
+                  <option value="RTO">RTO — Untouched</option>
+                  <option value="RTV">RTV — Customer Return</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Condition</label>
+                <select class="form-select" id="ret-condition">
+                  <option>Sealed</option><option>Open Box</option>
+                  <option>Damaged</option><option>Faulty</option><option>Missing Parts</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Action</label>
+                <select class="form-select" id="ret-action">
+                  <option>RTD</option><option>Repair</option>
+                  <option>Scrap</option><option>Switcheroo Claim</option><option>Hold</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">QTY</label>
+                <input class="form-input" type="number" id="ret-qty" value="1" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Claim Filed?</label>
+                <select class="form-select" id="ret-claim">
+                  <option value="No">No</option>
+                  <option value="Yes">Yes</option>
+                  <option value="N/A">N/A</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Notes</label>
+              <input class="form-input" id="ret-notes" placeholder="Any notes...">
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitReturn()">LOG RETURN</button>
+              <button class="btn btn-secondary" onclick="clearReturn()">CLEAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Returns Log</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Return ID</th><th>Date</th><th>Channel</th><th>Product</th><th>Type</th><th>Condition</th><th>Action</th></tr></thead>
+              <tbody id="returns-history">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REPORTS ── -->
+    <div class="view" id="view-reports">
+      <div class="page-header">
+        <div class="page-title">REPORTS</div>
+        <div class="page-subtitle">Download data exports</div>
+      </div>
+
+      <div id="reports-no-access" style="display:none">
+        <div class="panel">
+          <div class="panel-body">
+            <div class="empty">Reports are available to Ops and Vinay access levels only.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="reports-grid">
+        <div class="section-label">Download Reports</div>
+        <div class="download-grid">
+          <div class="download-card" onclick="downloadReport('stock')">
+            <div class="download-card-icon">📦</div>
+            <div class="download-card-title">Stock Position</div>
+            <div class="download-card-desc">Current inventory per part code with locations</div>
+          </div>
+          <div class="download-card" onclick="downloadReport('grn')">
+            <div class="download-card-icon">📥</div>
+            <div class="download-card-title">GRN Register</div>
+            <div class="download-card-desc">All goods received notes</div>
+          </div>
+          <div class="download-card" onclick="downloadReport('issues')">
+            <div class="download-card-icon">📤</div>
+            <div class="download-card-title">Issue Register</div>
+            <div class="download-card-desc">All material issues to production</div>
+          </div>
+          <div class="download-card" onclick="downloadReport('returns')">
+            <div class="download-card-icon">🔄</div>
+            <div class="download-card-title">Returns Log</div>
+            <div class="download-card-desc">RTO and RTV returns across all channels</div>
+          </div>
+          <div class="download-card" onclick="downloadReport('reorder')">
+            <div class="download-card-icon">🔴</div>
+            <div class="download-card-title">Reorder Flags</div>
+            <div class="download-card-desc">Parts at or below reorder level</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast-container"></div>
+
+<script>
+// ══ CONFIG ══════════════════════════════════════════════════
+const API = 'https://script.google.com/macros/s/AKfycbzb9lgntukUGcWxShGPxwqCRlRQr3jPluTbUYUFaa2NV1K2YzEkmUD5xoueiRL-5Er7/exec';
+
+const PRODUCTS = ['Flare','Knox','Shadow','Night Wolf','Nitro','Dash','Fang'];
+
+const PRODUCT_VARIANTS = {
+  'Flare':      ['Track','Race','UG','Frost','Burnout','Street'],
+  'Knox':       ['Adventure','Explorer'],
+  'Shadow':     ['Asphalt','Tarmac'],
+  'Night Wolf': ['Blue','Red','Green'],
+  'Nitro':      ['Race Grey','Tarmac Black','Tarmac Green','Tarmac Grey','Race Blue','Burnout Red'],
+  'Dash':       ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
+  'Fang':       [],
+};
+
+// ══ STATE ════════════════════════════════════════════════════
+let currentPin  = '';
+let currentRole = '';
+let currentView = 'dashboard';
+let stockData   = [];
+let bomCache    = {};
+
+// ══ PIN LOGIC ════════════════════════════════════════════════
+function pinPress(d) {
+  if (currentPin.length >= 4) return;
+  currentPin += d;
+  updateDots();
+  if (currentPin.length === 4) setTimeout(submitPin, 150);
+}
+
+function pinBack() {
+  currentPin = currentPin.slice(0,-1);
+  updateDots();
+}
+
+function pinClear() {
+  currentPin = '';
+  updateDots();
+}
+
+function updateDots() {
+  for (let i=0;i<4;i++) {
+    document.getElementById('d'+i).classList.toggle('filled', i < currentPin.length);
+  }
+}
+
+async function submitPin() {
+  try {
+    const res = await api('ping', { pin: currentPin });
+    if (res.ok) {
+      currentRole = res.data.role;
+      launchApp();
+    } else {
+      showPinError();
+    }
+  } catch(e) {
+    showPinError();
+  }
+}
+
+function showPinError() {
+  const el = document.getElementById('pin-error');
+  el.classList.add('show');
+  currentPin = '';
+  updateDots();
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function launchApp() {
+  document.getElementById('pin-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+
+  // Role badge
+  const badge = document.getElementById('role-badge');
+  badge.textContent = currentRole.toUpperCase();
+  badge.className = 'role-badge ' + currentRole;
+
+  // Hide write-only nav for vinay
+  if (currentRole === 'vinay') {
+    ['nav-grn','nav-workorder','nav-issue','nav-returns'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
+  // Show cost KPI for ops/vinay
+  if (currentRole !== 'reann') {
+    document.getElementById('kpi-cost-card').style.display = '';
+  }
+
+  // Init dates
+  const today = new Date().toISOString().split('T')[0];
+  ['grn-date','wo-date','iss-date','ret-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+
+  // Populate product dropdowns
+  PRODUCTS.forEach(p => {
+    ['grn-product','wo-product','iss-product','ret-product'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
+    });
+    // Stock filter
+    const sf = document.getElementById('stock-product-filter');
+    if (sf) sf.innerHTML += `<option value="${p}">${p}</option>`;
+  });
+
+  // Reports access
+  if (currentRole === 'reann') {
+    document.getElementById('reports-no-access').style.display = '';
+    document.getElementById('reports-grid').style.display = 'none';
+  }
+
+  // Add initial GRN/issue lines
+  addGRNLine(); addIssLine();
+
+  // Load initial data
+  loadDashboard();
+  loadStock();
+  loadGRNHistory();
+  loadWorkOrders();
+  loadIssueHistory();
+  loadReturnsHistory();
+
+  // Auto-refresh every 60s
+  setInterval(() => {
+    if (currentView === 'dashboard') loadDashboard();
+  }, 60000);
+}
+
+function logout() {
+  currentPin = ''; currentRole = ''; currentView = 'dashboard';
+  stockData = []; bomCache = {};
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pin-screen').style.display = 'flex';
+  updateDots();
+}
+
+// ══ API ══════════════════════════════════════════════════════
+async function api(action, params = {}) {
+  const qs = new URLSearchParams({ action, pin: currentPin || params.pin || '', ...params }).toString();
+  const res = await fetch(`${API}?${qs}`);
+  return res.json();
+}
+
+async function apiPost(action, data = {}) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, pin: currentPin, ...data }),
+  });
+  return res.json();
+}
+
+// ══ NAVIGATION ═══════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  currentView = name;
+}
+
+function refreshCurrent() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  const done = () => btn.classList.remove('spinning');
+  switch(currentView) {
+    case 'dashboard': loadDashboard().then(done); break;
+    case 'stock':     loadStock().then(done); break;
+    case 'grn':       loadGRNHistory().then(done); break;
+    case 'workorder': loadWorkOrders().then(done); break;
+    case 'issue':     loadIssueHistory().then(done); break;
+    case 'returns':   loadReturnsHistory().then(done); break;
+    default: done();
+  }
+}
+
+// ══ DASHBOARD ════════════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const res = await api('getDashboard');
+    if (!res.ok) return;
+    const d = res.data;
+
+    document.getElementById('kpi-wo').textContent     = d.open_work_orders ?? '0';
+    document.getElementById('kpi-grn').textContent    = d.today_grn_count ?? '0';
+    document.getElementById('kpi-issued').textContent = d.today_wo_count ?? '0';
+    document.getElementById('kpi-returns').textContent= d.pending_returns ?? '0';
+
+    const reorderEl = document.getElementById('kpi-reorder');
+    reorderEl.textContent = d.reorder_count ?? '0';
+    reorderEl.className = 'kpi-value ' + (d.reorder_count > 0 ? 'warn' : 'ok');
+
+    if (d.total_stock_value !== undefined) {
+      document.getElementById('kpi-value').textContent = '₹' + Number(d.total_stock_value).toLocaleString('en-IN');
+    }
+
+    document.getElementById('dash-timestamp').textContent = d.as_of || '';
+    document.getElementById('as-of-time').textContent = d.as_of || '';
+
+    // Reorder flags
+    const reorderList = document.getElementById('reorder-list');
+    document.getElementById('reorder-count-badge').textContent = d.reorder_count || 0;
+    if (!d.reorder_flags || d.reorder_flags.length === 0) {
+      reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
+    } else {
+      reorderList.innerHTML = '<div class="flag-list">' +
+        d.reorder_flags.map(f => `
+          <div class="flag-item">
+            <div>
+              <div class="flag-item-name">${f.part_name || ''}</div>
+              <div class="flag-item-code">${f.part_code} · ${f.product}</div>
+            </div>
+            <div class="flag-item-qty">${f.closing} / ${f.reorder}</div>
+          </div>`).join('') + '</div>';
+    }
+
+    // Product stock summary
+    const psl = document.getElementById('product-stock-list');
+    if (d.stock_by_product && Object.keys(d.stock_by_product).length) {
+      psl.innerHTML = Object.entries(d.stock_by_product).map(([prod, info]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="font-family:var(--cond);font-weight:700;font-size:14px">${prod}</div>
+          <div style="display:flex;gap:16px;font-family:var(--mono);font-size:12px">
+            <span style="color:var(--text2)">${info.parts} parts</span>
+            ${info.reorder > 0 ? `<span style="color:var(--red)">⚠ ${info.reorder} low</span>` : '<span style="color:var(--green)">✅ OK</span>'}
+          </div>
+        </div>`).join('');
+    } else {
+      psl.innerHTML = '<div class="empty">No stock data yet</div>';
+    }
+
+    // Recent GRNs
+    const rg = document.getElementById('recent-grns');
+    rg.innerHTML = (d.recent_grns && d.recent_grns.length)
+      ? d.recent_grns.map(r => `<tr>
+          <td class="mono">${r.grn_no||''}</td>
+          <td class="mono" style="font-size:10px;color:var(--text3)">${r.batch_no||''}</td>
+          <td>${r.part_name||''}</td>
+          <td class="mono">${r.qty_received||''}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">No GRNs today</td></tr>';
+
+    // Recent issues
+    const ri = document.getElementById('recent-issues');
+    ri.innerHTML = (d.recent_issues && d.recent_issues.length)
+      ? d.recent_issues.map(r => `<tr>
+          <td class="mono">${r.issue_no||''}</td>
+          <td class="mono">${r.work_order_no||''}</td>
+          <td>${r.product||''}</td>
+          <td class="mono">${r.bom_issue_qty||''}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">No issues today</td></tr>';
+
+  } catch(e) { console.error(e); }
+}
+
+// ══ STOCK ════════════════════════════════════════════════════
+async function loadStock() {
+  const tbody = document.getElementById('stock-table-body');
+  tbody.innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>';
+  try {
+    const res = await api('getStock');
+    if (!res.ok) return;
+    stockData = res.data || [];
+    renderStockTable(stockData);
+  } catch(e) { console.error(e); }
+}
+
+function renderStockTable(rows) {
+  const tbody = document.getElementById('stock-table-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty">No stock data. Enter opening counts on move day.</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const closing = Number(r.closing_stock) || 0;
+    const reorder = Number(r.reorder_level) || 0;
+    const isLow   = reorder > 0 && closing <= reorder;
+    const statusBadge = isLow
+      ? '<span class="badge badge-red">REORDER</span>'
+      : '<span class="badge badge-green">OK</span>';
+    return `<tr class="${isLow ? 'stock-low' : 'stock-ok'}">
+      <td class="mono" style="font-size:11px">${r.part_code||''}</td>
+      <td>${r.product||''}</td>
+      <td>${r.part_name||''}</td>
+      <td><span class="badge badge-gray" style="font-size:9px">${r.category||''}</span></td>
+      <td class="mono" style="text-align:right">${r.opening_stock||0}</td>
+      <td class="mono" style="text-align:right;color:var(--green)">${r.total_received||0}</td>
+      <td class="mono" style="text-align:right;color:#f87171">${r.total_issued||0}</td>
+      <td class="mono" style="text-align:right;color:var(--blue)">${r.returned||0}</td>
+      <td class="mono" style="text-align:right;font-weight:700;color:${isLow?'var(--red)':'var(--text)'}">${closing}</td>
+      <td class="mono" style="text-align:right;color:var(--text3)">${r.reorder_level||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.location||'—'}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterStock() {
+  const search  = document.getElementById('stock-search').value.toLowerCase();
+  const product = document.getElementById('stock-product-filter').value;
+  const status  = document.getElementById('stock-status-filter').value;
+
+  let filtered = stockData.filter(r => {
+    const matchSearch  = !search  || (r.part_code||'').toLowerCase().includes(search) || (r.part_name||'').toLowerCase().includes(search);
+    const matchProduct = !product || r.product === product;
+    const isLow = Number(r.reorder_level) > 0 && Number(r.closing_stock) <= Number(r.reorder_level);
+    const matchStatus  = !status  || (status === 'low' ? isLow : !isLow);
+    return matchSearch && matchProduct && matchStatus;
+  });
+  renderStockTable(filtered);
+}
+
+// ══ GRN ══════════════════════════════════════════════════════
+function addGRNLine() {
+  const container = document.getElementById('grn-lines');
+  const div = document.createElement('div');
+  div.className = 'line-item';
+  div.innerHTML = `
+    <input placeholder="Part Code" class="mono" style="font-size:11px">
+    <input placeholder="Part Name">
+    <input type="number" placeholder="Qty" min="1" style="text-align:right">
+    <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function clearGRN() {
+  document.getElementById('grn-lines').innerHTML = '';
+  document.getElementById('grn-supplier').value = '';
+  document.getElementById('grn-po').value = '';
+  document.getElementById('grn-product').value = '';
+  addGRNLine();
+}
+
+async function submitGRN() {
+  const product  = document.getElementById('grn-product').value;
+  const supplier = document.getElementById('grn-supplier').value;
+  const grn_date = document.getElementById('grn-date').value;
+  const po_ref   = document.getElementById('grn-po').value;
+
+  const lineEls = document.querySelectorAll('#grn-lines .line-item');
+  const lines = [];
+  lineEls.forEach(el => {
+    const inputs = el.querySelectorAll('input');
+    const code   = inputs[0].value.trim();
+    const name   = inputs[1].value.trim();
+    const qty    = parseInt(inputs[2].value) || 0;
+    if (code && qty > 0) lines.push({ part_code:code, part_name:name, product, qty_received:qty, inspection:'Pass' });
+  });
+
+  if (!lines.length) { toast('Add at least one part line', 'error'); return; }
+
+  try {
+    const res = await apiPost('postGRN', { data: { product, supplier, grn_date, po_ref, lines }});
+    if (res.ok) {
+      toast(`GRN ${res.data.grn_no} created — ${res.data.lines} line(s)`, 'success');
+      clearGRN();
+      loadGRNHistory();
+      loadStock();
+      loadDashboard();
+    } else {
+      toast(res.error || 'GRN failed', 'error');
+    }
+  } catch(e) { toast('Network error', 'error'); }
+}
+
+async function loadGRNHistory() {
+  try {
+    const res = await api('getGRN');
+    if (!res.ok) return;
+    const tbody = document.getElementById('grn-history');
+    const rows = res.data || [];
+    tbody.innerHTML = rows.length
+      ? rows.map(r => `<tr>
+          <td class="mono">${r.grn_no||''}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.grn_date||''}</td>
+          <td>${r.supplier||''}</td>
+          <td class="mono" style="font-size:11px">${r.part_code||''}</td>
+          <td class="mono">${r.qty_received||''}</td>
+          <td><span class="badge ${r.inspection_pass_fail==='Fail'?'badge-red':'badge-green'}" style="font-size:9px">${r.inspection_pass_fail||'Pass'}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
+  } catch(e) {}
+}
+
+// ══ WORK ORDER ═══════════════════════════════════════════════
+function loadVariants(prefix) {
+  const product = document.getElementById(prefix+'-product').value;
+  const varSel  = document.getElementById(prefix+'-variant');
+  varSel.innerHTML = '<option value="">Common only</option>';
+  (PRODUCT_VARIANTS[product] || []).forEach(v => {
+    varSel.innerHTML += `<option value="${v}">${v}</option>`;
+  });
+}
+
+// Also for issue screen
+document.addEventListener('change', e => {
+  if (e.target.id === 'iss-product') loadVariants('iss');
+});
+
+async function calcKit() {
+  const product = document.getElementById('wo-product').value;
+  const variant = document.getElementById('wo-variant').value;
+  const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
+  if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
+
+  toast('Calculating kit...', 'info');
+  try {
+    const res = await api('calcKit', { product, variant, qty });
+    if (!res.ok) { toast(res.error, 'error'); return; }
+    renderKit(res.data);
+  } catch(e) { toast('Error', 'error'); }
+}
+
+function renderKit(data) {
+  const container = document.getElementById('kit-result');
+  container.style.display = '';
+
+  // Summary stats
+  document.getElementById('kit-summary').innerHTML = [
+    { val: data.units,       label: 'Units',       cls: '' },
+    { val: data.total_lines, label: 'Part Lines',   cls: '' },
+    { val: data.short_count, label: 'Shortfalls',   cls: data.short_count > 0 ? 'warn' : 'ok' },
+    { val: data.can_produce, label: 'Can Produce',  cls: data.can_produce >= data.units ? 'ok' : 'warn' },
+  ].map(s => `<div class="kit-stat">
+    <div class="kit-stat-val ${s.cls}">${s.val}</div>
+    <div class="kit-stat-label">${s.label}</div>
+  </div>`).join('');
+
+  // Header badge
+  const hb = document.getElementById('kit-header-badge');
+  hb.textContent = data.short_count > 0 ? `${data.short_count} SHORTS` : 'ALL OK';
+  hb.className = 'badge ' + (data.short_count > 0 ? 'badge-red' : 'badge-green');
+
+  // Shortfalls
+  const shortsEl = document.getElementById('kit-shorts');
+  shortsEl.innerHTML = data.shorts && data.shorts.length
+    ? data.shorts.map(s => `<div class="flag-item" style="margin-bottom:6px">
+        <div>
+          <div class="flag-item-name">${s.part_name}</div>
+          <div class="flag-item-code">${s.part_code}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="flag-item-qty">Need ${s.total_qty} · Have ${s.available}</div>
+          <div class="flag-item-code" style="color:var(--red)">Short by ${s.shortfall}</div>
+        </div>
+      </div>`).join('')
+    : '<div class="empty" style="padding:12px 0">No shortfalls — good to go</div>';
+
+  // Full table
+  document.getElementById('kit-table').innerHTML = data.kit.map(r => `<tr>
+    <td class="mono" style="font-size:11px">${r.part_code}</td>
+    <td>${r.part_name}</td>
+    <td><span class="badge badge-gray" style="font-size:9px">${r.category||''}</span></td>
+    <td><span class="badge ${r.type==='Variant'?'badge-blue':'badge-gray'}" style="font-size:9px">${r.type}</span></td>
+    <td class="mono" style="text-align:right">${r.bom_qty}</td>
+    <td class="mono" style="text-align:right;font-weight:700">${r.total_qty}</td>
+    <td class="mono" style="text-align:right">${r.available}</td>
+    <td class="mono" style="text-align:right;color:${r.shortfall>0?'var(--red)':'var(--text3)'}">${r.shortfall||'—'}</td>
+    <td><span class="badge ${r.status==='SHORT'?'badge-red':'badge-green'}">${r.status}</span></td>
+  </tr>`).join('');
+}
+
+async function createWO() {
+  const product = document.getElementById('wo-product').value;
+  const variant = document.getElementById('wo-variant').value;
+  const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
+  const line_no = document.getElementById('wo-line').value;
+  const shift   = document.getElementById('wo-shift').value;
+  const date    = document.getElementById('wo-date').value;
+  if (!product || !qty) { toast('Select product and quantity', 'error'); return; }
+
+  try {
+    const res = await apiPost('postWorkOrder', { data:{ product, variant, qty, line_no, shift, date }});
+    if (res.ok) {
+      toast(`Work Order ${res.data.wo_no} created`, 'success');
+      loadWorkOrders();
+    } else { toast(res.error, 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+}
+
+async function loadWorkOrders() {
+  try {
+    const res = await api('getWorkOrders');
+    if (!res.ok) return;
+    const tbody = document.getElementById('wo-list');
+    const rows = res.data || [];
+    tbody.innerHTML = rows.length
+      ? rows.map(r => `<tr>
+          <td class="mono">${r['wo_no.']||r.wo_no||''}</td>
+          <td>${r.product||''}</td>
+          <td>${r.variant||'—'}</td>
+          <td class="mono">${r.qty||''}</td>
+          <td>${r['line_no.']||r.line_no||''}</td>
+          <td><span class="badge badge-yellow">${r.status||'Open'}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No open work orders</td></tr>';
+  } catch(e) {}
+}
+
+// ══ ISSUE ════════════════════════════════════════════════════
+function addIssLine() {
+  const container = document.getElementById('iss-lines');
+  const div = document.createElement('div');
+  div.className = 'line-item';
+  div.innerHTML = `
+    <input placeholder="Part Code" class="mono" style="font-size:11px">
+    <input placeholder="Part Name">
+    <input type="number" placeholder="Qty" min="1" style="text-align:right">
+    <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function clearIssue() {
+  document.getElementById('iss-lines').innerHTML = '';
+  document.getElementById('iss-wo').value = '';
+  document.getElementById('iss-batch').value = '';
+  addIssLine();
+}
+
+async function submitIssue() {
+  const wo_no   = document.getElementById('iss-wo').value.trim();
+  const batch   = document.getElementById('iss-batch').value.trim();
+  const product = document.getElementById('iss-product').value;
+  const variant = document.getElementById('iss-variant').value;
+  const units   = parseInt(document.getElementById('iss-units').value) || 1;
+  const shift   = document.getElementById('iss-shift').value;
+  const line_no = document.getElementById('iss-line').value;
+  const date    = document.getElementById('iss-date').value;
+
+  const lineEls = document.querySelectorAll('#iss-lines .line-item');
+  const lines = [];
+  lineEls.forEach(el => {
+    const inputs = el.querySelectorAll('input');
+    const code   = inputs[0].value.trim();
+    const name   = inputs[1].value.trim();
+    const qty    = parseInt(inputs[2].value) || 0;
+    if (code && qty > 0) lines.push({ part_code:code, part_name:name, actual_qty:qty, bom_qty:qty });
+  });
+
+  if (!lines.length) { toast('Add at least one part', 'error'); return; }
+
+  try {
+    const res = await apiPost('postIssue', { data:{ wo_no, batch_no:batch, product, variant, units, shift, line_no, issue_date:date, lines }});
+    if (res.ok) {
+      toast(`Issue ${res.data.issue_no} logged — ${res.data.lines} line(s)`, 'success');
+      clearIssue();
+      loadIssueHistory();
+      loadStock();
+      loadDashboard();
+    } else { toast(res.error, 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+}
+
+async function loadIssueHistory() {
+  try {
+    const res = await api('getIssues');
+    if (!res.ok) return;
+    const tbody = document.getElementById('issue-history');
+    const rows  = res.data || [];
+
+    // Group by issue number for display
+    const grouped = {};
+    rows.forEach(r => {
+      const key = r.issue_no || '';
+      if (!grouped[key]) grouped[key] = r;
+      grouped[key]._lines = (grouped[key]._lines || 1) + (r.issue_no === key ? 0 : 1);
+    });
+    const unique = Object.values(grouped);
+
+    tbody.innerHTML = unique.length
+      ? unique.map(r => `<tr>
+          <td class="mono">${r['issue_no.']||r.issue_no||''}</td>
+          <td class="mono">${r['work_order_no.']||r.work_order_no||r.work_order||''}</td>
+          <td>${r.product||''}</td>
+          <td>${r.variant||'—'}</td>
+          <td class="mono">${r._lines||1}</td>
+          <td style="font-size:11px;color:var(--text3)">${r['issue_date']||r.issue_date||''}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No issues yet</td></tr>';
+  } catch(e) {}
+}
+
+// ══ RETURNS ══════════════════════════════════════════════════
+function clearReturn() {
+  document.getElementById('ret-orderid').value = '';
+  document.getElementById('ret-variant').value = '';
+  document.getElementById('ret-notes').value = '';
+  document.getElementById('ret-qty').value = '1';
+}
+
+async function submitReturn() {
+  const data = {
+    return_date: document.getElementById('ret-date').value,
+    channel:     document.getElementById('ret-channel').value,
+    order_id:    document.getElementById('ret-orderid').value,
+    product:     document.getElementById('ret-product').value,
+    variant:     document.getElementById('ret-variant').value,
+    return_type: document.getElementById('ret-type').value,
+    condition:   document.getElementById('ret-condition').value,
+    action:      document.getElementById('ret-action').value,
+    qty:         parseInt(document.getElementById('ret-qty').value) || 1,
+    claim_filed: document.getElementById('ret-claim').value,
+    notes:       document.getElementById('ret-notes').value,
+  };
+  if (!data.product) { toast('Select a product', 'error'); return; }
+
+  try {
+    const res = await apiPost('postReturn', { data });
+    if (res.ok) {
+      toast(`Return ${res.data.return_id} logged`, 'success');
+      clearReturn();
+      loadReturnsHistory();
+      loadDashboard();
+    } else { toast(res.error, 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+}
+
+async function loadReturnsHistory() {
+  try {
+    const res = await api('getReturns');
+    if (!res.ok) return;
+    const tbody = document.getElementById('returns-history');
+    const rows  = res.data || [];
+    tbody.innerHTML = rows.length
+      ? rows.map(r => `<tr>
+          <td class="mono">${r['return_id']||''}</td>
+          <td style="font-size:11px;color:var(--text3)">${r['return_date']||''}</td>
+          <td><span class="badge badge-gray" style="font-size:9px">${r.channel||''}</span></td>
+          <td>${r.product||''}</td>
+          <td><span class="badge ${r.return_type==='RTO'?'badge-blue':'badge-yellow'}" style="font-size:9px">${r.return_type||''}</span></td>
+          <td><span class="badge badge-gray" style="font-size:9px">${r.condition||''}</span></td>
+          <td><span class="badge ${r.action==='RTD'?'badge-green':r.action==='Scrap'?'badge-red':'badge-yellow'}" style="font-size:9px">${r.action||''}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" class="empty">No returns logged</td></tr>';
+  } catch(e) {}
+}
+
+// ══ REPORTS ══════════════════════════════════════════════════
+async function downloadReport(type) {
+  toast('Preparing report...', 'info');
+  try {
+    const res = await api('downloadReport', { report: type });
+    if (!res.ok) { toast(res.error, 'error'); return; }
+    const blob = new Blob(
+      [JSON.stringify(res.data, null, 2)],
+      { type: 'application/json' }
+    );
+    // Convert to CSV
+    const data = res.data;
+    if (data.rows && data.rows.length) {
+      const headers = Object.keys(data.rows[0]);
+      const csv = [
+        headers.join(','),
+        ...data.rows.map(r => headers.map(h => {
+          const v = r[h] === null || r[h] === undefined ? '' : String(r[h]);
+          return v.includes(',') ? `"${v}"` : v;
+        }).join(','))
+      ].join('\n');
+      const csvBlob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(csvBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LOT_${data.report.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(`Downloaded: ${data.report} (${data.rows.length} rows)`, 'success');
+    } else {
+      toast('No data to download', 'info');
+    }
+  } catch(e) { toast('Download failed', 'error'); }
+}
+
+// ══ TOAST ════════════════════════════════════════════════════
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
+}
+</script>
+</body>
+</html>
