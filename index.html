@@ -1560,7 +1560,14 @@ async function loadDashboard() {
     const psl = document.getElementById('product-stock-list');
     if (psl && psl.innerHTML.includes('Loading'))
       psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
-    document.getElementById('dash-timestamp').textContent = 'Error loading — retrying...';
+    document.getElementById('dash-timestamp').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+    // Clear KPIs to zeros on error
+    ['kpi-wo','kpi-grn','kpi-issued','kpi-returns'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.textContent === '—') el.textContent = '0';
+    });
+    const reorderEl = document.getElementById('kpi-reorder');
+    if (reorderEl && reorderEl.textContent === '—') { reorderEl.textContent = '0'; reorderEl.className = 'kpi-value ok'; }
   }
 }
 
