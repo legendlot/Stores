@@ -1573,7 +1573,10 @@ async function loadStock() {
     if (!res.ok) return;
     stockData = res.data || [];
     renderStockTable(stockData);
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.error(e);
+    document.getElementById('stock-table-body').innerHTML = '<tr><td colspan="12"><div class="empty">No stock data yet — enter opening counts on move day.</div></td></tr>';
+  }
 }
 
 function renderStockTable(rows) {
@@ -1691,7 +1694,9 @@ async function loadGRNHistory() {
           <td><span class="badge ${r.inspection_pass_fail==='Fail'?'badge-red':'badge-green'}" style="font-size:9px">${r.inspection_pass_fail||'Pass'}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
-  } catch(e) {}
+  } catch(e) {
+    document.getElementById('grn-history').innerHTML = '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
+  }
 }
 
 // ══ WORK ORDER ═══════════════════════════════════════════════
@@ -1806,7 +1811,9 @@ async function loadWorkOrders() {
           <td><span class="badge badge-yellow">${r.status||'Open'}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No open work orders</td></tr>';
-  } catch(e) {}
+  } catch(e) {
+    document.getElementById('wo-list').innerHTML = '<tr><td colspan="6" class="empty">No work orders yet</td></tr>';
+  }
 }
 
 // ══ ISSUE ════════════════════════════════════════════════════
@@ -1890,7 +1897,9 @@ async function loadIssueHistory() {
           <td style="font-size:11px;color:var(--text3)">${r['issue_date']||r.issue_date||''}</td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No issues yet</td></tr>';
-  } catch(e) {}
+  } catch(e) {
+    document.getElementById('issue-history').innerHTML = '<tr><td colspan="6" class="empty">No issues yet</td></tr>';
+  }
 }
 
 // ══ RETURNS ══════════════════════════════════════════════════
@@ -1945,7 +1954,9 @@ async function loadReturnsHistory() {
           <td><span class="badge ${r.action==='RTD'?'badge-green':r.action==='Scrap'?'badge-red':'badge-yellow'}" style="font-size:9px">${r.action||''}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="7" class="empty">No returns logged</td></tr>';
-  } catch(e) {}
+  } catch(e) {
+    document.getElementById('returns-history').innerHTML = '<tr><td colspan="7" class="empty">No returns logged</td></tr>';
+  }
 }
 
 // ══ REPORTS ══════════════════════════════════════════════════
