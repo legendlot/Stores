@@ -981,8 +981,14 @@ tr:hover td { background:rgba(255,255,255,.02); }
               </div>
               <div class="form-group">
                 <label class="form-label">Variant</label>
-                <select class="form-select" id="wo-variant">
+                <select class="form-select" id="wo-variant" onchange="loadSubVariants('wo')">
                   <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group" id="wo-subvariant-group" style="display:none">
+                <label class="form-label">Colour</label>
+                <select class="form-select" id="wo-subvariant">
+                  <option value="">All colours</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1088,6 +1094,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 <label class="form-label">Variant</label>
                 <select class="form-select" id="iss-variant">
                   <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group" id="iss-subvariant-group" style="display:none">
+                <label class="form-label">Colour</label>
+                <select class="form-select" id="iss-subvariant">
+                  <option value="">All colours</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1301,6 +1313,27 @@ const PRODUCT_VARIANTS = {
   'Nitro':      ['Race Grey','Tarmac Black','Tarmac Green','Tarmac Grey','Race Blue','Burnout Red'],
   'Dash':       ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
   'Fang':       [],
+};
+
+// Sub-variants (colour level) per product+variant combination
+const PRODUCT_SUBVARIANTS = {
+  'Flare': {
+    'Track':   ['White','Pink'],
+    'Race':    ['Grey','Black'],
+    'UG':      ['Silver','Blue'],
+    'Frost':   ['Frost'],
+    'Burnout': ['Grey','Green','Red'],
+    'Street':  ['White','Red'],
+  },
+  'Knox': {
+    'Adventure': ['Black','Green','Black/Green'],
+    'Explorer':  ['Black','Blue'],
+  },
+  'Shadow':     {},
+  'Night Wolf': {},
+  'Nitro':      {},
+  'Dash':       {},
+  'Fang':       {},
 };
 
 // ══ STATE ════════════════════════════════════════════════════
@@ -1714,11 +1747,30 @@ function loadVariants(prefix) {
   (PRODUCT_VARIANTS[product] || []).forEach(v => {
     varSel.innerHTML += `<option value="${v}">${v}</option>`;
   });
+  // Reset and hide sub-variant
+  const subSel = document.getElementById(prefix+'-subvariant');
+  if (subSel) { subSel.innerHTML = '<option value="">All colours</option>'; subSel.closest('.form-group').style.display='none'; }
 }
 
-// Also for issue screen
+function loadSubVariants(prefix) {
+  const product  = document.getElementById(prefix+'-product').value;
+  const variant  = document.getElementById(prefix+'-variant').value;
+  const subSel   = document.getElementById(prefix+'-subvariant');
+  if (!subSel) return;
+  const subs = (PRODUCT_SUBVARIANTS[product] || {})[variant] || [];
+  subSel.innerHTML = '<option value="">All colours</option>';
+  if (subs.length > 0) {
+    subs.forEach(s => subSel.innerHTML += `<option value="${s}">${s}</option>`);
+    subSel.closest('.form-group').style.display = '';
+  } else {
+    subSel.closest('.form-group').style.display = 'none';
+  }
+}
+
 document.addEventListener('change', e => {
   if (e.target.id === 'iss-product') loadVariants('iss');
+  if (e.target.id === 'wo-variant')  loadSubVariants('wo');
+  if (e.target.id === 'iss-variant') loadSubVariants('iss');
 });
 
 async function calcKit() {
