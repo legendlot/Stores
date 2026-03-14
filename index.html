@@ -1429,52 +1429,40 @@ function logout() {
 }
 
 // ══ API ══════════════════════════════════════════════════════
-// JSONP for GET (bypasses CORS entirely for Apps Script)
-let _cbCount = 0;
+// Apps Script returns HtmlService response (allows CORS)
+// Response body is raw JSON inside an HTML page — we parse the text content
 async function api(action, params = {}) {
-  return new Promise((resolve, reject) => {
-    const cbName = '__lot_cb_' + (++_cbCount);
-    const p = { action, pin: currentPin || params.pin || '', callback: cbName };
-    Object.keys(params).forEach(k => { if (k !== 'pin') p[k] = params[k]; });
-    const qs = new URLSearchParams(p).toString();
-
-    const timer = setTimeout(() => {
-      delete window[cbName];
-      const s = document.getElementById(cbName);
-      if (s) s.remove();
-      reject(new Error('Timeout'));
-    }, 30000);
-
-    window[cbName] = (data) => {
-      clearTimeout(timer);
-      delete window[cbName];
-      const s = document.getElementById(cbName);
-      if (s) s.remove();
-      resolve(data);
-    };
-
-    const script = document.createElement('script');
-    script.id = cbName;
-    script.src = `${API}?${qs}`;
-    script.onerror = () => {
-      clearTimeout(timer);
-      delete window[cbName];
-      script.remove();
-      reject(new Error('Script load error'));
-    };
-    document.head.appendChild(script);
-  });
+  const p = { action, pin: currentPin || params.pin || '' };
+  Object.keys(params).forEach(k => { if (k !== 'pin') p[k] = params[k]; });
+  const qs = new URLSearchParams(p).toString();
+  const res = await fetch(`${API}?${qs}`, { redirect: 'follow' });
+  const text = await res.text();
+  // HtmlService wraps content in <html><head></head><body>JSON</body></html>
+  // Extract the JSON from the body
+  const match = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const json = match ? match[1].trim() : text.trim();
+  try { return JSON.parse(json); }
+  catch(e) {
+    // Try parsing raw text (JSONP path or direct JSON)
+    try { return JSON.parse(text); }
+    catch(e2) { throw new Error('Parse error: ' + text.slice(0, 200)); }
+  }
 }
 
-// POST uses fetch with text/plain to avoid CORS preflight
 async function apiPost(action, data = {}) {
   const res = await fetch(API, {
     method: 'POST',
+    redirect: 'follow',
     body: JSON.stringify({ action, pin: currentPin, ...data }),
   });
   const text = await res.text();
-  try { return JSON.parse(text); }
-  catch(e) { throw new Error('Parse error: ' + text.slice(0, 100)); }
+  const match = text.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  const json = match ? match[1].trim() : text.trim();
+  try { return JSON.parse(json); }
+  catch(e) {
+    try { return JSON.parse(text); }
+    catch(e2) { throw new Error('Parse error: ' + text.slice(0, 200)); }
+  }
 }
 
 // ══ NAVIGATION ═══════════════════════════════════════════════
