@@ -906,9 +906,107 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="page-subtitle">Goods Received Note — log every inward shipment</div>
       </div>
 
+      <!-- Mode Toggle -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-primary" id="grn-mode-bulk" onclick="setGRNMode('bulk')" style="flex:1">
+          📦 BULK GRN — Full Product Shipment
+        </button>
+        <button class="btn btn-secondary" id="grn-mode-parts" onclick="setGRNMode('parts')" style="flex:1">
+          🔩 PARTS GRN — Specific Parts Top-up
+        </button>
+      </div>
+
       <div class="grid-2">
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">New GRN</div></div>
+
+        <!-- ── BULK MODE ── -->
+        <div id="grn-bulk-panel" class="panel">
+          <div class="panel-header">
+            <div class="panel-title">BULK GRN — Receive by Build Quantity</div>
+            <span class="badge badge-yellow" style="font-size:9px">BOM AUTO-FILL</span>
+          </div>
+          <div class="panel-body">
+            <div class="section-label">What did you receive?</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="bulk-grn-product" onchange="loadVariants('bulk-grn');loadBulkBOM()">
+                  <option value="">Select product...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant</label>
+                <select class="form-select" id="bulk-grn-variant" onchange="loadBulkBOM()">
+                  <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Units Received</label>
+                <input class="form-input" type="number" id="bulk-grn-units" placeholder="e.g. 500" min="1" oninput="recalcBulkBOM()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">GRN Date</label>
+                <input class="form-input" type="date" id="bulk-grn-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Supplier</label>
+                <input class="form-input" id="bulk-grn-supplier" placeholder="Supplier name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PO Reference</label>
+                <input class="form-input" id="bulk-grn-po" placeholder="PO-XXX">
+              </div>
+            </div>
+
+            <!-- BOM Preview Table -->
+            <div id="bulk-bom-section" style="display:none">
+              <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+                <span>BOM LINE ITEMS — verify quantities, adjust exceptions</span>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-secondary" style="padding:3px 10px;font-size:10px" onclick="markAllReceived()">ALL RECEIVED</button>
+                </div>
+              </div>
+              <div style="max-height:320px;overflow-y:auto;margin-bottom:12px">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Part Code</th>
+                      <th>Part Name</th>
+                      <th>Category</th>
+                      <th style="text-align:right">BOM Qty</th>
+                      <th style="text-align:right">Expected</th>
+                      <th style="text-align:right">Actual Received</th>
+                      <th style="text-align:right">Rejected</th>
+                      <th>Inspection</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulk-bom-lines"></tbody>
+                </table>
+              </div>
+
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 12px;margin-bottom:12px;display:flex;gap:24px">
+                <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">TOTAL LINES</span><br><span style="font-family:var(--mono);font-size:16px" id="bulk-total-lines">0</span></div>
+                <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">EXCEPTIONS</span><br><span style="font-family:var(--mono);font-size:16px;color:var(--yellow)" id="bulk-exceptions">0</span></div>
+                <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">REJECTED</span><br><span style="font-family:var(--mono);font-size:16px;color:var(--red)" id="bulk-rejected">0</span></div>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitBulkGRN()">SUBMIT BULK GRN</button>
+                <button class="btn btn-secondary" onclick="clearBulkGRN()">CLEAR</button>
+              </div>
+            </div>
+
+            <div id="bulk-bom-empty" style="padding:24px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px">
+              Select a product and enter units received to auto-generate BOM lines
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PARTS MODE ── -->
+        <div id="grn-parts-panel" class="panel" style="display:none">
+          <div class="panel-header">
+            <div class="panel-title">PARTS GRN — Specific Parts</div>
+            <span class="badge badge-blue" style="font-size:9px">MANUAL ENTRY</span>
+          </div>
           <div class="panel-body">
             <div class="section-label">Header</div>
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
@@ -943,7 +1041,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
-        <div class="panel">
+        <!-- Recent GRNs - always visible -->
+        <div class="panel" id="grn-history-panel">
           <div class="panel-header">
             <div class="panel-title">Recent GRNs</div>
           </div>
@@ -958,10 +1057,11 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </table>
           </div>
         </div>
+
       </div>
     </div>
 
-    <!-- ── WORK ORDER ── -->
+<!-- ── WORK ORDER ── -->
     <div class="view" id="view-workorder">
       <div class="page-header">
         <div class="page-title">WORK ORDER</div>
@@ -1414,14 +1514,14 @@ function launchApp() {
 
   // Init dates
   const today = new Date().toISOString().split('T')[0];
-  ['grn-date','wo-date','iss-date','ret-date'].forEach(id => {
+  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = today;
   });
 
   // Populate product dropdowns
   PRODUCTS.forEach(p => {
-    ['grn-product','wo-product','iss-product','ret-product'].forEach(id => {
+    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
     });
@@ -1438,6 +1538,8 @@ function launchApp() {
 
   // Add initial GRN/issue lines
   addGRNLine(); addIssLine();
+  // Set GRN default mode
+  setGRNMode('bulk');
 
   // Load initial data
   loadDashboard();
@@ -1665,6 +1767,183 @@ function filterStock() {
 }
 
 // ══ GRN ══════════════════════════════════════════════════════
+let grnMode = 'bulk';
+let bulkBOMData = [];
+
+function setGRNMode(mode) {
+  grnMode = mode;
+  document.getElementById('grn-bulk-panel').style.display  = mode === 'bulk'  ? '' : 'none';
+  document.getElementById('grn-parts-panel').style.display = mode === 'parts' ? '' : 'none';
+  document.getElementById('grn-mode-bulk').className  = 'btn ' + (mode === 'bulk'  ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('grn-mode-parts').className = 'btn ' + (mode === 'parts' ? 'btn-primary' : 'btn-secondary');
+}
+
+// ── BULK GRN ─────────────────────────────────────────────────
+async function loadBulkBOM() {
+  const product = document.getElementById('bulk-grn-product').value;
+  const variant = document.getElementById('bulk-grn-variant').value;
+  if (!product) return;
+
+  const units = parseInt(document.getElementById('bulk-grn-units').value) || 0;
+  if (units <= 0) {
+    document.getElementById('bulk-bom-section').style.display = 'none';
+    document.getElementById('bulk-bom-empty').style.display = '';
+    return;
+  }
+
+  try {
+    const res = await api('calcKit', { product, variant, qty: units });
+    if (!res.ok) { toast(res.error || 'Failed to load BOM', 'error'); return; }
+    bulkBOMData = res.data.kit || [];
+    renderBulkBOM(units);
+  } catch(e) { toast('Error loading BOM', 'error'); }
+}
+
+function recalcBulkBOM() {
+  const product = document.getElementById('bulk-grn-product').value;
+  if (!product) return;
+  loadBulkBOM();
+}
+
+function renderBulkBOM(units) {
+  if (!bulkBOMData.length) return;
+
+  document.getElementById('bulk-bom-section').style.display = '';
+  document.getElementById('bulk-bom-empty').style.display = 'none';
+
+  const tbody = document.getElementById('bulk-bom-lines');
+  tbody.innerHTML = bulkBOMData.map((r, i) => {
+    const expected = r.total_qty || 0;
+    const bg = r.category === 'Packaging' ? 'background:rgba(34,197,94,.04)' : 
+               r.category === 'Accessories' ? 'background:rgba(255,140,0,.04)' : '';
+    return `<tr style="${bg}">
+      <td class="mono" style="font-size:10px">${r.part_code}</td>
+      <td style="font-size:12px">${r.part_name}</td>
+      <td><span class="badge badge-gray" style="font-size:9px">${r.category||''}</span></td>
+      <td class="mono" style="text-align:right;color:var(--text3)">${r.bom_qty}</td>
+      <td class="mono" style="text-align:right;font-weight:700">${expected}</td>
+      <td><input type="number" value="${expected}" min="0"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;
+                 padding:3px 6px;color:var(--text);font-family:var(--mono);font-size:12px;
+                 width:80px;text-align:right"
+          onchange="updateBulkLine(${i}, 'received', this.value)"
+          data-expected="${expected}" data-idx="${i}"></td>
+      <td><input type="number" value="0" min="0"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;
+                 padding:3px 6px;color:var(--red);font-family:var(--mono);font-size:12px;
+                 width:60px;text-align:right"
+          onchange="updateBulkLine(${i}, 'rejected', this.value)"></td>
+      <td>
+        <select style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;
+                       padding:3px 4px;color:var(--text);font-size:11px;width:70px"
+                onchange="updateBulkLine(${i}, 'inspection', this.value)">
+          <option value="Pass">Pass</option>
+          <option value="Fail">Fail</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  updateBulkSummary();
+}
+
+function updateBulkLine(idx, field, value) {
+  if (!bulkBOMData[idx]) return;
+  bulkBOMData[idx]['_' + field] = field === 'inspection' ? value : parseInt(value) || 0;
+  updateBulkSummary();
+}
+
+function updateBulkSummary() {
+  let exceptions = 0, rejected = 0;
+  const rows = document.querySelectorAll('#bulk-bom-lines tr');
+  rows.forEach((row, i) => {
+    const receivedInput = row.querySelectorAll('input')[0];
+    const rejectedInput = row.querySelectorAll('input')[1];
+    if (!receivedInput) return;
+    const expected = parseInt(receivedInput.dataset.expected) || 0;
+    const received = parseInt(receivedInput.value) || 0;
+    const rej = parseInt(rejectedInput?.value) || 0;
+    if (received !== expected) exceptions++;
+    if (rej > 0) rejected++;
+    // Highlight exception rows
+    row.style.background = received !== expected ? 'rgba(242,205,26,.04)' : '';
+  });
+  document.getElementById('bulk-total-lines').textContent = bulkBOMData.length;
+  document.getElementById('bulk-exceptions').textContent = exceptions;
+  document.getElementById('bulk-rejected').textContent = rejected;
+}
+
+function markAllReceived() {
+  const rows = document.querySelectorAll('#bulk-bom-lines tr');
+  rows.forEach(row => {
+    const receivedInput = row.querySelectorAll('input')[0];
+    if (receivedInput) {
+      receivedInput.value = receivedInput.dataset.expected;
+    }
+  });
+  updateBulkSummary();
+}
+
+function clearBulkGRN() {
+  document.getElementById('bulk-grn-product').value = '';
+  document.getElementById('bulk-grn-variant').innerHTML = '<option value="">Common only</option>';
+  document.getElementById('bulk-grn-units').value = '';
+  document.getElementById('bulk-grn-supplier').value = '';
+  document.getElementById('bulk-grn-po').value = '';
+  document.getElementById('bulk-bom-section').style.display = 'none';
+  document.getElementById('bulk-bom-empty').style.display = '';
+  bulkBOMData = [];
+}
+
+async function submitBulkGRN() {
+  const product  = document.getElementById('bulk-grn-product').value;
+  const supplier = document.getElementById('bulk-grn-supplier').value;
+  const grn_date = document.getElementById('bulk-grn-date').value;
+  const po_ref   = document.getElementById('bulk-grn-po').value;
+  const units    = parseInt(document.getElementById('bulk-grn-units').value) || 0;
+
+  if (!product || !units || !bulkBOMData.length) {
+    toast('Select product and enter units received', 'error'); return;
+  }
+
+  // Build lines from table inputs
+  const rows = document.querySelectorAll('#bulk-bom-lines tr');
+  const lines = [];
+  rows.forEach((row, i) => {
+    const r = bulkBOMData[i];
+    if (!r) return;
+    const inputs = row.querySelectorAll('input');
+    const selects = row.querySelectorAll('select');
+    const qty_received = parseInt(inputs[0]?.value) || 0;
+    const qty_rejected = parseInt(inputs[1]?.value) || 0;
+    const inspection   = selects[0]?.value || 'Pass';
+    if (qty_received > 0) {
+      lines.push({
+        part_code:    r.part_code,
+        part_name:    r.part_name,
+        product,
+        qty_ordered:  r.total_qty,
+        qty_received,
+        qty_rejected,
+        inspection,
+        notes: qty_received !== r.total_qty ? `Expected ${r.total_qty}, received ${qty_received}` : '',
+      });
+    }
+  });
+
+  if (!lines.length) { toast('No lines to submit', 'error'); return; }
+
+  try {
+    const res = await apiPost('postGRN', { data: { product, supplier, grn_date, po_ref, lines }});
+    if (res.ok) {
+      toast(`Bulk GRN ${res.data.grn_no} created — ${res.data.lines} lines for ${units} units`, 'success');
+      clearBulkGRN();
+      loadGRNHistory();
+      loadStock();
+      loadDashboard();
+    } else { toast(res.error || 'GRN failed', 'error'); }
+  } catch(e) { toast('Error submitting GRN', 'error'); }
+}
 function addGRNLine() {
   const container = document.getElementById('grn-lines');
   const div = document.createElement('div');
