@@ -1563,6 +1563,15 @@ function logout() {
   updateDots();
 }
 
+// ══ DATE HELPERS ═════════════════════════════════════════════
+function formatDateForAPI(dateStr) {
+  // Convert YYYY-MM-DD to dd-MMM-yyyy to match Apps Script format
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T12:00:00');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d.getDate()).padStart(2,'0') + '-' + months[d.getMonth()] + '-' + d.getFullYear();
+}
+
 // ══ API ══════════════════════════════════════════════════════
 // Apps Script deployed as "Anyone" returns CORS headers on final response
 // Plain fetch with redirect:follow gets clean JSON from googleusercontent.com
@@ -1898,7 +1907,7 @@ function clearBulkGRN() {
 async function submitBulkGRN() {
   const product  = document.getElementById('bulk-grn-product').value;
   const supplier = document.getElementById('bulk-grn-supplier').value;
-  const grn_date = document.getElementById('bulk-grn-date').value;
+  const grn_date = formatDateForAPI(document.getElementById('bulk-grn-date').value);
   const po_ref   = document.getElementById('bulk-grn-po').value;
   const units    = parseInt(document.getElementById('bulk-grn-units').value) || 0;
 
@@ -1968,7 +1977,7 @@ function clearGRN() {
 async function submitGRN() {
   const product  = document.getElementById('grn-product').value;
   const supplier = document.getElementById('grn-supplier').value;
-  const grn_date = document.getElementById('grn-date').value;
+  const grn_date = formatDateForAPI(document.getElementById('grn-date').value);
   const po_ref   = document.getElementById('grn-po').value;
 
   const lineEls = document.querySelectorAll('#grn-lines .line-item');
@@ -2006,7 +2015,7 @@ async function loadGRNHistory() {
     tbody.innerHTML = rows.length
       ? rows.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
-          <td style="font-size:11px;color:var(--text3)">${r.grn_date||''}</td>
+          <td style="font-size:11px;color:var(--text3)">${r.grn_date ? String(r.grn_date).slice(0,11) : ''}</td>
           <td>${r.supplier||''}</td>
           <td class="mono" style="font-size:11px">${r.part_code||''}</td>
           <td class="mono">${r.qty_received||''}</td>
@@ -2121,7 +2130,7 @@ async function createWO() {
   const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
   const line_no = document.getElementById('wo-line').value;
   const shift   = document.getElementById('wo-shift').value;
-  const date    = document.getElementById('wo-date').value;
+  const date    = formatDateForAPI(document.getElementById('wo-date').value);
   if (!product || !qty) { toast('Select product and quantity', 'error'); return; }
 
   try {
@@ -2183,7 +2192,7 @@ async function submitIssue() {
   const units   = parseInt(document.getElementById('iss-units').value) || 1;
   const shift   = document.getElementById('iss-shift').value;
   const line_no = document.getElementById('iss-line').value;
-  const date    = document.getElementById('iss-date').value;
+  const date    = formatDateForAPI(document.getElementById('iss-date').value);
 
   const lineEls = document.querySelectorAll('#iss-lines .line-item');
   const lines = [];
@@ -2250,7 +2259,7 @@ function clearReturn() {
 
 async function submitReturn() {
   const data = {
-    return_date: document.getElementById('ret-date').value,
+    return_date: formatDateForAPI(document.getElementById('ret-date').value),
     channel:     document.getElementById('ret-channel').value,
     order_id:    document.getElementById('ret-orderid').value,
     product:     document.getElementById('ret-product').value,
