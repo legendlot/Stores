@@ -2157,27 +2157,19 @@ async function submitGRN() {
 
 async function loadGRNHistory() {
   try {
-    const res = await api('getGRN');
+    // Use GRN summary endpoint — groups server-side, no row limit issue
+    const res = await api('getGRNSummary');
     if (!res.ok) return;
     const tbody = document.getElementById('grn-history');
-    const rows = res.data || [];
-    // Group by GRN number — show one row per GRN, not per line item
-    const grouped = {};
-    (rows || []).forEach(r => {
-      const key = r.grn_no || '';
-      if (!grouped[key]) grouped[key] = { ...r, lines: 0, total_qty: 0 };
-      grouped[key].lines++;
-      grouped[key].total_qty += Number(r.qty_received) || 0;
-    });
-    const grns = Object.values(grouped).reverse().slice(0, 20);
+    const grns  = res.data || [];
     tbody.innerHTML = grns.length
       ? grns.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
           <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
           <td>${r.supplier||''}</td>
           <td class="mono" style="font-size:11px">${r.product||''}</td>
-          <td class="mono">${r.lines} lines</td>
-          <td><span class="badge badge-green" style="font-size:9px">DONE</span></td>
+          <td class="mono">${r.lines} lines · ${r.total_qty||0} pcs</td>
+          <td><span class="badge ${r.has_fail?'badge-red':'badge-green'}" style="font-size:9px">${r.has_fail?'ISSUES':'DONE'}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
   } catch(e) {
