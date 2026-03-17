@@ -832,7 +832,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-header"><div class="panel-title">Recent GRNs</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>GRN</th><th>Batch</th><th>Part</th><th>Qty</th></tr></thead>
+              <thead><tr><th>GRN</th><th>Date</th><th>Product</th><th>Lines</th></tr></thead>
               <tbody id="recent-grns"><tr><td colspan="4" class="empty">—</td></tr></tbody>
             </table>
           </div>
@@ -1777,23 +1777,22 @@ async function loadDashboard() {
       psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
     }
 
-    // Recent GRNs — group by GRN number
+    // Dashboard recent GRNs — from GRNSummary
     const rg = document.getElementById('recent-grns');
-    const grnGrouped = {};
-    (d.recent_grns || []).forEach(r => {
-      const k = r.grn_no || '';
-      if (!grnGrouped[k]) grnGrouped[k] = { ...r, lines: 0 };
-      grnGrouped[k].lines++;
-    });
-    const recentGRNs = Object.values(grnGrouped).slice(0, 5);
-    rg.innerHTML = recentGRNs.length
-      ? recentGRNs.map(r => `<tr>
-          <td class="mono">${r.grn_no||''}</td>
-          <td class="mono" style="font-size:10px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
-          <td>${r.product||''} ${r.supplier ? '· '+r.supplier : ''}</td>
-          <td class="mono">${r.lines} lines</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" class="empty">No GRNs today</td></tr>';
+    try {
+      const grnSumRes = await api('getGRNSummary');
+      const recentGRNs = (grnSumRes.ok ? grnSumRes.data : []).slice(0, 5);
+      rg.innerHTML = recentGRNs.length
+        ? recentGRNs.map(r => `<tr>
+            <td class="mono">${r.grn_no||''}</td>
+            <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
+            <td>${r.product||''}</td>
+            <td class="mono">${r.lines||0} lines</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No GRNs yet</td></tr>';
+    } catch(e) {
+      rg.innerHTML = '<tr><td colspan="4" class="empty">—</td></tr>';
+    }
 
     // Recent issues
     const ri = document.getElementById('recent-issues');
