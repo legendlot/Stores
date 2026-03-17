@@ -755,7 +755,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn" onclick="showView('stock')"     id="nav-stock">STOCK</button>
       <button class="nav-btn" onclick="showView('grn')"       id="nav-grn"  id="nav-grn">GRN</button>
       <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
-      <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">ISSUE</button>
+      <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">STOCK ISSUE</button>
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
       <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
     </nav>
@@ -817,7 +817,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">Stock by Product</div>
+            <div class="panel-title">Inventory Status by Product</div>
           </div>
           <div class="panel-body">
             <div id="product-stock-list"><div class="empty">Loading...</div></div>
@@ -935,8 +935,14 @@ tr:hover td { background:rgba(255,255,255,.02); }
               </div>
               <div class="form-group">
                 <label class="form-label">Variant</label>
-                <select class="form-select" id="bulk-grn-variant" onchange="loadBulkBOM()">
+                <select class="form-select" id="bulk-grn-variant" onchange="loadSubVariants('bulk-grn');loadBulkBOM()">
                   <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group" id="bulk-grn-subvariant-group" style="display:none">
+                <label class="form-label">Colour</label>
+                <select class="form-select" id="bulk-grn-subvariant" onchange="loadBulkBOM()">
+                  <option value="">All colours</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1049,7 +1055,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="tbl-wrap">
             <table>
               <thead>
-                <tr><th>GRN No.</th><th>Date</th><th>Supplier</th><th>Part Code</th><th>Qty Recv</th><th>Insp</th></tr>
+                <tr><th>GRN No.</th><th>Date</th><th>Supplier</th><th>Product</th><th>Lines</th><th>Status</th></tr>
               </thead>
               <tbody id="grn-history">
                 <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
@@ -1166,7 +1172,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <!-- ── ISSUE ── -->
     <div class="view" id="view-issue">
       <div class="page-header">
-        <div class="page-title">ISSUE REGISTER</div>
+        <div class="page-title">STOCK ISSUE</div>
         <div class="page-subtitle">Log material issued to production</div>
       </div>
 
@@ -1601,6 +1607,7 @@ function showView(name) {
   document.getElementById('view-'+name).classList.add('active');
   document.getElementById('nav-'+name).classList.add('active');
   currentView = name;
+  if (name === 'issue') ensureMaterialCache();
 }
 
 function refreshCurrent() {
@@ -1658,29 +1665,47 @@ async function loadDashboard() {
           </div>`).join('') + '</div>';
     }
 
-    // Product stock summary
+    // Product summary — parts tracked + reorder alerts
     const psl = document.getElementById('product-stock-list');
     if (d.stock_by_product && Object.keys(d.stock_by_product).length) {
-      psl.innerHTML = Object.entries(d.stock_by_product).map(([prod, info]) => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <div style="font-family:var(--cond);font-weight:700;font-size:14px">${prod}</div>
-          <div style="display:flex;gap:16px;font-family:var(--mono);font-size:12px">
-            <span style="color:var(--text2)">${info.parts} parts</span>
-            ${info.reorder > 0 ? `<span style="color:var(--red)">⚠ ${info.reorder} low</span>` : '<span style="color:var(--green)">✅ OK</span>'}
+      psl.innerHTML = Object.entries(d.stock_by_product).map(([prod, info]) => {
+        const hasStock = info.parts_with_stock > 0;
+        const lowPct   = info.parts > 0 ? Math.round((info.reorder / info.parts) * 100) : 0;
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-family:var(--cond);font-weight:700;font-size:14px">${prod}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${info.parts} parts tracked · ${info.parts_with_stock||0} stocked</div>
           </div>
-        </div>`).join('');
+          <div style="display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:12px">
+            ${info.reorder > 0
+              ? `<span style="color:var(--red)">⚠ ${info.reorder} low</span>`
+              : info.parts_with_stock > 0
+                ? `<span style="color:var(--green)">✅ OK</span>`
+                : `<span style="color:var(--text3)">No stock yet</span>`
+            }
+          </div>
+        </div>`;
+      }).join('');
     } else {
-      psl.innerHTML = '<div class="empty">No stock data yet</div>';
+      psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
     }
 
-    // Recent GRNs
+    // Recent GRNs — group by GRN number
     const rg = document.getElementById('recent-grns');
-    rg.innerHTML = (d.recent_grns && d.recent_grns.length)
-      ? d.recent_grns.map(r => `<tr>
+    const grnGrouped = {};
+    (d.recent_grns || []).forEach(r => {
+      const k = r.grn_no || '';
+      if (!grnGrouped[k]) grnGrouped[k] = { ...r, lines: 0 };
+      grnGrouped[k].lines++;
+    });
+    const recentGRNs = Object.values(grnGrouped).slice(0, 5);
+    rg.innerHTML = recentGRNs.length
+      ? recentGRNs.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
-          <td class="mono" style="font-size:10px;color:var(--text3)">${r.batch_no||''}</td>
-          <td>${r.part_name||''}</td>
-          <td class="mono">${r.qty_received||''}</td>
+          <td class="mono" style="font-size:10px;color:var(--text3)">${r.grn_date ? String(r.grn_date).slice(0,11) : ''}</td>
+          <td>${r.product||''} ${r.supplier ? '· '+r.supplier : ''}</td>
+          <td class="mono">${r.lines} lines</td>
         </tr>`).join('')
       : '<tr><td colspan="4" class="empty">No GRNs today</td></tr>';
 
@@ -1904,7 +1929,9 @@ function clearBulkGRN() {
   bulkBOMData = [];
 }
 
+let bulkGRNSubmitting = false;
 async function submitBulkGRN() {
+  if (bulkGRNSubmitting) { toast('Already submitting — please wait', 'info'); return; }
   const product  = document.getElementById('bulk-grn-product').value;
   const supplier = document.getElementById('bulk-grn-supplier').value;
   const grn_date = formatDateForAPI(document.getElementById('bulk-grn-date').value);
@@ -1942,16 +1969,24 @@ async function submitBulkGRN() {
 
   if (!lines.length) { toast('No lines to submit', 'error'); return; }
 
+  const btn = document.querySelector('#grn-bulk-panel .btn-primary');
+  const origText = btn ? btn.textContent : '';
   try {
+    bulkGRNSubmitting = true;
+    if (btn) { btn.textContent = 'SUBMITTING...'; btn.disabled = true; }
     const res = await apiPost('postGRN', { data: { product, supplier, grn_date, po_ref, lines }});
     if (res.ok) {
-      toast(`Bulk GRN ${res.data.grn_no} created — ${res.data.lines} lines for ${units} units`, 'success');
+      toast(`GRN ${res.data.grn_no} created — ${res.data.lines} lines for ${units} units`, 'success');
       clearBulkGRN();
       loadGRNHistory();
       loadStock();
       loadDashboard();
     } else { toast(res.error || 'GRN failed', 'error'); }
   } catch(e) { toast('Error submitting GRN', 'error'); }
+  finally {
+    bulkGRNSubmitting = false;
+    if (btn) { btn.textContent = origText; btn.disabled = false; }
+  }
 }
 function addGRNLine() {
   const container = document.getElementById('grn-lines');
@@ -1992,7 +2027,9 @@ async function submitGRN() {
 
   if (!lines.length) { toast('Add at least one part line', 'error'); return; }
 
+  let partsBtn = document.querySelector('#grn-parts-panel .btn-primary');
   try {
+    if (partsBtn) { partsBtn.textContent = 'SUBMITTING...'; partsBtn.disabled = true; }
     const res = await apiPost('postGRN', { data: { product, supplier, grn_date, po_ref, lines }});
     if (res.ok) {
       toast(`GRN ${res.data.grn_no} created — ${res.data.lines} line(s)`, 'success');
@@ -2004,6 +2041,7 @@ async function submitGRN() {
       toast(res.error || 'GRN failed', 'error');
     }
   } catch(e) { toast('Network error', 'error'); }
+  finally { if (partsBtn) { partsBtn.textContent = 'SUBMIT GRN'; partsBtn.disabled = false; } }
 }
 
 async function loadGRNHistory() {
@@ -2012,14 +2050,23 @@ async function loadGRNHistory() {
     if (!res.ok) return;
     const tbody = document.getElementById('grn-history');
     const rows = res.data || [];
-    tbody.innerHTML = rows.length
-      ? rows.map(r => `<tr>
+    // Group by GRN number — show one row per GRN, not per line item
+    const grouped = {};
+    (rows || []).forEach(r => {
+      const key = r.grn_no || '';
+      if (!grouped[key]) grouped[key] = { ...r, lines: 0, total_qty: 0 };
+      grouped[key].lines++;
+      grouped[key].total_qty += Number(r.qty_received) || 0;
+    });
+    const grns = Object.values(grouped).reverse().slice(0, 20);
+    tbody.innerHTML = grns.length
+      ? grns.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
           <td style="font-size:11px;color:var(--text3)">${r.grn_date ? String(r.grn_date).slice(0,11) : ''}</td>
           <td>${r.supplier||''}</td>
-          <td class="mono" style="font-size:11px">${r.part_code||''}</td>
-          <td class="mono">${r.qty_received||''}</td>
-          <td><span class="badge ${r.inspection_pass_fail==='Fail'?'badge-red':'badge-green'}" style="font-size:9px">${r.inspection_pass_fail||'Pass'}</span></td>
+          <td class="mono" style="font-size:11px">${r.product||''}</td>
+          <td class="mono">${r.lines} lines</td>
+          <td><span class="badge badge-green" style="font-size:9px">DONE</span></td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
   } catch(e) {
@@ -2164,13 +2211,55 @@ async function loadWorkOrders() {
 }
 
 // ══ ISSUE ════════════════════════════════════════════════════
+// Cache material master for part lookup
+let materialCache = {};
+async function ensureMaterialCache() {
+  if (Object.keys(materialCache).length > 0) return;
+  try {
+    const res = await api('getMaterials');
+    if (res.ok && res.data) {
+      res.data.forEach(r => {
+        if (r.part_code) materialCache[r.part_code.trim().toUpperCase()] = r;
+      });
+    }
+  } catch(e) {}
+}
+
+function lookupPartCode(input) {
+  const code = input.value.trim().toUpperCase();
+  const row = input.closest('.line-item');
+  if (!row) return;
+  const nameInput = row.querySelectorAll('input')[1];
+  if (!nameInput) return;
+  const part = materialCache[code];
+  if (part) {
+    nameInput.value = part.part_name || '';
+    nameInput.style.color = 'var(--green)';
+    nameInput.readOnly = true;
+    input.style.borderColor = 'var(--green)';
+  } else if (code.length >= 5) {
+    nameInput.value = '⚠ Code not found in material master';
+    nameInput.style.color = 'var(--red)';
+    nameInput.readOnly = false;
+    input.style.borderColor = 'var(--red)';
+  } else {
+    nameInput.value = '';
+    nameInput.style.color = '';
+    nameInput.readOnly = false;
+    input.style.borderColor = '';
+  }
+}
+
 function addIssLine() {
+  ensureMaterialCache();
   const container = document.getElementById('iss-lines');
   const div = document.createElement('div');
   div.className = 'line-item';
   div.innerHTML = `
-    <input placeholder="Part Code" class="mono" style="font-size:11px">
-    <input placeholder="Part Name">
+    <input placeholder="Part Code" class="mono" style="font-size:11px;text-transform:uppercase"
+           oninput="this.value=this.value.toUpperCase()"
+           onblur="lookupPartCode(this)">
+    <input placeholder="Part name auto-fills from code" style="color:var(--text3);font-size:11px">
     <input type="number" placeholder="Qty" min="1" style="text-align:right">
     <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
   `;
@@ -2196,14 +2285,25 @@ async function submitIssue() {
 
   const lineEls = document.querySelectorAll('#iss-lines .line-item');
   const lines = [];
+  let hasInvalidCode = false;
   lineEls.forEach(el => {
     const inputs = el.querySelectorAll('input');
-    const code   = inputs[0].value.trim();
+    const code   = inputs[0].value.trim().toUpperCase();
     const name   = inputs[1].value.trim();
     const qty    = parseInt(inputs[2].value) || 0;
-    if (code && qty > 0) lines.push({ part_code:code, part_name:name, actual_qty:qty, bom_qty:qty });
+    if (code && qty > 0) {
+      // Validate against material master
+      if (Object.keys(materialCache).length > 0 && !materialCache[code]) {
+        toast(`Part code ${code} not found in material master`, 'error');
+        hasInvalidCode = true;
+        return;
+      }
+      const resolvedName = (materialCache[code] && materialCache[code].part_name) || name;
+      lines.push({ part_code:code, part_name:resolvedName, actual_qty:qty, bom_qty:qty });
+    }
   });
 
+  if (hasInvalidCode) return;
   if (!lines.length) { toast('Add at least one part', 'error'); return; }
 
   try {
