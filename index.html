@@ -2068,9 +2068,12 @@ async function submitBulkGRN() {
     if (res.ok) {
       toast(`GRN ${res.data.grn_no} created — ${res.data.lines} lines for ${units} units`, 'success');
       clearBulkGRN();
-      loadGRNHistory();
-      loadStock();
-      loadDashboard();
+      // Small delay to allow Apps Script to finish writing all lines
+      setTimeout(() => {
+        loadGRNHistory();
+        loadStock();
+        loadDashboard();
+      }, 1500);
     } else { toast(res.error || 'GRN failed', 'error'); }
   } catch(e) { toast('Error submitting GRN', 'error'); }
   finally {
@@ -2079,12 +2082,15 @@ async function submitBulkGRN() {
   }
 }
 function addGRNLine() {
+  ensureMaterialCache();
   const container = document.getElementById('grn-lines');
   const div = document.createElement('div');
   div.className = 'line-item';
   div.innerHTML = `
-    <input placeholder="Part Code" class="mono" style="font-size:11px">
-    <input placeholder="Part Name">
+    <input placeholder="Part Code" class="mono" style="font-size:11px;text-transform:uppercase"
+           oninput="this.value=this.value.toUpperCase()"
+           onblur="lookupPartCodeInEl(this)">
+    <input placeholder="Auto-fills from code" style="color:var(--text3);font-size:11px" readonly>
     <input type="number" placeholder="Qty" min="1" style="text-align:right">
     <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
   `;
@@ -2107,13 +2113,21 @@ async function submitGRN() {
 
   const lineEls = document.querySelectorAll('#grn-lines .line-item');
   const lines = [];
+  let hasInvalid = false;
   lineEls.forEach(el => {
     const inputs = el.querySelectorAll('input');
-    const code   = inputs[0].value.trim();
-    const name   = inputs[1].value.trim();
+    const code   = inputs[0].value.trim().toUpperCase();
     const qty    = parseInt(inputs[2].value) || 0;
-    if (code && qty > 0) lines.push({ part_code:code, part_name:name, product, qty_received:qty, inspection:'Pass' });
+    if (code && qty > 0) {
+      if (Object.keys(materialCache).length > 0 && !materialCache[code]) {
+        toast(`Part code ${code} not found in material master`, 'error');
+        hasInvalid = true; return;
+      }
+      const name = (materialCache[code] && materialCache[code].part_name) || inputs[1].value.trim();
+      lines.push({ part_code:code, part_name:name, product, qty_received:qty, inspection:'Pass' });
+    }
   });
+  if (hasInvalid) return;
 
   if (!lines.length) { toast('Add at least one part line', 'error'); return; }
 
@@ -2124,9 +2138,11 @@ async function submitGRN() {
     if (res.ok) {
       toast(`GRN ${res.data.grn_no} created — ${res.data.lines} line(s)`, 'success');
       clearGRN();
-      loadGRNHistory();
-      loadStock();
-      loadDashboard();
+      setTimeout(() => {
+        loadGRNHistory();
+        loadStock();
+        loadDashboard();
+      }, 1500);
     } else {
       toast(res.error || 'GRN failed', 'error');
     }
