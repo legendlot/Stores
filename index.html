@@ -1126,7 +1126,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <button class="btn btn-primary" onclick="createWO()">CREATE WORK ORDER</button>
             </div>
             <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
-              ℹ  Once created, Reann issues parts against this WO from the <strong style="color:var(--text)">Stock Issue</strong> tab.
+              ℹ  Once created, the store issues parts against this WO from the <strong style="color:var(--text)">Stock Issue</strong> tab.
             </div>
           </div>
         </div>
@@ -1639,7 +1639,8 @@ async function api(action, params = {}) {
 }
 
 async function apiPost(action, data = {}) {
-  const res = await fetch(API, {
+  const qs = new URLSearchParams({ action, pin: currentPin }).toString();
+  const res = await fetch(`${API}?${qs}`, {
     method: 'POST',
     body: JSON.stringify({ action, pin: currentPin, ...data }),
   });
@@ -2221,22 +2222,37 @@ function renderKit(data) {
   </tr>`).join('');
 }
 
+let createWOSubmitting = false;
 async function createWO() {
+  if (createWOSubmitting) { toast('Already creating — please wait', 'info'); return; }
   const product = document.getElementById('wo-product').value;
   const variant = document.getElementById('wo-variant').value;
   const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
   const line_no = document.getElementById('wo-line').value;
   const shift   = document.getElementById('wo-shift').value;
   const date    = formatDateForAPI(document.getElementById('wo-date').value);
-  if (!product || !qty) { toast('Select product and quantity', 'error'); return; }
+  if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
 
+  const btn = document.querySelector('#view-workorder .btn-primary');
   try {
+    createWOSubmitting = true;
+    if (btn) { btn.textContent = 'CREATING...'; btn.disabled = true; }
     const res = await apiPost('postWorkOrder', { data:{ product, variant, qty, line_no, shift, date }});
     if (res.ok) {
-      toast(`Work Order ${res.data.wo_no} created`, 'success');
+      toast(`✅ ${res.data.wo_no} created — ${product} ${variant||''} · ${qty} units · ${line_no} ${shift}`, 'success');
+      // Clear form
+      document.getElementById('wo-product').value = '';
+      document.getElementById('wo-variant').innerHTML = '<option value="">Common only</option>';
+      document.getElementById('wo-qty').value = '';
+      document.getElementById('wo-subvariant-group').style.display = 'none';
       loadWorkOrders();
-    } else { toast(res.error, 'error'); }
-  } catch(e) { toast('Error', 'error'); }
+      refreshWODropdown();
+    } else { toast(res.error || 'Failed to create WO', 'error'); }
+  } catch(e) { toast('Error creating work order', 'error'); }
+  finally {
+    createWOSubmitting = false;
+    if (btn) { btn.textContent = 'CREATE WORK ORDER'; btn.disabled = false; }
+  }
 }
 
 async function loadWorkOrders() {
@@ -2260,6 +2276,7 @@ async function loadWorkOrders() {
   if (woBadge) woBadge.textContent = (rows||[]).length + ' open';
   } catch(e) {
     document.getElementById('wo-list').innerHTML = '<tr><td colspan="7" class="empty">No work orders yet</td></tr>';
+    const b = document.getElementById('wo-open-count'); if(b) b.textContent='0 open';
   }
 }
 
