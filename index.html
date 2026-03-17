@@ -2075,7 +2075,10 @@ async function submitBulkGRN() {
         loadDashboard();
       }, 1500);
     } else { toast(res.error || 'GRN failed', 'error'); }
-  } catch(e) { toast('Error submitting GRN', 'error'); }
+  } catch(e) {
+    toast('⚠ Network error — your GRN was NOT submitted. Check your connection and try again. Your data is still here.', 'error');
+    console.error('GRN submit error:', e);
+  }
   finally {
     bulkGRNSubmitting = false;
     if (btn) { btn.textContent = origText; btn.disabled = false; }
@@ -2146,7 +2149,9 @@ async function submitGRN() {
     } else {
       toast(res.error || 'GRN failed', 'error');
     }
-  } catch(e) { toast('Network error', 'error'); }
+  } catch(e) {
+    toast('⚠ Network error — GRN not submitted. Check connection and retry.', 'error');
+  }
   finally { if (partsBtn) { partsBtn.textContent = 'SUBMIT GRN'; partsBtn.disabled = false; } }
 }
 
@@ -2753,7 +2758,9 @@ async function submitPlannedIssue() {
       loadDashboard();
       refreshWODropdown();
     } else { toast(res.error || 'Issue failed', 'error'); }
-  } catch(e) { toast('Error', 'error'); }
+  } catch(e) {
+    toast('⚠ Network error — issue not submitted. Check connection and retry.', 'error');
+  }
   finally { plannedWOSubmitting = false; btn.textContent = 'CONFIRM ISSUE'; btn.disabled = false; }
 }
 
