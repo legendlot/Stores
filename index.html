@@ -1601,6 +1601,19 @@ function launchApp() {
   loadIssueHistory();
   loadReturnsHistory();
 
+  // Fallback: clear any stuck loading spinners after 25s
+  setTimeout(() => {
+    document.querySelectorAll('.loading').forEach(el => {
+      const td = el.closest('td');
+      if (td) {
+        const cols = td.getAttribute('colspan') || '6';
+        td.parentElement.innerHTML = `<td colspan="${cols}"><div class="empty">No data yet</div></td>`;
+      } else {
+        el.innerHTML = '<div class="empty">No data yet</div>';
+      }
+    });
+  }, 25000);
+
   // Auto-refresh every 60s
   setInterval(() => {
     if (currentView === 'dashboard') loadDashboard();
@@ -1678,9 +1691,15 @@ function refreshCurrent() {
 
 // ══ DASHBOARD ════════════════════════════════════════════════
 async function loadDashboard() {
+  // Timeout after 20s — never hang forever
+  const dashTimeout = setTimeout(clearDashboardLoadingStates, 20000);
   try {
     const res = await api('getDashboard');
-    if (!res.ok) return;
+    clearTimeout(dashTimeout);
+    if (!res.ok) {
+      clearDashboardLoadingStates();
+      return;
+    }
     const d = res.data;
 
     document.getElementById('kpi-wo').textContent     = d.open_work_orders ?? '0';
@@ -1773,30 +1792,34 @@ async function loadDashboard() {
 
   } catch(e) {
     console.error('Dashboard error:', e);
-    // Clear loading states even on error
-    const reorderList = document.getElementById('reorder-list');
-    if (reorderList && reorderList.innerHTML.includes('Loading'))
-      reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
-    const psl = document.getElementById('product-stock-list');
-    if (psl && psl.innerHTML.includes('Loading'))
-      psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
-    document.getElementById('dash-timestamp').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
-    // Clear KPIs to zeros on error
-    ['kpi-wo','kpi-grn','kpi-issued','kpi-returns'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.textContent === '—') el.textContent = '0';
-    });
-    const reorderEl = document.getElementById('kpi-reorder');
-    if (reorderEl && reorderEl.textContent === '—') { reorderEl.textContent = '0'; reorderEl.className = 'kpi-value ok'; }
+    clearDashboardLoadingStates();
   }
+}
+
+function clearDashboardLoadingStates() {
+  const reorderList = document.getElementById('reorder-list');
+  if (reorderList) reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
+  const psl = document.getElementById('product-stock-list');
+  if (psl) psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
+  document.getElementById('dash-timestamp').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+  ['kpi-wo','kpi-grn','kpi-issued','kpi-returns'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.textContent === '—') el.textContent = '0';
+  });
+  const reorderEl = document.getElementById('kpi-reorder');
+  if (reorderEl && reorderEl.textContent === '—') { reorderEl.textContent = '0'; reorderEl.className = 'kpi-value ok'; }
 }
 
 // ══ STOCK ════════════════════════════════════════════════════
 async function loadStock() {
   const tbody = document.getElementById('stock-table-body');
   tbody.innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>';
+  const stockTimeout = setTimeout(() => {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty">No stock data yet</div></td></tr>';
+  }, 20000);
   try {
     const res = await api('getStock');
+    clearTimeout(stockTimeout);
     if (!res.ok) return;
     stockData = res.data || [];
     renderStockTable(stockData);
