@@ -1588,11 +1588,8 @@ function launchApp() {
   }
 
   // Add initial GRN/issue lines
-  try { addGRNLine(); } catch(e) { console.error('addGRNLine failed:', e); }
-  try { addIssLine(); } catch(e) { console.error('addIssLine failed:', e); }
-  // Set GRN default mode
-  try { setGRNMode('bulk'); } catch(e) { console.error('setGRNMode failed:', e); }
-  try { setIssueMode('planned'); } catch(e) { console.error('setIssueMode failed:', e); }
+  addGRNLine();
+  setGRNMode('bulk');
 
   // Load initial data
   loadDashboard();
@@ -1671,6 +1668,8 @@ function showView(name) {
   if (name === 'issue') {
     ensureMaterialCache();
     refreshWODropdown();
+    // Init issue lines if not already done
+    if (!document.querySelector('#adhoc-lines .line-item')) addAdhocLine();
     setIssueMode('planned');
   }
 }
@@ -2544,9 +2543,7 @@ function toast(msg, type = 'info') {
   container.appendChild(el);
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
 }
-</script>
-</body>
-</html>// ══ ISSUE ════════════════════════════════════════════════════
+// ══ ISSUE ════════════════════════════════════════════════════
 let issueMode = 'planned';
 let plannedKitData = [];
 let plannedWOSubmitting = false;
