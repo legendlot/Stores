@@ -1291,7 +1291,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue No.</th><th>Type</th><th>WO</th><th>Product</th><th>Lines</th><th>Date</th></tr></thead>
+              <thead><tr><th>Issue No.</th><th>Type</th><th>WO</th><th>Product</th><th>Variant</th><th>Units</th><th>Date</th></tr></thead>
               <tbody id="issue-history">
                 <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -1627,6 +1627,22 @@ function logout() {
 }
 
 // ══ DATE HELPERS ═════════════════════════════════════════════
+function formatDisplayDate(raw) {
+  if (!raw) return '—';
+  const s = String(raw);
+  // Already formatted dd-MMM-yyyy
+  if (/^\d{2}-[A-Za-z]{3}-\d{4}/.test(s)) return s.slice(0,11);
+  // ISO format: 2026-03-16T...
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d)) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return String(d.getDate()).padStart(2,'0') + '-' + months[d.getMonth()] + '-' + d.getFullYear();
+    }
+  }
+  return s.slice(0,10);
+}
+
 function formatDateForAPI(dateStr) {
   // Convert YYYY-MM-DD to dd-MMM-yyyy to match Apps Script format
   if (!dateStr) return '';
@@ -1773,7 +1789,7 @@ async function loadDashboard() {
     rg.innerHTML = recentGRNs.length
       ? recentGRNs.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
-          <td class="mono" style="font-size:10px;color:var(--text3)">${r.grn_date ? String(r.grn_date).slice(0,11) : ''}</td>
+          <td class="mono" style="font-size:10px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
           <td>${r.product||''} ${r.supplier ? '· '+r.supplier : ''}</td>
           <td class="mono">${r.lines} lines</td>
         </tr>`).join('')
@@ -1786,7 +1802,7 @@ async function loadDashboard() {
           <td class="mono">${r.issue_no||''}</td>
           <td class="mono">${r.work_order_no||''}</td>
           <td>${r.product||''}</td>
-          <td class="mono">${r.bom_issue_qty||''}</td>
+          <td class="mono">${r.units_planned||r.bom_issue_qty||'—'}</td>
         </tr>`).join('')
       : '<tr><td colspan="4" class="empty">No issues today</td></tr>';
 
@@ -2136,7 +2152,7 @@ async function loadGRNHistory() {
     tbody.innerHTML = grns.length
       ? grns.map(r => `<tr>
           <td class="mono">${r.grn_no||''}</td>
-          <td style="font-size:11px;color:var(--text3)">${r.grn_date ? String(r.grn_date).slice(0,11) : ''}</td>
+          <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
           <td>${r.supplier||''}</td>
           <td class="mono" style="font-size:11px">${r.product||''}</td>
           <td class="mono">${r.lines} lines</td>
@@ -2430,13 +2446,14 @@ async function loadIssueHistory() {
     tbody.innerHTML = unique.length
       ? unique.map(r => `<tr>
           <td class="mono">${r['issue_no.']||r.issue_no||''}</td>
-          <td class="mono">${r['work_order_no.']||r.work_order_no||r.work_order||''}</td>
-          <td>${r.product||''}</td>
-          <td>${r.variant||'—'}</td>
-          <td class="mono">${r._lines||1}</td>
-          <td style="font-size:11px;color:var(--text3)">${r['issue_date']||r.issue_date||''}</td>
+          <td><span class="badge ${(r.issue_type||r['issue_type']||'')==='Ad Hoc'?'badge-red':'badge-blue'}" style="font-size:9px">${r.issue_type||r['issue_type']||'Planned'}</span></td>
+          <td class="mono">${r['work_order_no.']||r.work_order_no||r.work_order||'—'}</td>
+          <td>${r.product||'—'}</td>
+          <td class="mono">${r.variant||'—'}</td>
+          <td class="mono">${r['units_planned']||r.units_planned||r._lines||1}</td>
+          <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r['issue_date']||r.issue_date)}</td>
         </tr>`).join('')
-      : '<tr><td colspan="6" class="empty">No issues yet</td></tr>';
+      : '<tr><td colspan="7" class="empty">No issues yet</td></tr>';
   } catch(e) {
     document.getElementById('issue-history').innerHTML = '<tr><td colspan="6" class="empty">No issues yet</td></tr>';
   }
