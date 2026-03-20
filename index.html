@@ -1454,37 +1454,47 @@ tr:hover td { background:rgba(255,255,255,.02); }
 // ══ CONFIG ══════════════════════════════════════════════════
 const API = 'https://lotopsproxy.afshaan.workers.dev';
 
-const PRODUCTS = ['Flare','Knox','Shadow','Night Wolf','Nitro','Dash','Fang'];
+const PRODUCTS = ['Atlas','DASH','Fang','Flare','Ghost','Knox','Nitro','Shadow'];
+
+const PRODUCTS_DISPLAY = {
+  'Atlas': 'Atlas', 'DASH': 'Dash', 'Fang': 'Fang', 'Flare': 'Flare',
+  'Ghost': 'Ghost', 'Knox': 'Knox', 'Nitro': 'Nitro', 'Shadow': 'Shadow',
+};
 
 const PRODUCT_VARIANTS = {
-  'Flare':      ['Track','Race','UG','Frost','Burnout','Street'],
-  'Knox':       ['Adventure','Explorer'],
-  'Shadow':     ['Asphalt','Tarmac'],
-  'Night Wolf': ['Blue','Red','Green'],
-  'Nitro':      ['Race Grey','Tarmac Black','Tarmac Green','Tarmac Grey','Race Blue','Burnout Red'],
-  'Dash':       ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
-  'Fang':       [],
+  'Flare':  ['Track','Race','Underground','Street','Burnout'],
+  'Ghost':  ['Burnout','Street','Underground'],
+  'Knox':   ['Adventure','Explorer'],
+  'Shadow': ['Asphalt','Tarmac'],
+  'Nitro':  ['Race Grey','Race Blue','Tarmac Black','Tarmac Green','Tarmac Grey','Burnout Red'],
+  'DASH':   ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
+  'Fang':   [],
+  'Atlas':  [],
 };
 
 // Sub-variants (colour level) per product+variant combination
 const PRODUCT_SUBVARIANTS = {
   'Flare': {
-    'Track':   ['White','Pink'],
-    'Race':    ['Grey','Black'],
-    'UG':      ['Silver','Blue'],
-    'Frost':   ['Frost'],
-    'Burnout': ['Grey','Green','Red'],
-    'Street':  ['White','Red'],
+    'Track':      ['Pink','White'],
+    'Race':       ['Grey','Black'],
+    'Underground':['Silver','Blue'],
+    'Street':     ['White','Red'],
+    'Burnout':    ['Grey','Green','Red'],
+  },
+  'Ghost': {
+    'Burnout':    ['Red','Yellow'],
+    'Street':     ['Blue','White'],
+    'Underground':['Black','White'],
   },
   'Knox': {
-    'Adventure': ['Black','Green','Black/Green'],
-    'Explorer':  ['Black','Blue'],
+    'Adventure':  ['Black','Green'],
+    'Explorer':   ['Black','Blue'],
   },
-  'Shadow':     {},
-  'Night Wolf': {},
-  'Nitro':      {},
-  'Dash':       {},
-  'Fang':       {},
+  'Shadow':  {},
+  'Nitro':   {},
+  'DASH':    {},
+  'Fang':    {},
+  'Atlas':   {},
 };
 
 // ══ STATE ════════════════════════════════════════════════════
@@ -1914,8 +1924,9 @@ async function loadBulkBOM() {
     return;
   }
 
+  const colour  = document.getElementById('bulk-grn-subvariant')?.value || '';
   try {
-    const res = await api('calcKit', { product, variant, qty: units });
+    const res = await api('calcKit', { product, variant, colour, qty: units });
     if (!res.ok) { toast(res.error || 'Failed to load BOM', 'error'); return; }
     bulkBOMData = res.data.kit || [];
     renderBulkBOM(units);
@@ -2213,12 +2224,14 @@ document.addEventListener('change', e => {
 async function calcKit() {
   const product = document.getElementById('wo-product').value;
   const variant = document.getElementById('wo-variant').value;
+  const colour  = document.getElementById('wo-subvariant')?.value || '';
   const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
   if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
 
   toast('Calculating kit...', 'info');
   try {
-    const res = await api('calcKit', { product, variant, qty });
+    const colour = '';  // WO level — colour selected at issue time
+    const res = await api('calcKit', { product, variant, colour, qty });
     if (!res.ok) { toast(res.error, 'error'); return; }
     renderKit(res.data);
   } catch(e) { toast('Error', 'error'); }
@@ -2278,6 +2291,7 @@ async function createWO() {
   if (createWOSubmitting) { toast('Already creating — please wait', 'info'); return; }
   const product = document.getElementById('wo-product').value;
   const variant = document.getElementById('wo-variant').value;
+  const colour  = document.getElementById('wo-subvariant')?.value || '';
   const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
   const line_no = document.getElementById('wo-line').value;
   const shift   = document.getElementById('wo-shift').value;
@@ -2628,7 +2642,8 @@ async function loadPlannedWO() {
 
   // Load kit
   try {
-    const res = await api('calcKit', { product, variant, qty });
+    const colour = '';  // WO level — colour selected at issue time
+    const res = await api('calcKit', { product, variant, colour, qty });
     if (!res.ok) { toast('Failed to load BOM', 'error'); return; }
     plannedKitData = res.data.kit || [];
     renderPlannedKit();
