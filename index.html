@@ -754,6 +754,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard">DASHBOARD</button>
       <button class="nav-btn" onclick="showView('stock')"     id="nav-stock">STOCK</button>
       <button class="nav-btn" onclick="showView('grn')"       id="nav-grn"  id="nav-grn">GRN</button>
+        <button class="nav-btn" onclick="showView('receiving')" id="nav-receiving">RECEIVING</button>
       <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
       <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">STOCK ISSUE</button>
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
@@ -1064,6 +1065,256 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
+      </div>
+    </div>
+
+<!-- ── RECEIVING ── -->
+    <div class="view" id="view-receiving">
+      <div class="page-header">
+        <div class="page-title">RECEIVING</div>
+        <div class="page-subtitle">Manage inbound shipments — box verification, counting, bagging, GRN</div>
+      </div>
+
+      <!-- Sub-views: Shipments List / Shipment Detail -->
+      <div id="rcv-list-view">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">ACTIVE SHIPMENTS</div>
+          <button class="btn btn-primary" onclick="showNewShipmentForm()">+ NEW SHIPMENT</button>
+        </div>
+
+        <!-- New Shipment Form -->
+        <div id="new-shipment-form" class="panel" style="display:none;margin-bottom:16px">
+          <div class="panel-header"><div class="panel-title">New Shipment</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Supplier</label>
+                <input class="form-input" id="shp-supplier" placeholder="e.g. Kai">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PO Reference</label>
+                <input class="form-input" id="shp-po" placeholder="PO-XXX">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Arrival Date</label>
+                <input class="form-input" type="date" id="shp-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Boxes Expected</label>
+                <input class="form-input" type="number" id="shp-boxes" placeholder="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Total Weight Expected (kg)</label>
+                <input class="form-input" type="number" id="shp-weight" placeholder="0.0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Origin</label>
+                <select class="form-select" id="shp-origin">
+                  <option>China</option><option>India</option><option>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <input class="form-input" id="shp-notes" placeholder="Any notes about this shipment">
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitNewShipment()">CREATE SHIPMENT</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('new-shipment-form').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shipments table -->
+        <div class="panel">
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Shipment ID</th><th>Supplier</th><th>Arrival</th>
+                  <th>Boxes</th><th>Parts</th><th>Progress</th><th>Status</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="shipments-list">
+                <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shipment Detail View -->
+      <div id="rcv-detail-view" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="showShipmentsList()" style="padding:4px 12px">← Back</button>
+          <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="rcv-detail-title">SHP-001</div>
+          <span class="badge badge-yellow" id="rcv-detail-status">Arriving</span>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:16px">
+          <!-- Shipping Marks -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">SHIPPING MARKS</div>
+              <button class="btn btn-secondary" onclick="showAddMarkForm()" style="padding:2px 10px;font-size:10px">+ ADD MARK</button>
+            </div>
+            <div id="add-mark-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Mark Code</label>
+                  <input class="form-input" id="mark-code" placeholder="e.g. Kai DH-01">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Boxes Expected</label>
+                  <input class="form-input" type="number" id="mark-boxes-exp" value="1" min="1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Boxes Received</label>
+                  <input class="form-input" type="number" id="mark-boxes-rcv" value="0" min="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Weight Expected (kg)</label>
+                  <input class="form-input" type="number" id="mark-wt-exp" placeholder="0.0" step="0.1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Weight Actual (kg)</label>
+                  <input class="form-input" type="number" id="mark-wt-act" placeholder="0.0" step="0.1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Status</label>
+                  <select class="form-select" id="mark-status">
+                    <option>Received</option><option>Pending</option>
+                    <option>Damaged</option><option>Missing</option>
+                  </select>
+                </div>
+              </div>
+              <input class="form-input" id="mark-notes" placeholder="Notes (damage, discrepancy...)" style="margin-bottom:8px">
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitMark()">ADD MARK</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('add-mark-form').style.display='none'">CANCEL</button>
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Mark Code</th><th>Boxes</th><th>Weight (kg)</th><th>Status</th><th>Notes</th></tr></thead>
+                <tbody id="marks-list"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Shipment summary -->
+          <div class="panel">
+            <div class="panel-header"><div class="panel-title">SHIPMENT SUMMARY</div></div>
+            <div class="panel-body" id="rcv-summary-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div style="background:var(--bg3);padding:12px;border-radius:3px">
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">SUPPLIER</div>
+                  <div style="font-weight:700;font-size:14px" id="rcv-sum-supplier">—</div>
+                </div>
+                <div style="background:var(--bg3);padding:12px;border-radius:3px">
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">ARRIVAL DATE</div>
+                  <div style="font-weight:700;font-size:14px" id="rcv-sum-date">—</div>
+                </div>
+                <div style="background:var(--bg3);padding:12px;border-radius:3px">
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">BOXES</div>
+                  <div style="font-weight:700;font-size:14px" id="rcv-sum-boxes">0 / 0</div>
+                </div>
+                <div style="background:var(--bg3);padding:12px;border-radius:3px">
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">PARTS COUNTED</div>
+                  <div style="font-weight:700;font-size:14px" id="rcv-sum-parts">0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Receiving Lines -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">PART COUNTS</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary" onclick="showAddLineForm()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
+              <button class="btn btn-primary" id="raise-grn-btn" onclick="raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN FOR COUNTED</button>
+            </div>
+          </div>
+
+          <!-- Add part line form -->
+          <div id="add-line-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Part Code</label>
+                <input class="form-input mono" id="rcv-part-code" placeholder="e.g. FL-EL-01"
+                       style="text-transform:uppercase"
+                       oninput="this.value=this.value.toUpperCase()"
+                       onblur="lookupRcvPart(this)">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Part Name</label>
+                <input class="form-input" id="rcv-part-name" placeholder="Auto-fills from code">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shipping Mark</label>
+                <select class="form-select" id="rcv-mark-select">
+                  <option value="">— select mark —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty Expected</label>
+                <input class="form-input" type="number" id="rcv-qty-exp" placeholder="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty Counted</label>
+                <input class="form-input" type="number" id="rcv-qty-cnt" placeholder="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bag Size</label>
+                <select class="form-select" id="rcv-bag-size">
+                  <option value="25">25 per bag</option>
+                  <option value="50">50 per bag</option>
+                  <option value="100">100 per bag</option>
+                  <option value="1">No bagging (1 each)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="rcv-line-notes" placeholder="e.g. short count, damaged">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitReceivingLine()">SAVE COUNT</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('add-line-form').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Part Code</th><th>Part Name</th><th>Mark</th>
+                  <th style="text-align:right">Expected</th>
+                  <th style="text-align:right">Counted</th>
+                  <th style="text-align:right">Bags</th>
+                  <th>Bag Size</th><th>GRN</th><th>Status</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="lines-list"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Bags / Label printing -->
+        <div class="panel" id="bags-panel" style="display:none;margin-top:16px">
+          <div class="panel-header">
+            <div class="panel-title">BAGS — <span id="bags-panel-title"></span></div>
+            <button class="btn btn-primary" onclick="printBagLabels()" style="padding:3px 12px;font-size:10px">🖨 PRINT ALL LABELS</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Bag ID</th><th>Part Code</th><th>Part Name</th><th>Mark</th><th>Qty</th><th>Bag</th><th>Bin</th><th>Printed</th></tr></thead>
+              <tbody id="bags-list"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1699,6 +1950,10 @@ function showView(name) {
     setIssueMode('planned');
   }
 }
+  if (name === 'receiving') {
+    ensureMaterialCache();
+    loadShipments();
+  }
 
 function refreshCurrent() {
   const btn = document.getElementById('refresh-btn');
@@ -2970,6 +3225,269 @@ function toast(msg, type = 'info') {
   el.textContent = msg;
   container.appendChild(el);
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
+}
+// ══ RECEIVING ════════════════════════════════════════════════
+let currentShipmentId = null;
+let currentShipmentData = null;
+
+function showNewShipmentForm() {
+  const f = document.getElementById('new-shipment-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+function showShipmentsList() {
+  document.getElementById('rcv-list-view').style.display = '';
+  document.getElementById('rcv-detail-view').style.display = 'none';
+  currentShipmentId = null;
+  loadShipments();
+}
+function showAddMarkForm() {
+  const f = document.getElementById('add-mark-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+function showAddLineForm() {
+  const f = document.getElementById('add-line-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+async function loadShipments() {
+  const tbody = document.getElementById('shipments-list');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getShipments');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; return; }
+    const rows = res.data || [];
+    tbody.innerHTML = rows.length ? rows.map(r => {
+      const progress = r.parts_total > 0
+        ? (r.parts_grn_raised||0)+'/'+r.parts_total+' GRN-d'
+        : (r.marks_received||0)+'/'+(r.marks_total||0)+' boxes';
+      const pct = r.parts_total > 0 ? Math.round(((r.parts_grn_raised||0)/r.parts_total)*100) : 0;
+      const sc = r.status==='Complete'?'badge-green':r.status==='In Progress'?'badge-yellow':'badge-gray';
+      return '<tr style="cursor:pointer" onclick="openShipment(this.dataset.id)" data-id="'+r.shipment_id+'">'
+        +'<td class="mono">'+r.shipment_id+'</td>'
+        +'<td>'+r.supplier+'</td>'
+        +'<td style="font-size:11px;color:var(--text3)">'+formatDisplayDate(r.arrival_date)+'</td>'
+        +'<td class="mono">'+(r.total_boxes_received||0)+' / '+(r.total_boxes_expected||0)+'</td>'
+        +'<td class="mono">'+(r.parts_total||0)+' parts</td>'
+        +'<td><div style="font-size:11px;color:var(--text3)">'+progress+'</div>'
+        +(r.parts_total>0?'<div style="background:var(--bg3);border-radius:2px;height:4px;margin-top:3px"><div style="background:var(--green);height:4px;border-radius:2px;width:'+pct+'%"></div></div>':'')
+        +'</td>'
+        +'<td><span class="badge '+sc+'">'+r.status+'</span></td>'
+        +'<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation();openShipment(this.parentElement.parentElement.dataset.id)">OPEN →</button></td>'
+        +'</tr>';
+    }).join('') : '<tr><td colspan="8" class="empty">No shipments yet</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; }
+}
+async function submitNewShipment() {
+  const supplier = document.getElementById('shp-supplier').value.trim();
+  if (!supplier) { toast('Enter supplier name', 'error'); return; }
+  const btn = document.querySelector('#new-shipment-form .btn-primary');
+  try {
+    if (btn) { btn.textContent = 'CREATING...'; btn.disabled = true; }
+    const res = await apiPost('postShipment', { data: {
+      supplier, po_ref: document.getElementById('shp-po').value.trim(),
+      arrival_date: formatDateForAPI(document.getElementById('shp-date').value),
+      total_boxes: parseInt(document.getElementById('shp-boxes').value)||0,
+      total_weight: parseFloat(document.getElementById('shp-weight').value)||null,
+      origin: document.getElementById('shp-origin').value,
+      notes: document.getElementById('shp-notes').value.trim(),
+    }});
+    if (res.ok) {
+      toast(res.data.shipment_id+' created', 'success');
+      document.getElementById('new-shipment-form').style.display = 'none';
+      openShipment(res.data.shipment_id);
+    } else { toast(res.error||'Failed', 'error'); }
+  } catch(e) { toast('Error','error'); }
+  finally { if (btn) { btn.textContent = 'CREATE SHIPMENT'; btn.disabled = false; } }
+}
+async function openShipment(id) {
+  currentShipmentId = id;
+  document.getElementById('rcv-list-view').style.display = 'none';
+  document.getElementById('rcv-detail-view').style.display = '';
+  document.getElementById('rcv-detail-title').textContent = id;
+  document.getElementById('bags-panel').style.display = 'none';
+  await refreshShipmentDetail();
+}
+async function refreshShipmentDetail() {
+  if (!currentShipmentId) return;
+  try {
+    const res = await api('getShipment', { id: currentShipmentId });
+    if (!res.ok) return;
+    currentShipmentData = res.data;
+    renderShipmentDetail(res.data);
+  } catch(e) {}
+}
+function renderShipmentDetail(data) {
+  const { shipment, marks, lines } = data;
+  const scMap = { Arriving:'badge-yellow', 'In Progress':'badge-blue', Complete:'badge-green', Closed:'badge-gray' };
+  const sb = document.getElementById('rcv-detail-status');
+  sb.textContent = shipment.status; sb.className = 'badge '+(scMap[shipment.status]||'badge-gray');
+  document.getElementById('rcv-sum-supplier').textContent = shipment.supplier;
+  document.getElementById('rcv-sum-date').textContent = formatDisplayDate(shipment.arrival_date);
+  document.getElementById('rcv-sum-boxes').textContent = (shipment.total_boxes_received||0)+' / '+(shipment.total_boxes_expected||0);
+  const counted = lines.filter(l => l.status !== 'In Progress').length;
+  document.getElementById('rcv-sum-parts').textContent = counted+' / '+lines.length+' counted';
+  const mt = document.getElementById('marks-list');
+  mt.innerHTML = marks.length ? marks.map(m => {
+    const sc = m.status==='Received'?'badge-green':m.status==='Missing'||m.status==='Damaged'?'badge-red':'badge-gray';
+    const wt = m.weight_actual!=null ? m.weight_actual+'kg' : (m.weight_expected ? 'exp: '+m.weight_expected+'kg' : '—');
+    return '<tr><td class="mono">'+m.mark_code+'</td><td class="mono">'+(m.box_count_received||0)+' / '+(m.box_count_expected||1)+'</td><td style="font-size:11px">'+wt+'</td><td><span class="badge '+sc+'">'+m.status+'</span></td><td style="font-size:11px;color:var(--text3)">'+(m.notes||'')+'</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">No marks yet</td></tr>';
+  const ms = document.getElementById('rcv-mark-select');
+  ms.innerHTML = '<option value="">— select mark —</option>';
+  marks.forEach(m => { ms.innerHTML += '<option value="'+m.mark_id+'">'+m.mark_code+'</option>'; });
+  const hasCounted = lines.some(l => l.status === 'Counted');
+  document.getElementById('raise-grn-btn').style.display = hasCounted ? '' : 'none';
+  const lt = document.getElementById('lines-list');
+  lt.innerHTML = lines.length ? lines.map(l => {
+    const lsc = l.status==='GRN Raised'?'badge-green':l.status==='Counted'?'badge-blue':'badge-yellow';
+    const diff = l.qty_expected>0 ? l.qty_counted-l.qty_expected : 0;
+    const vs = diff===0?'':diff>0?'<span style="color:var(--yellow);font-size:10px">+'+diff+'</span>':'<span style="color:var(--red);font-size:10px">'+diff+'</span>';
+    const mc = marks.find(m => m.mark_id === l.mark_id)?.mark_code || '—';
+    const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
+    return '<tr data-line-id="'+l.line_id+'" data-part-code="'+l.part_code+'"><td class="mono" style="font-size:11px">'+l.part_code+'</td><td style="font-size:12px">'+l.part_name+'</td><td style="font-size:11px;color:var(--text3)">'+mc+'</td><td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td><td class="mono" style="text-align:right">'+bc+'</td><td style="font-size:11px;color:var(--text3)">'+l.bags_of+' per bag</td><td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td><td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td><td>'+(l.status==='Counted'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="viewBagsBtn(this)">BAGS</button>':'')+(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="generateBagsForLineBtn(this)">DONE →</button>':'')+'</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="empty">No parts counted yet</td></tr>';
+}
+function lookupRcvPart(input) {
+  const code = input.value.trim().toUpperCase();
+  const ni = document.getElementById('rcv-part-name');
+  const part = materialCache[code];
+  if (part) { ni.value=part.part_name||''; ni.style.color='var(--green)'; input.style.borderColor='var(--green)'; }
+  else if (code.length>=4) { ni.value='⚠ Not in material master'; ni.style.color='var(--red)'; input.style.borderColor='var(--red)'; }
+}
+async function submitMark() {
+  if (!currentShipmentId) return;
+  const code = document.getElementById('mark-code').value.trim();
+  if (!code) { toast('Enter mark code','error'); return; }
+  const btn = document.querySelector('#add-mark-form .btn-primary');
+  try {
+    if (btn) { btn.textContent='ADDING...'; btn.disabled=true; }
+    const res = await apiPost('postShippingMark', { data: {
+      shipment_id: currentShipmentId, mark_code: code,
+      box_count_expected: parseInt(document.getElementById('mark-boxes-exp').value)||1,
+      box_count_received: parseInt(document.getElementById('mark-boxes-rcv').value)||0,
+      weight_expected: parseFloat(document.getElementById('mark-wt-exp').value)||null,
+      weight_actual: parseFloat(document.getElementById('mark-wt-act').value)||null,
+      status: document.getElementById('mark-status').value,
+      notes: document.getElementById('mark-notes').value.trim(),
+    }});
+    if (res.ok) { toast('Mark added','success'); document.getElementById('add-mark-form').style.display='none'; document.getElementById('mark-code').value=''; await refreshShipmentDetail(); }
+    else { toast(res.error||'Failed','error'); }
+  } catch(e) { toast('Error','error'); }
+  finally { if (btn) { btn.textContent='ADD MARK'; btn.disabled=false; } }
+}
+async function submitReceivingLine() {
+  if (!currentShipmentId) return;
+  ensureMaterialCache();
+  const pc = document.getElementById('rcv-part-code').value.trim().toUpperCase();
+  const pn = document.getElementById('rcv-part-name').value.trim().replace('⚠ Not in material master','').trim();
+  if (!pc) { toast('Enter part code','error'); return; }
+  if (!pn || pn.startsWith('⚠')) { toast('Invalid part code','error'); return; }
+  const btn = document.querySelector('#add-line-form .btn-primary');
+  try {
+    if (btn) { btn.textContent='SAVING...'; btn.disabled=true; }
+    const res = await apiPost('postReceivingLine', { data: {
+      shipment_id: currentShipmentId,
+      mark_id: document.getElementById('rcv-mark-select').value||null,
+      part_code: pc, part_name: pn,
+      product: (materialCache[pc]?.product)||'',
+      qty_expected: parseInt(document.getElementById('rcv-qty-exp').value)||0,
+      qty_counted: parseInt(document.getElementById('rcv-qty-cnt').value)||0,
+      bags_of: parseInt(document.getElementById('rcv-bag-size').value)||25,
+      notes: document.getElementById('rcv-line-notes').value.trim(),
+    }});
+    if (res.ok) {
+      toast('Count saved','success');
+      ['rcv-part-code','rcv-part-name','rcv-qty-exp','rcv-qty-cnt','rcv-line-notes'].forEach(id => document.getElementById(id).value='');
+      await refreshShipmentDetail();
+    } else { toast(res.error||'Failed','error'); }
+  } catch(e) { toast('Error','error'); }
+  finally { if (btn) { btn.textContent='SAVE COUNT'; btn.disabled=false; } }
+}
+async function generateBagsForLine(lineId) {
+  const marks = currentShipmentData?.marks||[];
+  const line = currentShipmentData?.lines?.find(l => l.line_id===lineId);
+  const mc = marks.find(m => m.mark_id===line?.mark_id)?.mark_code||null;
+  try {
+    const res = await apiPost('generateBags', { data: { line_id: lineId, mark_code: mc }});
+    if (res.ok) { toast(res.data.bags_created+' bags generated','success'); await refreshShipmentDetail(); viewBags(lineId, line?.part_code||''); }
+    else { toast(res.error||'Failed','error'); }
+  } catch(e) { toast('Error','error'); }
+}
+async function viewBags(lineId, partCode) {
+  document.getElementById('bags-panel').style.display = '';
+  document.getElementById('bags-panel-title').textContent = partCode;
+  const tbody = document.getElementById('bags-list');
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  const res = await api('getBags', { line_id: lineId });
+  if (!res.ok) { tbody.innerHTML='<tr><td colspan="8" class="empty">Error</td></tr>'; return; }
+  const bags = res.data||[];
+  tbody.innerHTML = bags.map(b => '<tr>'
+    +'<td class="mono" style="font-size:10px">'+b.bag_id+'</td>'
+    +'<td class="mono" style="font-size:11px">'+b.part_code+'</td>'
+    +'<td style="font-size:11px">'+b.part_name+'</td>'
+    +'<td style="font-size:11px;color:var(--text3)">'+(b.mark_code||'—')+'</td>'
+    +'<td class="mono">'+b.qty+'</td>'
+    +'<td style="font-size:11px;color:var(--text3)">Bag '+b.bag_seq+' of '+b.total_bags+'</td>'
+    +'<td style="font-size:11px">'+(b.bin_code||'—')+'</td>'
+    +'<td><span class="badge '+(b.label_printed?'badge-green':'badge-gray')+'" style="font-size:9px">'+(b.label_printed?'Printed':'Pending')+'</span></td>'
+    +'</tr>').join('');
+}
+async function raiseGRNFromCounted() {
+  if (!currentShipmentId||!currentShipmentData) return;
+  const ids = currentShipmentData.lines.filter(l=>l.status==='Counted').map(l=>l.line_id);
+  if (!ids.length) { toast('No counted lines','error'); return; }
+  const btn = document.getElementById('raise-grn-btn');
+  try {
+    btn.textContent='RAISING GRN...'; btn.disabled=true;
+    const res = await apiPost('raiseGRNFromReceiving', { data: { shipment_id: currentShipmentId, line_ids: ids }});
+    if (res.ok) { toast(res.data.grn_no+' raised — '+res.data.lines+' lines','success'); await refreshShipmentDetail(); loadGRNHistory(); loadDashboard(); }
+    else { toast(res.error||'GRN failed','error'); }
+  } catch(e) { toast('Error','error'); }
+  finally { btn.textContent='RAISE GRN FOR COUNTED'; btn.disabled=false; }
+}
+function printBagLabels() {
+  const rows = document.querySelectorAll('#bags-list tr');
+  if (!rows.length) { toast('No bags to print','error'); return; }
+  const bags = [];
+  rows.forEach(row => {
+    const c = row.querySelectorAll('td');
+    if (c.length<6) return;
+    bags.push({ bag_id:c[0].textContent.trim(), part_code:c[1].textContent.trim(), part_name:c[2].textContent.trim(), mark_code:c[3].textContent.trim(), qty:c[4].textContent.trim(), bag_seq:c[5].textContent.trim(), bin_code:c[6].textContent.trim() });
+  });
+  const labelHTML = bags.map(b =>
+    '<div class="label"><div class="lh"><span class="lp">LOT</span><span class="lc">'+b.part_code+'</span></div>'
+    +'<div class="ln">'+b.part_name+'</div>'
+    +'<div class="lr"><div><span class="lqn">'+b.qty+'</span><span class="lqu">pcs</span></div>'
+    +'<div class="lm"><div>'+b.bag_seq+'</div>'+(b.mark_code!=='—'?'<div style="font-size:8px;color:#666">'+b.mark_code+'</div>':'')+(b.bin_code!=='—'?'<div style="font-size:8px;color:#666">'+b.bin_code+'</div>':'')+'</div></div>'
+    +'<div class="lf"><span>'+b.bag_id+'</span><span>'+new Date().toLocaleDateString('en-IN')+'</span></div></div>'
+  ).join('');
+  const win = window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><title>Labels</title><style>'
+    +'*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}'
+    +'.page{display:flex;flex-wrap:wrap;gap:4mm;padding:5mm}'
+    +'.label{width:100mm;height:50mm;border:1px solid #000;padding:3mm;display:flex;flex-direction:column;page-break-inside:avoid}'
+    +'.lh{display:flex;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm}'
+    +'.lp{font-weight:900;font-size:14pt;letter-spacing:2px}'
+    +'.lc{font-family:monospace;font-size:11pt;font-weight:700}'
+    +'.ln{font-size:9pt;font-weight:600;margin-bottom:2mm;flex:1}'
+    +'.lr{display:flex;justify-content:space-between;align-items:center;margin-bottom:2mm}'
+    +'.lqn{font-size:22pt;font-weight:900}.lqu{font-size:8pt;color:#666;margin-left:1mm}'
+    +'.lm{text-align:right;font-size:9pt;font-weight:600}'
+    +'.lf{display:flex;justify-content:space-between;border-top:1px solid #ccc;padding-top:1mm;font-size:7pt;color:#666;font-family:monospace}'
+    +'@media print{@page{size:A4;margin:5mm}}'
+    +'</style></head><body><div class="page">'+labelHTML+'</div>'
+    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+}
+
+function viewBagsBtn(btn) {
+  const row = btn.closest('tr');
+  viewBags(row.dataset.lineId || row.dataset.line_id, row.dataset.partCode || row.dataset.part_code);
+}
+async function generateBagsForLineBtn(btn) {
+  const row = btn.closest('tr');
+  const lineId = row.dataset.lineId || row.dataset.line_id;
+  await generateBagsForLine(lineId);
 }
 </script>
 </body>
