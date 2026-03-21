@@ -1459,9 +1459,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">UNITS</span><br><span id="planned-wo-units" style="font-family:var(--mono);font-size:13px"></span></div>
               </div>
 
-              <div class="section-label" style="display:flex;justify-content:space-between">
+              <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
                 <span>KIT LINES — confirm actual quantities</span>
-                <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="markAllIssued()">ALL AS PLANNED</button>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="printPickList()">🖨 PRINT PICK LIST</button>
+                  <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="markAllIssued()">ALL AS PLANNED</button>
+                </div>
               </div>
 
               <div style="max-height:280px;overflow-y:auto;margin-bottom:12px">
@@ -1478,8 +1481,18 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">VARIANCES</span><br><span style="font-family:var(--mono);font-size:16px;color:var(--yellow)" id="planned-variances">0</span></div>
               </div>
 
+              <div style="padding:10px 12px;background:rgba(242,205,26,.06);border:1px solid rgba(242,205,26,.2);border-radius:3px;margin-bottom:10px">
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+                  <input type="checkbox" id="pick-confirm-check" onchange="toggleIssueBtn()"
+                    style="width:16px;height:16px;margin-top:2px;accent-color:var(--yellow);cursor:pointer;flex-shrink:0">
+                  <span style="font-size:12px;color:var(--text);line-height:1.5">
+                    I confirm parts have been physically picked against the pick list for
+                    <span id="pick-confirm-wo" style="font-family:var(--mono);color:var(--yellow)">—</span>
+                  </span>
+                </label>
+              </div>
               <div class="btn-row">
-                <button class="btn btn-primary" id="planned-submit-btn" onclick="submitPlannedIssue()">CONFIRM ISSUE</button>
+                <button class="btn btn-primary" id="planned-submit-btn" onclick="submitPlannedIssue()" disabled>CONFIRM ISSUE</button>
                 <button class="btn btn-secondary" onclick="clearPlannedIssue()">CLEAR</button>
               </div>
             </div>
@@ -2894,6 +2907,13 @@ async function loadPlannedWO() {
   document.getElementById('planned-wo-product').textContent = product;
   document.getElementById('planned-wo-variant').textContent = variant || 'Common';
   document.getElementById('planned-wo-units').textContent   = qty + ' units';
+  // Reset confirmation gate for new WO
+  const confirmWoEl = document.getElementById('pick-confirm-wo');
+  if (confirmWoEl) confirmWoEl.textContent = woNo;
+  const pickCb = document.getElementById('pick-confirm-check');
+  if (pickCb) pickCb.checked = false;
+  const submitBtn = document.getElementById('planned-submit-btn');
+  if (submitBtn) submitBtn.disabled = true;
 
   // Load kit
   try {
@@ -2966,6 +2986,12 @@ function clearPlannedIssue() {
   document.getElementById('planned-wo-detail').style.display = 'none';
   document.getElementById('planned-wo-empty').style.display  = '';
   plannedKitData = [];
+  const cb = document.getElementById('pick-confirm-check');
+  if (cb) cb.checked = false;
+  const btn = document.getElementById('planned-submit-btn');
+  if (btn) btn.disabled = true;
+  const confirmWoEl = document.getElementById('pick-confirm-wo');
+  if (confirmWoEl) confirmWoEl.textContent = '—';
 }
 
 async function submitPlannedIssue() {
@@ -2973,6 +2999,9 @@ async function submitPlannedIssue() {
   const sel = document.getElementById('planned-wo-select');
   const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) { toast('Select a work order', 'error'); return; }
+  if (!document.getElementById('pick-confirm-check')?.checked) {
+    toast('Confirm physical pick before issuing', 'error'); return;
+  }
 
   const wo_no   = opt.value;
   const product = opt.dataset.product;
@@ -3477,6 +3506,106 @@ function printBagLabels() {
     +'@media print{@page{size:A4;margin:5mm}}'
     +'</style></head><body><div class="page">'+labelHTML+'</div>'
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+}
+
+// ── PICK LIST ─────────────────────────────────────────────────
+function toggleIssueBtn() {
+  const checked = document.getElementById('pick-confirm-check')?.checked;
+  const btn = document.getElementById('planned-submit-btn');
+  if (btn) btn.disabled = !checked;
+}
+
+function printPickList() {
+  const sel = document.getElementById('planned-wo-select');
+  const opt = sel?.options[sel.selectedIndex];
+  if (!opt || !opt.value || !plannedKitData.length) {
+    toast('Load a work order kit first', 'error'); return;
+  }
+  const woNo    = opt.value;
+  const product = opt.dataset.product || '';
+  const variant = opt.dataset.variant || 'Common';
+  const units   = opt.dataset.qty || '—';
+  const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+  const rows = plannedKitData.map(r => {
+    const isShort = r.status === 'SHORT';
+    const rowStyle = isShort ? 'background:#fff8f0' : '';
+    const statusCell = isShort
+      ? `<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −${r.shortfall}</td>`
+      : `<td style="color:#27ae60;font-size:10pt">OK</td>`;
+    return `<tr style="${rowStyle}">
+      <td style="text-align:center;font-size:14pt">☐</td>
+      <td style="font-family:monospace;font-size:9pt">${r.part_code}</td>
+      <td style="font-size:10pt">${r.part_name}</td>
+      <td style="font-family:monospace;font-size:9pt;color:#666">${r.category||'—'}</td>
+      <td style="text-align:right;font-family:monospace">${r.bom_qty}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:700">${r.total_qty}</td>
+      ${statusCell}
+    </tr>`;
+  }).join('');
+
+  const shortCount = plannedKitData.filter(r => r.status === 'SHORT').length;
+  const shortNote  = shortCount > 0
+    ? `<div style="background:#fff0f0;border:1px solid #e74c3c;border-radius:3px;padding:8px 12px;margin-bottom:12px;font-size:9pt;color:#c0392b">
+        ⚠ ${shortCount} line(s) are SHORT — flag to supervisor before picking
+       </div>` : '';
+
+  const html = `<!DOCTYPE html><html><head><title>Pick List — ${woNo}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size:10pt; color:#111; padding:12mm; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; border-bottom:2px solid #111; padding-bottom:8px; }
+    .logo { font-size:18pt; font-weight:900; letter-spacing:2px; }
+    .logo span { color:#c9a800; }
+    .doc-type { font-size:14pt; font-weight:700; letter-spacing:1px; text-align:right; }
+    .meta { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-bottom:10px; padding:8px; background:#f5f5f5; border-radius:3px; }
+    .meta-item label { font-size:7pt; text-transform:uppercase; letter-spacing:1px; color:#666; display:block; margin-bottom:2px; }
+    .meta-item span { font-size:11pt; font-weight:700; }
+    table { width:100%; border-collapse:collapse; font-size:10pt; }
+    th { background:#111; color:#fff; padding:6px 8px; text-align:left; font-size:8pt; letter-spacing:0.5px; text-transform:uppercase; }
+    th:nth-child(5), th:nth-child(6) { text-align:right; }
+    td { padding:7px 8px; border-bottom:1px solid #ddd; }
+    tr:last-child td { border-bottom:none; }
+    .footer { margin-top:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+    .sig-line { border-top:1px solid #111; padding-top:4px; font-size:8pt; color:#666; text-align:center; margin-top:30px; }
+    @media print { @page { size:A4; margin:10mm; } body { padding:0; } }
+  </style></head><body>
+  <div class="header">
+    <div class="logo">LEGEND<span>OF</span>TOYS</div>
+    <div class="doc-type">PICK LIST<br><span style="font-size:9pt;color:#666;font-weight:400">Store → Production</span></div>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><label>Work Order</label><span>${woNo}</span></div>
+    <div class="meta-item"><label>Product</label><span>${product}</span></div>
+    <div class="meta-item"><label>Variant / Units</label><span>${variant} · ${units} units</span></div>
+    <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>
+  </div>
+  ${shortNote}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px">✓</th>
+        <th>Part Code</th>
+        <th>Part Name</th>
+        <th>Category</th>
+        <th style="text-align:right">BOM Qty</th>
+        <th style="text-align:right">Total Pick</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">
+    <div class="sig-line">Picked by (name)</div>
+    <div class="sig-line">Checked by (name)</div>
+    <div class="sig-line">Time issued</div>
+  </div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
   win.document.close();
 }
 
