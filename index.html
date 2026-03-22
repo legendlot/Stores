@@ -2110,6 +2110,12 @@ function launchApp() {
   badge.textContent = currentRole.toUpperCase().replace('_',' ');
   badge.className = 'role-badge ' + (currentRole === 'ops' ? 'ops' : currentRole === 'vinay' ? 'vinay' : 'reann');
 
+  // Show procurement tab for all roles that can access it
+  const procBtn = document.getElementById('nav-procurement');
+  if (procBtn && ['ops','vinay','store_manager','brand','founders','production','store'].includes(currentRole)) {
+    procBtn.style.display = '';
+  }
+
   // Procurement-only roles: hide store tabs, show procurement
   const procOnlyRoles = ['brand','founders','production'];
   if (procOnlyRoles.includes(currentRole)) {
