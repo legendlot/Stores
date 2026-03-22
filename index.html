@@ -1316,6 +1316,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div class="panel-title">PART COUNTS</div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-secondary" onclick="showAddLineForm()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
+              <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT ALL LABELS</button>
               <button class="btn btn-primary" id="raise-grn-btn" onclick="raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN FOR COUNTED</button>
             </div>
           </div>
@@ -3960,8 +3961,9 @@ function renderShipmentDetail(data) {
   const ms = document.getElementById('rcv-mark-select');
   ms.innerHTML = '<option value="">— select mark —</option>';
   marks.forEach(m => { ms.innerHTML += '<option value="'+m.mark_id+'">'+m.mark_code+'</option>'; });
-  const hasCounted = lines.some(l => l.status === 'Counted');
-  document.getElementById('raise-grn-btn').style.display = hasCounted ? '' : 'none';
+  const hasCounted = lines.some(l => l.status === 'Counted' || l.status === 'GRN Raised');
+  document.getElementById('raise-grn-btn').style.display = lines.some(l => l.status === 'Counted') ? '' : 'none';
+  document.getElementById('print-all-shipment-btn').style.display = hasCounted ? '' : 'none';
   const lt = document.getElementById('lines-list');
   lt.innerHTML = lines.length ? lines.map(l => {
     const lsc = l.status==='GRN Raised'?'badge-green':l.status==='Counted'?'badge-blue':'badge-yellow';
@@ -4070,6 +4072,26 @@ async function raiseGRNFromCounted() {
   } catch(e) { toast('Error','error'); }
   finally { btn.textContent='RAISE GRN FOR COUNTED'; btn.disabled=false; }
 }
+async function printAllShipmentLabels() {
+  if (!currentShipmentData) return;
+  const countedLines = (currentShipmentData.lines || []).filter(l =>
+    l.status === 'Counted' || l.status === 'GRN Raised'
+  );
+  if (!countedLines.length) { toast('No counted lines to print', 'error'); return; }
+  const btn = document.getElementById('print-all-shipment-btn');
+  const origText = btn.textContent; btn.textContent = 'Loading...'; btn.disabled = true;
+  try {
+    const allBagArrays = await Promise.all(
+      countedLines.map(l => api('getBags', { line_id: l.line_id })
+        .then(r => r.ok ? r.data || [] : []).catch(() => []))
+    );
+    const allBags = allBagArrays.flat();
+    if (!allBags.length) { toast('No bags generated yet', 'error'); return; }
+    openLabelPrintWindow(allBags);
+  } catch(e) { toast('Error loading bags', 'error'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
+}
+
 function printBagLabels() {
   const rows = document.querySelectorAll('#bags-list tr');
   if (!rows.length) { toast('No bags to print','error'); return; }
@@ -4077,17 +4099,26 @@ function printBagLabels() {
   rows.forEach(row => {
     const c = row.querySelectorAll('td');
     if (c.length<6) return;
-    bags.push({ bag_id:c[0].textContent.trim(), part_code:c[1].textContent.trim(), part_name:c[2].textContent.trim(), mark_code:c[3].textContent.trim(), qty:c[4].textContent.trim(), bag_seq:c[5].textContent.trim(), bin_code:c[6].textContent.trim() });
+    bags.push({ bag_id:c[0].textContent.trim(), part_code:c[1].textContent.trim(),
+      part_name:c[2].textContent.trim(), mark_code:c[3].textContent.trim(),
+      qty:c[4].textContent.trim(), bag_seq:c[5].textContent.trim(), bin_code:c[6].textContent.trim() });
   });
+  openLabelPrintWindow(bags);
+}
+
+function openLabelPrintWindow(bags) {
   const labelHTML = bags.map(b =>
-    '<div class="label"><div class="lh"><span class="lp">LOT</span><span class="lc">'+b.part_code+'</span></div>'
-    +'<div class="ln">'+b.part_name+'</div>'
-    +'<div class="lr"><div><span class="lqn">'+b.qty+'</span><span class="lqu">pcs</span></div>'
-    +'<div class="lm"><div>'+b.bag_seq+'</div>'+(b.mark_code!=='—'?'<div style="font-size:8px;color:#666">'+b.mark_code+'</div>':'')+(b.bin_code!=='—'?'<div style="font-size:8px;color:#666">'+b.bin_code+'</div>':'')+'</div></div>'
-    +'<div class="lf"><span>'+b.bag_id+'</span><span>'+new Date().toLocaleDateString('en-IN')+'</span></div></div>'
+    '<div class="label"><div class="lh"><span class="lp">LOT</span><span class="lc">'+(b.part_code||'')+'</span></div>'
+    +'<div class="ln">'+(b.part_name||b.name||'')+'</div>'
+    +'<div class="lr"><div><span class="lqn">'+(b.qty||0)+'</span><span class="lqu">pcs</span></div>'
+    +'<div class="lm"><div>'+(b.bag_seq||b.bag_seq===0?b.bag_seq:'')+'</div>'
+    +((b.mark_code&&b.mark_code!=='—')?'<div style="font-size:8px;color:#666">'+b.mark_code+'</div>':'')
+    +((b.bin_code&&b.bin_code!=='—')?'<div style="font-size:8px;color:#666">'+b.bin_code+'</div>':'')
+    +'</div></div>'
+    +'<div class="lf"><span>'+(b.bag_id||'')+'</span><span>'+new Date().toLocaleDateString('en-IN')+'</span></div></div>'
   ).join('');
   const win = window.open('','_blank');
-  win.document.write('<!DOCTYPE html><html><head><title>Labels</title><style>'
+  win.document.write('<!DOCTYPE html><html><head><title>Labels ('+bags.length+')</title><style>'
     +'*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}'
     +'.page{display:flex;flex-wrap:wrap;gap:4mm;padding:5mm}'
     +'.label{width:100mm;height:50mm;border:1px solid #000;padding:3mm;display:flex;flex-direction:column;page-break-inside:avoid}'
@@ -4104,6 +4135,7 @@ function printBagLabels() {
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
   win.document.close();
 }
+
 
 // ══ PROCUREMENT ══════════════════════════════════════════════
 const PROCUREMENT_ROLES = ['ops','vinay','brand','founders','production','store_manager'];
