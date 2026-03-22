@@ -1803,6 +1803,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
         <button class="nav-btn active" id="proc-tab-po" onclick="switchProcTab('po')" style="border-radius:3px 3px 0 0">PURCHASE ORDERS</button>
         <button class="nav-btn" id="proc-tab-vendors" onclick="switchProcTab('vendors')" style="border-radius:3px 3px 0 0">VENDORS</button>
+        <button class="nav-btn" id="proc-tab-forwarders" onclick="switchProcTab('forwarders')" style="border-radius:3px 3px 0 0">FORWARDERS</button>
       </div>
 
       <!-- ── PO SECTION ── -->
@@ -1965,6 +1966,52 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
+        <!-- Shipping Timeline -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header"><div class="panel-title">SHIPPING TIMELINE</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:repeat(4,1fr)">
+              <div class="form-group">
+                <label class="form-label">Order Placed</label>
+                <div style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--text2)" id="po-placed-display">Today</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Expected Ready Date</label>
+                <input class="form-input" type="date" id="po-ready-date" oninput="calcPOTimeline()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Production Lead Time</label>
+                <div style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--text2)" id="po-prod-lead-display">— days</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shipping Date</label>
+                <input class="form-input" type="date" id="po-ship-date" oninput="calcPOTimeline()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shipping Mode</label>
+                <select class="form-select" id="po-ship-mode" onchange="onShipModeChange()">
+                  <option value="">Select...</option>
+                  <option>Sea</option><option>Air</option><option>Land</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Forwarder</label>
+                <select class="form-select" id="po-forwarder" onchange="onForwarderChange()">
+                  <option value="">— select forwarder —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Transit Days</label>
+                <input class="form-input" type="number" id="po-transit-days" placeholder="Auto from forwarder" min="0" oninput="calcPOTimeline()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Expected Arrival</label>
+                <div style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--yellow);font-weight:700" id="po-arrival-display">— auto-calc —</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="btn-row">
           <button class="btn btn-primary" onclick="submitNewPO()">CREATE PO</button>
           <button class="btn btn-secondary" onclick="showPOList()">CANCEL</button>
@@ -2123,6 +2170,129 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
       </div> <!-- /proc-vendors-section -->
+
+      <!-- ── FORWARDERS SECTION ── -->
+      <div id="proc-forwarders-section" style="display:none">
+        <div id="forwarder-list-view">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <button class="btn btn-primary" onclick="showNewForwarderForm()" style="padding:6px 16px">+ NEW FORWARDER</button>
+          </div>
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Code</th><th>Company</th><th>Country</th><th>Modes</th><th>Sea</th><th>Air</th><th>Land</th><th>IATA</th><th>SCAC</th><th>Contact</th><th>Status</th><th></th></tr></thead>
+                <tbody id="forwarder-table-body">
+                  <tr><td colspan="12"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="forwarder-form-view" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="showForwarderList()" style="padding:4px 12px">← Back</button>
+            <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="fwd-form-title">NEW FORWARDER</div>
+          </div>
+          <div class="panel" style="max-width:900px">
+            <div class="panel-header"><div class="panel-title">FORWARDER DETAILS</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Company Name</label>
+                  <input class="form-input" id="fwd-name" placeholder="Freight forwarder company name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Country</label>
+                  <select class="form-select" id="fwd-country">
+                    <option>India</option><option>China</option><option>USA</option>
+                    <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                    <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+                    <option>UK</option><option>Italy</option><option>Turkey</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Location (city / region)</label>
+                  <input class="form-input" id="fwd-location" placeholder="e.g. Mumbai, Shanghai">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tracking Portal URL</label>
+                  <input class="form-input" id="fwd-tracking-url" placeholder="https://track.forwarder.com">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">IATA Code (air)</label>
+                  <input class="form-input" id="fwd-iata" placeholder="e.g. BOM">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">SCAC Code (sea/land)</label>
+                  <input class="form-input" id="fwd-scac" placeholder="e.g. MSCU">
+                </div>
+              </div>
+
+              <div class="section-label" style="margin-top:16px">SHIPPING MODES &amp; TRANSIT TIMES</div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:12px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <input type="checkbox" id="fwd-sea-check" style="accent-color:var(--blue)">
+                    <label for="fwd-sea-check" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--blue)">🚢 SEA</label>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Default Transit Days</label>
+                    <input class="form-input" type="number" id="fwd-sea-days" placeholder="e.g. 28" min="1">
+                  </div>
+                </div>
+                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:12px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <input type="checkbox" id="fwd-air-check" style="accent-color:var(--yellow)">
+                    <label for="fwd-air-check" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--yellow)">✈ AIR</label>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Default Transit Days</label>
+                    <input class="form-input" type="number" id="fwd-air-days" placeholder="e.g. 5" min="1">
+                  </div>
+                </div>
+                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:12px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <input type="checkbox" id="fwd-land-check" style="accent-color:var(--green)">
+                    <label for="fwd-land-check" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green)">🚛 LAND</label>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Default Transit Days</label>
+                    <input class="form-input" type="number" id="fwd-land-days" placeholder="e.g. 7" min="1">
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-label" style="margin-top:16px">CONTACT</div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+                <div class="form-group">
+                  <label class="form-label">Contact Name</label>
+                  <input class="form-input" id="fwd-contact-name" placeholder="Primary contact">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Phone</label>
+                  <input class="form-input" id="fwd-contact-phone" placeholder="+91 ...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Email</label>
+                  <input class="form-input" id="fwd-contact-email" placeholder="agent@forwarder.com">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top:12px;margin-bottom:16px">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="fwd-notes" placeholder="Any notes about this forwarder">
+              </div>
+              <input type="hidden" id="fwd-editing-code">
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitForwarder()">SAVE FORWARDER</button>
+                <button class="btn btn-secondary" onclick="showForwarderList()">CANCEL</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> <!-- /proc-forwarders-section -->
 
     </div> <!-- /view-procurement -->
 
@@ -4159,6 +4329,7 @@ function initProcurement() {
   const newPOBtn = document.getElementById('new-po-btn');
   if (newPOBtn) newPOBtn.style.display = PERMS_FE[currentRole]?.raisePO ? '' : 'none';
   ensureVendorCache();
+  ensureForwarderCache();
   loadPOs();
   loadPendingInwardPOs();
 }
@@ -4277,6 +4448,15 @@ function showNewPOForm() {
   if (lth) lth.value = '';
   const tot = document.getElementById('po-total-value');
   if (tot) tot.textContent = '—';
+  ['po-ready-date','po-ship-date'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const shipMode = document.getElementById('po-ship-mode'); if (shipMode) shipMode.value = '';
+  const transitEl = document.getElementById('po-transit-days'); if (transitEl) transitEl.value = '';
+  const placedEl = document.getElementById('po-placed-display');
+  if (placedEl) placedEl.textContent = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('po-prod-lead-display').textContent = '— days';
+  document.getElementById('po-arrival-display').textContent = '— auto-calc —';
   // Clear and add one fresh line
   document.getElementById('po-lines-container').innerHTML = '';
   addPOLine();
@@ -4407,6 +4587,11 @@ async function submitNewPO() {
     lead_time_days:    parseInt(document.getElementById('po-lead-time').value) || null,
     port_of_loading:   document.getElementById('po-port').value          || null,
     freight_forwarder: document.getElementById('po-freight').value       || null,
+    expected_ready_date: document.getElementById('po-ready-date').value  || null,
+    shipping_date:     document.getElementById('po-ship-date').value     || null,
+    shipping_mode:     document.getElementById('po-ship-mode').value     || null,
+    forwarder_code:    document.getElementById('po-forwarder').value     || null,
+    transit_days:      parseInt(document.getElementById('po-transit-days').value) || null,
     notes:             document.getElementById('po-notes').value         || null,
     lines,
   };
@@ -4561,7 +4746,200 @@ async function poAction(action) {
 }
 
 
-// ── VENDOR CACHE & AUTOCOMPLETE ──────────────────────────────
+// ── FORWARDER CACHE ───────────────────────────────────────────
+let forwarderCache = [];
+
+async function ensureForwarderCache() {
+  if (forwarderCache.length) return;
+  try {
+    const res = await api('getForwarders');
+    if (res.ok) { forwarderCache = res.data || []; populateForwarderDropdown(); }
+  } catch(e) {}
+}
+
+function populateForwarderDropdown() {
+  const sel = document.getElementById('po-forwarder');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— select forwarder —</option>';
+  forwarderCache.forEach(f => {
+    sel.innerHTML += `<option value="${f.forwarder_code}"
+      data-sea="${f.sea_days||''}" data-air="${f.air_days||''}" data-land="${f.land_days||''}"
+    >${f.company_name} (${f.forwarder_code})</option>`;
+  });
+  if (current) sel.value = current;
+}
+
+function onForwarderChange() {
+  const sel = document.getElementById('po-forwarder');
+  const opt = sel?.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  const mode = document.getElementById('po-ship-mode')?.value;
+  const modeMap = { Sea: 'sea', Air: 'air', Land: 'land' };
+  const key = modeMap[mode];
+  if (key && opt.dataset[key]) {
+    document.getElementById('po-transit-days').value = opt.dataset[key];
+    calcPOTimeline();
+  }
+}
+
+function onShipModeChange() {
+  // If forwarder already selected, auto-fill transit days for new mode
+  const sel = document.getElementById('po-forwarder');
+  const opt = sel?.options[sel.selectedIndex];
+  if (opt?.value) onForwarderChange();
+}
+
+// ── PO TIMELINE CALC ─────────────────────────────────────────
+function calcPOTimeline() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const readyVal   = document.getElementById('po-ready-date')?.value;
+  const shipVal    = document.getElementById('po-ship-date')?.value;
+  const transitVal = document.getElementById('po-transit-days')?.value;
+
+  // Production lead time = ready date - today
+  const prodLeadEl = document.getElementById('po-prod-lead-display');
+  if (readyVal && prodLeadEl) {
+    const readyDate = new Date(readyVal); readyDate.setHours(0,0,0,0);
+    const days = Math.round((readyDate - today) / 86400000);
+    prodLeadEl.textContent = days >= 0 ? days + ' days' : 'Past date';
+    prodLeadEl.style.color = days < 0 ? 'var(--red)' : 'var(--text2)';
+  }
+
+  // Expected arrival = shipping date + transit days
+  const arrivalEl = document.getElementById('po-arrival-display');
+  if (shipVal && transitVal && arrivalEl) {
+    const shipDate = new Date(shipVal);
+    shipDate.setDate(shipDate.getDate() + parseInt(transitVal));
+    arrivalEl.textContent = shipDate.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    // Also update expected_delivery hidden calc
+    const delivEl = document.getElementById('po-delivery');
+    if (delivEl) { delivEl.value = shipDate.toISOString().split('T')[0]; calcLeadTime(); }
+  } else if (arrivalEl) {
+    arrivalEl.textContent = '— auto-calc —';
+  }
+}
+
+// ── FORWARDERS CRUD ───────────────────────────────────────────
+async function loadForwarders() {
+  const tbody = document.getElementById('forwarder-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="12"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getForwarders');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Error</td></tr>'; return; }
+    forwarderCache = res.data || [];
+    populateForwarderDropdown();
+    tbody.innerHTML = forwarderCache.length ? forwarderCache.map(f => {
+      const modes = (f.modes_supported||[]).map(m =>
+        `<span class="badge ${m==='Sea'?'badge-blue':m==='Air'?'badge-yellow':'badge-green'}" style="font-size:8px">${m}</span>`
+      ).join(' ');
+      return `<tr>
+        <td class="mono" style="font-size:11px;color:var(--yellow)">${f.forwarder_code}</td>
+        <td style="font-weight:600">${f.company_name}</td>
+        <td style="font-size:11px">${f.country||'—'}${f.location?' · '+f.location:''}</td>
+        <td>${modes||'—'}</td>
+        <td class="mono" style="font-size:11px;color:var(--blue)">${f.sea_days!=null?f.sea_days+'d':'—'}</td>
+        <td class="mono" style="font-size:11px;color:var(--yellow)">${f.air_days!=null?f.air_days+'d':'—'}</td>
+        <td class="mono" style="font-size:11px;color:var(--green)">${f.land_days!=null?f.land_days+'d':'—'}</td>
+        <td class="mono" style="font-size:11px">${f.iata_code||'—'}</td>
+        <td class="mono" style="font-size:11px">${f.scac_code||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${f.contact_name||'—'}${f.contact_phone?' · '+f.contact_phone:''}</td>
+        <td><span class="badge ${f.active?'badge-green':'badge-red'}" style="font-size:9px">${f.active?'Active':'Inactive'}</span></td>
+        <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="editForwarder('${f.forwarder_code}')">EDIT</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="12" class="empty">No forwarders yet</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Error</td></tr>'; }
+}
+
+function showForwarderList() {
+  document.getElementById('forwarder-list-view').style.display = '';
+  document.getElementById('forwarder-form-view').style.display = 'none';
+  loadForwarders();
+}
+
+function showNewForwarderForm() {
+  document.getElementById('forwarder-list-view').style.display = 'none';
+  document.getElementById('forwarder-form-view').style.display = '';
+  document.getElementById('fwd-form-title').textContent = 'NEW FORWARDER';
+  ['fwd-name','fwd-location','fwd-tracking-url','fwd-iata','fwd-scac',
+   'fwd-contact-name','fwd-contact-phone','fwd-contact-email','fwd-notes',
+   'fwd-sea-days','fwd-air-days','fwd-land-days'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['fwd-sea-check','fwd-air-check','fwd-land-check'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.checked = false;
+  });
+  document.getElementById('fwd-country').value = 'India';
+  document.getElementById('fwd-editing-code').value = '';
+}
+
+async function editForwarder(code) {
+  document.getElementById('forwarder-list-view').style.display = 'none';
+  document.getElementById('forwarder-form-view').style.display = '';
+  document.getElementById('fwd-form-title').textContent = 'EDIT FORWARDER — ' + code;
+  try {
+    const res = await api('getForwarder', { forwarder_code: code });
+    if (!res.ok) { toast('Forwarder not found','error'); showForwarderList(); return; }
+    const f = res.data;
+    document.getElementById('fwd-name').value          = f.company_name    || '';
+    document.getElementById('fwd-country').value       = f.country         || 'India';
+    document.getElementById('fwd-location').value      = f.location        || '';
+    document.getElementById('fwd-tracking-url').value  = f.tracking_url    || '';
+    document.getElementById('fwd-iata').value          = f.iata_code       || '';
+    document.getElementById('fwd-scac').value          = f.scac_code       || '';
+    document.getElementById('fwd-sea-days').value      = f.sea_days        || '';
+    document.getElementById('fwd-air-days').value      = f.air_days        || '';
+    document.getElementById('fwd-land-days').value     = f.land_days       || '';
+    document.getElementById('fwd-contact-name').value  = f.contact_name    || '';
+    document.getElementById('fwd-contact-phone').value = f.contact_phone   || '';
+    document.getElementById('fwd-contact-email').value = f.contact_email   || '';
+    document.getElementById('fwd-notes').value         = f.notes           || '';
+    document.getElementById('fwd-editing-code').value  = code;
+    const modes = f.modes_supported || [];
+    document.getElementById('fwd-sea-check').checked  = modes.includes('Sea');
+    document.getElementById('fwd-air-check').checked  = modes.includes('Air');
+    document.getElementById('fwd-land-check').checked = modes.includes('Land');
+  } catch(e) { toast('Error loading forwarder','error'); showForwarderList(); }
+}
+
+async function submitForwarder() {
+  const name = document.getElementById('fwd-name').value.trim();
+  if (!name) { toast('Company name required','error'); return; }
+  const modes = [];
+  if (document.getElementById('fwd-sea-check').checked)  modes.push('Sea');
+  if (document.getElementById('fwd-air-check').checked)  modes.push('Air');
+  if (document.getElementById('fwd-land-check').checked) modes.push('Land');
+  const editingCode = document.getElementById('fwd-editing-code')?.value;
+  const data = {
+    company_name:    name,
+    country:         document.getElementById('fwd-country').value,
+    location:        document.getElementById('fwd-location').value       || null,
+    modes_supported: modes,
+    sea_days:        parseInt(document.getElementById('fwd-sea-days').value)  || null,
+    air_days:        parseInt(document.getElementById('fwd-air-days').value)  || null,
+    land_days:       parseInt(document.getElementById('fwd-land-days').value) || null,
+    iata_code:       document.getElementById('fwd-iata').value           || null,
+    scac_code:       document.getElementById('fwd-scac').value           || null,
+    tracking_url:    document.getElementById('fwd-tracking-url').value   || null,
+    contact_name:    document.getElementById('fwd-contact-name').value   || null,
+    contact_phone:   document.getElementById('fwd-contact-phone').value  || null,
+    contact_email:   document.getElementById('fwd-contact-email').value  || null,
+    notes:           document.getElementById('fwd-notes').value          || null,
+  };
+  try {
+    const action  = editingCode ? 'updateForwarder' : 'postForwarder';
+    const payload = editingCode ? { forwarder_code: editingCode, ...data } : data;
+    const res = await apiPost(action, { data: payload });
+    if (res.ok) {
+      toast(editingCode ? 'Forwarder updated' : `${res.data.forwarder_code} created`, 'success');
+      forwarderCache = [];
+      showForwarderList();
+    } else toast(res.error || 'Failed','error');
+  } catch(e) { toast('Error','error'); }
+}
+
+
 let vendorCache = [];
 
 async function ensureVendorCache() {
@@ -4594,11 +4972,15 @@ function prefillVendorFields(name) {
 
 // ── PROCUREMENT SUB-NAV ───────────────────────────────────────
 function switchProcTab(tab) {
-  document.getElementById('proc-po-section').style.display      = tab === 'po'      ? '' : 'none';
-  document.getElementById('proc-vendors-section').style.display = tab === 'vendors' ? '' : 'none';
-  document.getElementById('proc-tab-po').className      = 'nav-btn' + (tab === 'po'      ? ' active' : '');
-  document.getElementById('proc-tab-vendors').className = 'nav-btn' + (tab === 'vendors' ? ' active' : '');
-  if (tab === 'vendors') loadVendors();
+  document.getElementById('proc-po-section').style.display        = tab === 'po'         ? '' : 'none';
+  document.getElementById('proc-vendors-section').style.display   = tab === 'vendors'    ? '' : 'none';
+  document.getElementById('proc-forwarders-section').style.display= tab === 'forwarders' ? '' : 'none';
+  ['po','vendors','forwarders'].forEach(t => {
+    const el = document.getElementById('proc-tab-' + t);
+    if (el) el.className = 'nav-btn' + (t === tab ? ' active' : '');
+  });
+  if (tab === 'vendors')    loadVendors();
+  if (tab === 'forwarders') loadForwarders();
 }
 
 // ── VENDORS ───────────────────────────────────────────────────
