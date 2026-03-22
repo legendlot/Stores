@@ -705,8 +705,29 @@ tr:hover td { background:rgba(255,255,255,.02); }
   margin-bottom:2px;
 }
 
-/* ── RESPONSIVE ── */
-@media(max-width:768px) {
+/* ── PRODUCIBLE UNITS ── */
+.prod-row {
+  padding:9px 0;
+  border-bottom:1px solid var(--border);
+}
+.prod-row:last-child { border-bottom:none; }
+.prod-expand {
+  display:none;
+  margin-top:6px;
+  padding:8px 10px;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:3px;
+  font-size:11px;
+}
+.prod-expand.open { display:block; }
+.prod-expand-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid rgba(42,42,42,.4); }
+.prod-expand-row:last-child { border-bottom:none; }
+
+/* ── MANPOWER ── */
+.mp-bar { height:6px; border-radius:3px; background:var(--blue); transition:width .3s; }
+
+
   .topbar-nav .nav-btn span { display:none; }
   .content { padding:16px; }
   .kpi-grid { grid-template-columns:1fr 1fr; }
@@ -778,6 +799,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="page-subtitle" id="dash-timestamp">Loading...</div>
       </div>
 
+      <!-- ── KPI Row ── -->
       <div class="kpi-grid" id="kpi-grid">
         <div class="kpi-card yellow">
           <div class="kpi-label">Open Work Orders</div>
@@ -805,7 +827,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
-      <div class="grid-2">
+      <!-- ── Row 2: Reorder Flags | Producible Units ── -->
+      <div class="grid-2" style="margin-bottom:16px">
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">🔴 Reorder Flags</div>
@@ -818,19 +841,35 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">Inventory Status by Product</div>
+            <div class="panel-title">Producible Units by Product</div>
+            <span class="badge badge-gray" style="font-size:9px" id="prod-units-status">Loading...</span>
           </div>
-          <div class="panel-body">
-            <div id="product-stock-list"><div class="empty">Loading...</div></div>
+          <div class="panel-body" id="producible-list">
+            <div class="empty">Computing...</div>
           </div>
         </div>
       </div>
 
-      <div style="height:16px"></div>
+      <!-- ── Row 3: Recent Shipments (7 days) ── -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title">Recent Shipments — Last 7 Days</div>
+          <span class="badge badge-gray" style="font-size:9px" id="dash-shp-count">—</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Shipment</th><th>Supplier</th><th>Arrival</th><th>Boxes</th><th>Parts</th><th>Status</th></tr></thead>
+            <tbody id="dash-shipments"><tr><td colspan="6" class="empty">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
 
-      <div class="grid-2">
+      <!-- ── Row 4: Recent GRNs | Planned Issues ── -->
+      <div class="grid-2" style="margin-bottom:16px">
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">Recent GRNs</div></div>
+          <div class="panel-header">
+            <div class="panel-title">Recent GRNs — Last 7 Days</div>
+          </div>
           <div class="tbl-wrap">
             <table>
               <thead><tr><th>GRN</th><th>Date</th><th>Product</th><th>Lines</th></tr></thead>
@@ -839,15 +878,74 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
+          <div class="panel-header">
+            <div class="panel-title">Planned Issues — Last 7 Days</div>
+            <span class="badge badge-blue" style="font-size:9px">PLANNED</span>
+          </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue</th><th>WO</th><th>Product</th><th>Parts</th></tr></thead>
-              <tbody id="recent-issues"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+              <thead><tr><th>Issue</th><th>WO</th><th>Product</th><th>Units</th><th>Date</th></tr></thead>
+              <tbody id="dash-planned-issues"><tr><td colspan="5" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
       </div>
+
+      <!-- ── Row 5: Ad Hoc Issues | Returns by Channel ── -->
+      <div class="grid-2" style="margin-bottom:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Ad Hoc Issues — Last 3 Days</div>
+            <span class="badge badge-red" style="font-size:9px">AD HOC</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Issue</th><th>Product</th><th>Part</th><th>Qty</th><th>Date</th></tr></thead>
+              <tbody id="dash-adhoc-issues"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Returns by Channel — Last 30 Days</div>
+          </div>
+          <div class="panel-body" id="dash-returns-channels">
+            <div class="empty">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Row 6: Manpower ── -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Store Manpower — Last 3 Days</div>
+          <span class="badge badge-yellow" style="font-size:9px">MANUAL ENTRY</span>
+        </div>
+        <div class="panel-body">
+          <!-- Entry form -->
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+            <div class="form-group" style="flex:0 0 140px">
+              <label class="form-label">Date</label>
+              <input class="form-input" type="date" id="mp-date" style="font-size:12px">
+            </div>
+            <div class="form-group" style="flex:0 0 120px">
+              <label class="form-label">Headcount</label>
+              <input class="form-input" type="number" id="mp-count" placeholder="0" min="0" style="font-size:12px">
+            </div>
+            <div class="form-group" style="flex:1;min-width:160px">
+              <label class="form-label">Notes (optional)</label>
+              <input class="form-input" id="mp-notes" placeholder="e.g. 2 on leave" style="font-size:12px">
+            </div>
+            <button class="btn btn-secondary" onclick="logManpower()" style="padding:9px 16px;font-size:12px;flex-shrink:0">LOG</button>
+          </div>
+          <!-- Last 3 days table -->
+          <table>
+            <thead><tr><th>Date</th><th>Headcount</th><th>Notes</th><th style="color:var(--text3);font-style:italic;font-size:9px">Backend pending</th></tr></thead>
+            <tbody id="mp-table"><tr><td colspan="4" class="empty" style="padding:16px">No entries yet — backend to be wired up</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
     <!-- ── STOCK ── -->
@@ -1459,12 +1557,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">UNITS</span><br><span id="planned-wo-units" style="font-family:var(--mono);font-size:13px"></span></div>
               </div>
 
-              <div class="section-label" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="section-label" style="display:flex;justify-content:space-between">
                 <span>KIT LINES — confirm actual quantities</span>
-                <div style="display:flex;gap:6px">
-                  <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="printPickList()">🖨 PRINT PICK LIST</button>
-                  <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="markAllIssued()">ALL AS PLANNED</button>
-                </div>
+                <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="markAllIssued()">ALL AS PLANNED</button>
               </div>
 
               <div style="max-height:280px;overflow-y:auto;margin-bottom:12px">
@@ -1481,18 +1576,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 <div><span style="font-size:10px;color:var(--text3);font-family:var(--mono)">VARIANCES</span><br><span style="font-family:var(--mono);font-size:16px;color:var(--yellow)" id="planned-variances">0</span></div>
               </div>
 
-              <div style="padding:10px 12px;background:rgba(242,205,26,.06);border:1px solid rgba(242,205,26,.2);border-radius:3px;margin-bottom:10px">
-                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
-                  <input type="checkbox" id="pick-confirm-check" onchange="toggleIssueBtn()"
-                    style="width:16px;height:16px;margin-top:2px;accent-color:var(--yellow);cursor:pointer;flex-shrink:0">
-                  <span style="font-size:12px;color:var(--text);line-height:1.5">
-                    I confirm parts have been physically picked against the pick list for
-                    <span id="pick-confirm-wo" style="font-family:var(--mono);color:var(--yellow)">—</span>
-                  </span>
-                </label>
-              </div>
               <div class="btn-row">
-                <button class="btn btn-primary" id="planned-submit-btn" onclick="submitPlannedIssue()" disabled>CONFIRM ISSUE</button>
+                <button class="btn btn-primary" id="planned-submit-btn" onclick="submitPlannedIssue()">CONFIRM ISSUE</button>
                 <button class="btn btn-secondary" onclick="clearPlannedIssue()">CLEAR</button>
               </div>
             </div>
@@ -1839,7 +1924,7 @@ function launchApp() {
 
   // Init dates
   const today = new Date().toISOString().split('T')[0];
-  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date'].forEach(id => {
+  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = today;
   });
@@ -1984,82 +2069,89 @@ function refreshCurrent() {
 }
 
 // ══ DASHBOARD ════════════════════════════════════════════════
+let manpowerLog = []; // in-memory until backend is wired
+
 async function loadDashboard() {
-  // Timeout after 20s — never hang forever
   const dashTimeout = setTimeout(clearDashboardLoadingStates, 20000);
   try {
-    const res = await api('getDashboard');
+    // Fire all data fetches in parallel
+    const [dashRes, grnSumRes, issuesRes, returnsRes, shipmentsRes] = await Promise.all([
+      api('getDashboard'),
+      api('getGRNSummary'),
+      api('getIssues'),
+      api('getReturns'),
+      api('getShipments'),
+    ]);
     clearTimeout(dashTimeout);
-    if (!res.ok) {
-      clearDashboardLoadingStates();
-      return;
-    }
-    const d = res.data;
 
-    document.getElementById('kpi-wo').textContent     = d.open_work_orders ?? '0';
-    document.getElementById('kpi-grn').textContent    = d.today_grn_count ?? '0';
-    document.getElementById('kpi-issued').textContent = d.today_wo_count ?? '0';
-    document.getElementById('kpi-returns').textContent= d.pending_returns ?? '0';
+    if (!dashRes.ok) { clearDashboardLoadingStates(); return; }
+    const d = dashRes.data;
 
+    // ── KPIs ──
+    document.getElementById('kpi-wo').textContent      = d.open_work_orders ?? '0';
+    document.getElementById('kpi-grn').textContent     = d.today_grn_count ?? '0';
+    document.getElementById('kpi-issued').textContent  = d.today_wo_count ?? '0';
+    document.getElementById('kpi-returns').textContent = d.pending_returns ?? '0';
     const reorderEl = document.getElementById('kpi-reorder');
     reorderEl.textContent = d.reorder_count ?? '0';
     reorderEl.className = 'kpi-value ' + (d.reorder_count > 0 ? 'warn' : 'ok');
-
     if (d.total_stock_value !== undefined) {
       document.getElementById('kpi-value').textContent = '₹' + Number(d.total_stock_value).toLocaleString('en-IN');
     }
-
     document.getElementById('dash-timestamp').textContent = d.as_of || '';
     document.getElementById('as-of-time').textContent = d.as_of || '';
 
-    // Reorder flags
-    const reorderList = document.getElementById('reorder-list');
+    // ── Reorder flags ──
     document.getElementById('reorder-count-badge').textContent = d.reorder_count || 0;
-    if (!d.reorder_flags || d.reorder_flags.length === 0) {
+    const reorderList = document.getElementById('reorder-list');
+    if (!d.reorder_flags || !d.reorder_flags.length) {
       reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
     } else {
       reorderList.innerHTML = '<div class="flag-list">' +
         d.reorder_flags.map(f => `
           <div class="flag-item">
             <div>
-              <div class="flag-item-name">${f.part_name || ''}</div>
+              <div class="flag-item-name">${f.part_name||''}</div>
               <div class="flag-item-code">${f.part_code} · ${f.product}</div>
             </div>
             <div class="flag-item-qty">${f.closing} / ${f.reorder}</div>
           </div>`).join('') + '</div>';
     }
 
-    // Product summary — parts tracked + reorder alerts
-    const psl = document.getElementById('product-stock-list');
-    if (d.stock_by_product && Object.keys(d.stock_by_product).length) {
-      psl.innerHTML = Object.entries(d.stock_by_product).map(([prod, info]) => {
-        const hasStock = info.parts_with_stock > 0;
-        const lowPct   = info.parts > 0 ? Math.round((info.reorder / info.parts) * 100) : 0;
-        return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
-          <div>
-            <div style="font-family:var(--cond);font-weight:700;font-size:14px">${prod}</div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${info.parts} parts tracked · ${info.parts_with_stock||0} stocked</div>
-          </div>
-          <div style="display:flex;gap:10px;align-items:center;font-family:var(--mono);font-size:12px">
-            ${info.reorder > 0
-              ? `<span style="color:var(--red)">⚠ ${info.reorder} low</span>`
-              : info.parts_with_stock > 0
-                ? `<span style="color:var(--green)">✅ OK</span>`
-                : `<span style="color:var(--text3)">No stock yet</span>`
-            }
-          </div>
-        </div>`;
-      }).join('');
+    // ── Producible units (fire per-product in parallel) ──
+    loadProducibleUnits();
+
+    // ── Recent Shipments (last 7 days) ──
+    const cutoff7 = new Date(); cutoff7.setDate(cutoff7.getDate() - 7);
+    const shpBody = document.getElementById('dash-shipments');
+    if (shipmentsRes.ok && shipmentsRes.data.length) {
+      const recent = shipmentsRes.data.filter(s => {
+        const d = new Date(s.arrival_date || s.created_at || '');
+        return !isNaN(d) && d >= cutoff7;
+      });
+      document.getElementById('dash-shp-count').textContent = recent.length + ' shipment' + (recent.length !== 1 ? 's' : '');
+      const scMap = { Arriving:'badge-yellow', 'In Progress':'badge-blue', Complete:'badge-green', Closed:'badge-gray' };
+      shpBody.innerHTML = recent.length
+        ? recent.map(s => `<tr>
+            <td class="mono" style="font-size:11px">${s.shipment_id||''}</td>
+            <td>${s.supplier||'—'}</td>
+            <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(s.arrival_date)}</td>
+            <td class="mono">${(s.total_boxes_received||0)} / ${(s.total_boxes_expected||0)}</td>
+            <td class="mono">${s.parts_counted||0} / ${s.total_parts||0}</td>
+            <td><span class="badge ${scMap[s.status]||'badge-gray'}" style="font-size:9px">${s.status||'—'}</span></td>
+          </tr>`).join('')
+        : '<tr><td colspan="6" class="empty">No shipments in the last 7 days</td></tr>';
     } else {
-      psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
+      shpBody.innerHTML = '<tr><td colspan="6" class="empty">No shipments yet</td></tr>';
     }
 
-    // Dashboard recent GRNs — from GRNSummary
+    // ── Recent GRNs (last 7 days) ──
     const rg = document.getElementById('recent-grns');
-    try {
-      const grnSumRes = await api('getGRNSummary');
-      const recentGRNs = (grnSumRes.ok ? grnSumRes.data : []).slice(0, 5);
+    if (grnSumRes.ok && grnSumRes.data.length) {
+      const recentGRNs = grnSumRes.data.filter(r => {
+        const dd = new Date(r.grn_date || '');
+        return !isNaN(dd) && dd >= cutoff7;
+      });
       rg.innerHTML = recentGRNs.length
         ? recentGRNs.map(r => `<tr>
             <td class="mono">${r.grn_no||''}</td>
@@ -2067,21 +2159,87 @@ async function loadDashboard() {
             <td>${r.product||''}</td>
             <td class="mono">${r.lines||0} lines</td>
           </tr>`).join('')
-        : '<tr><td colspan="4" class="empty">No GRNs yet</td></tr>';
-    } catch(e) {
-      rg.innerHTML = '<tr><td colspan="4" class="empty">—</td></tr>';
+        : '<tr><td colspan="4" class="empty">No GRNs in the last 7 days</td></tr>';
+    } else {
+      rg.innerHTML = '<tr><td colspan="4" class="empty">No GRNs yet</td></tr>';
     }
 
-    // Recent issues
-    const ri = document.getElementById('recent-issues');
-    ri.innerHTML = (d.recent_issues && d.recent_issues.length)
-      ? d.recent_issues.map(r => `<tr>
-          <td class="mono">${r.issue_no||''}</td>
-          <td class="mono">${r.work_order_no||''}</td>
-          <td>${r.product||''}</td>
-          <td class="mono">${r.units_planned||r.bom_issue_qty||'—'}</td>
+    // ── Issues — split Planned vs Ad Hoc ──
+    const allIssues = issuesRes.ok ? (issuesRes.data || []) : [];
+    const cutoff3 = new Date(); cutoff3.setDate(cutoff3.getDate() - 3);
+
+    // Planned (last 7 days) — dedupe by issue_no
+    const plannedSeen = new Set();
+    const plannedIssues = allIssues.filter(r => {
+      const idate = new Date(r.issue_date || '');
+      const isPlanned = (r.issue_type||'').toLowerCase() !== 'ad hoc';
+      const inWindow = !isNaN(idate) && idate >= cutoff7;
+      if (isPlanned && inWindow && !plannedSeen.has(r.issue_no)) {
+        plannedSeen.add(r.issue_no); return true;
+      }
+      return false;
+    });
+    const piBody = document.getElementById('dash-planned-issues');
+    piBody.innerHTML = plannedIssues.length
+      ? plannedIssues.map(r => `<tr>
+          <td class="mono" style="font-size:11px">${r.issue_no||''}</td>
+          <td class="mono" style="font-size:11px">${r.wo_no||r.work_order_no||'—'}</td>
+          <td>${r.product||'—'}</td>
+          <td class="mono">${r.units_planned||'—'}</td>
+          <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.issue_date)}</td>
         </tr>`).join('')
-      : '<tr><td colspan="4" class="empty">No issues today</td></tr>';
+      : '<tr><td colspan="5" class="empty">No planned issues in 7 days</td></tr>';
+
+    // Ad Hoc (last 3 days)
+    const adhocIssues = allIssues.filter(r => {
+      const idate = new Date(r.issue_date || '');
+      return (r.issue_type||'').toLowerCase() === 'ad hoc' && !isNaN(idate) && idate >= cutoff3;
+    });
+    const ahBody = document.getElementById('dash-adhoc-issues');
+    ahBody.innerHTML = adhocIssues.length
+      ? adhocIssues.map(r => `<tr>
+          <td class="mono" style="font-size:11px">${r.issue_no||''}</td>
+          <td>${r.product||'—'}</td>
+          <td style="font-size:11px">${r.part_name||r.part_code||'—'}</td>
+          <td class="mono">${r.actual_issued||r.bom_issue_qty||'—'}</td>
+          <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.issue_date)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">No ad hoc issues in 3 days</td></tr>';
+
+    // ── Returns by channel (last 30 days) ──
+    const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30);
+    const allReturns = returnsRes.ok ? (returnsRes.data || []) : [];
+    const recentReturns = allReturns.filter(r => {
+      const dd = new Date(r.return_date || '');
+      return !isNaN(dd) && dd >= cutoff30;
+    });
+    const channelMap = {};
+    recentReturns.forEach(r => {
+      const ch = r.channel || 'Other';
+      channelMap[ch] = (channelMap[ch] || 0) + (r.qty || 1);
+    });
+    const maxCh = Math.max(1, ...Object.values(channelMap));
+    const chEl = document.getElementById('dash-returns-channels');
+    if (Object.keys(channelMap).length) {
+      chEl.innerHTML = Object.entries(channelMap)
+        .sort((a,b) => b[1]-a[1])
+        .map(([ch, qty]) => `
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:12px">${ch}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${qty} unit${qty!==1?'s':''}</span>
+            </div>
+            <div style="background:var(--bg3);border-radius:3px;height:6px;overflow:hidden">
+              <div class="mp-bar" style="width:${Math.round((qty/maxCh)*100)}%;background:var(--red)"></div>
+            </div>
+          </div>`).join('')
+        + `<div style="font-size:10px;color:var(--text3);margin-top:8px;font-family:var(--mono)">${recentReturns.length} total returns · last 30 days</div>`;
+    } else {
+      chEl.innerHTML = '<div class="empty">No returns in the last 30 days</div>';
+    }
+
+    // ── Manpower ──
+    renderManpower();
 
   } catch(e) {
     console.error('Dashboard error:', e);
@@ -2089,11 +2247,146 @@ async function loadDashboard() {
   }
 }
 
+// ── Producible units ─────────────────────────────────────────
+async function loadProducibleUnits() {
+  const el = document.getElementById('producible-list');
+  const statusEl = document.getElementById('prod-units-status');
+  const products = PRODUCTS.filter(p => p !== 'Atlas'); // skip if no BOM
+  try {
+    const results = await Promise.all(
+      products.map(p => api('calcKit', { product: p, variant: '', colour: '', qty: 1 })
+        .then(r => ({ product: p, ok: r.ok, kit: r.ok ? (r.data.kit || []) : [] }))
+        .catch(() => ({ product: p, ok: false, kit: [] }))
+      )
+    );
+
+    const rows = results.map(({ product, ok, kit }) => {
+      if (!ok || !kit.length) return null;
+      // Compute max producible per part: floor(available / bom_qty)
+      const producible = kit.map(r => ({
+        part_code: r.part_code,
+        part_name: r.part_name,
+        bom_qty: r.bom_qty || 1,
+        available: r.available || 0,
+        max_units: r.bom_qty > 0 ? Math.floor((r.available || 0) / r.bom_qty) : 0,
+      }));
+      const bottleneck = producible.reduce((min, r) => r.max_units < min.max_units ? r : min, producible[0]);
+      const maxPossible = Math.max(...producible.map(r => r.max_units));
+      const shorts = producible.filter(r => r.max_units < maxPossible);
+      return { product, bottleneck, maxPossible, producible, shorts };
+    }).filter(Boolean);
+
+    statusEl.textContent = results.length + ' products';
+    statusEl.className = 'badge badge-green';
+
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty">No BOM data to compute</div>';
+      return;
+    }
+
+    el.innerHTML = rows.map(({ product, bottleneck, maxPossible, producible, shorts }, i) => {
+      const pct = maxPossible > 0 ? Math.round((bottleneck.max_units / maxPossible) * 100) : 100;
+      const isConstrained = bottleneck.max_units < maxPossible;
+      const color = isConstrained ? 'var(--red)' : 'var(--green)';
+      const shortLines = shorts.slice(0, 3).map(r => {
+        const needed = (maxPossible - r.max_units) * r.bom_qty;
+        return `<div class="prod-expand-row">
+          <span style="color:var(--text2)">${r.part_name} <span style="color:var(--text3);font-size:10px">(${r.part_code})</span></span>
+          <span style="color:var(--yellow);font-family:var(--mono)">need ${needed} more → ${maxPossible} units</span>
+        </div>`;
+      }).join('');
+
+      return `<div class="prod-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleProdExpand(${i})">
+          <div>
+            <div style="font-family:var(--cond);font-weight:700;font-size:14px">${product}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">
+              Bottleneck: ${bottleneck.part_name}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:var(--mono);font-size:20px;color:${color}">${bottleneck.max_units.toLocaleString()}</div>
+            <div style="font-size:10px;color:var(--text3)">units producible</div>
+          </div>
+        </div>
+        ${isConstrained ? `
+        <div style="margin-top:5px">
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="width:${pct}%;height:4px;background:${color};border-radius:2px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono)">
+            ${pct}% of max potential (${maxPossible.toLocaleString()} units)
+          </div>
+        </div>` : ''}
+        ${isConstrained ? `
+        <div class="prod-expand" id="prod-expand-${i}">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-family:var(--mono)">WHAT'S NEEDED TO REACH ${maxPossible.toLocaleString()} UNITS</div>
+          ${shortLines}
+          ${shorts.length > 3 ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">+ ${shorts.length - 3} more parts short</div>` : ''}
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Could not compute</div>';
+    statusEl.textContent = 'Error'; statusEl.className = 'badge badge-red';
+  }
+}
+
+function toggleProdExpand(i) {
+  const el = document.getElementById('prod-expand-' + i);
+  if (el) el.classList.toggle('open');
+}
+
+// ── Manpower (in-memory until backend) ───────────────────────
+function logManpower() {
+  const date  = document.getElementById('mp-date').value;
+  const count = parseInt(document.getElementById('mp-count').value) || 0;
+  const notes = document.getElementById('mp-notes').value.trim();
+  if (!date) { toast('Select a date', 'error'); return; }
+  if (!count) { toast('Enter headcount', 'error'); return; }
+  // Replace existing entry for same date
+  const idx = manpowerLog.findIndex(e => e.date === date);
+  if (idx >= 0) manpowerLog[idx] = { date, count, notes };
+  else manpowerLog.push({ date, count, notes });
+  document.getElementById('mp-count').value = '';
+  document.getElementById('mp-notes').value = '';
+  renderManpower();
+  toast('Manpower logged (session only — backend pending)', 'info');
+}
+
+function renderManpower() {
+  const tbody = document.getElementById('mp-table');
+  const cutoff3 = new Date(); cutoff3.setDate(cutoff3.getDate() - 3);
+  const recent = manpowerLog
+    .filter(e => new Date(e.date) >= cutoff3)
+    .sort((a,b) => b.date.localeCompare(a.date))
+    .slice(0, 3);
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty" style="padding:16px">No entries yet — backend to be wired up</td></tr>';
+    return;
+  }
+  const maxCount = Math.max(...recent.map(e => e.count), 1);
+  tbody.innerHTML = recent.map(e => `<tr>
+    <td style="font-size:12px">${formatDisplayDate(e.date)}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:var(--mono);font-size:14px;font-weight:700">${e.count}</span>
+        <div style="flex:1;background:var(--bg3);border-radius:3px;height:6px;min-width:60px;overflow:hidden">
+          <div class="mp-bar" style="width:${Math.round((e.count/maxCount)*100)}%"></div>
+        </div>
+      </div>
+    </td>
+    <td style="font-size:11px;color:var(--text3)">${e.notes||'—'}</td>
+    <td></td>
+  </tr>`).join('');
+}
+
 function clearDashboardLoadingStates() {
   const reorderList = document.getElementById('reorder-list');
   if (reorderList) reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
-  const psl = document.getElementById('product-stock-list');
-  if (psl) psl.innerHTML = '<div class="empty">No stock data yet — enter opening counts on move day</div>';
+  const psl = document.getElementById('producible-list');
+  if (psl) psl.innerHTML = '<div class="empty">No data yet</div>';
   document.getElementById('dash-timestamp').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
   ['kpi-wo','kpi-grn','kpi-issued','kpi-returns'].forEach(id => {
     const el = document.getElementById(id);
@@ -2102,6 +2395,7 @@ function clearDashboardLoadingStates() {
   const reorderEl = document.getElementById('kpi-reorder');
   if (reorderEl && reorderEl.textContent === '—') { reorderEl.textContent = '0'; reorderEl.className = 'kpi-value ok'; }
 }
+
 
 // ══ STOCK ════════════════════════════════════════════════════
 async function loadStock() {
@@ -2907,13 +3201,6 @@ async function loadPlannedWO() {
   document.getElementById('planned-wo-product').textContent = product;
   document.getElementById('planned-wo-variant').textContent = variant || 'Common';
   document.getElementById('planned-wo-units').textContent   = qty + ' units';
-  // Reset confirmation gate for new WO
-  const confirmWoEl = document.getElementById('pick-confirm-wo');
-  if (confirmWoEl) confirmWoEl.textContent = woNo;
-  const pickCb = document.getElementById('pick-confirm-check');
-  if (pickCb) pickCb.checked = false;
-  const submitBtn = document.getElementById('planned-submit-btn');
-  if (submitBtn) submitBtn.disabled = true;
 
   // Load kit
   try {
@@ -2986,12 +3273,6 @@ function clearPlannedIssue() {
   document.getElementById('planned-wo-detail').style.display = 'none';
   document.getElementById('planned-wo-empty').style.display  = '';
   plannedKitData = [];
-  const cb = document.getElementById('pick-confirm-check');
-  if (cb) cb.checked = false;
-  const btn = document.getElementById('planned-submit-btn');
-  if (btn) btn.disabled = true;
-  const confirmWoEl = document.getElementById('pick-confirm-wo');
-  if (confirmWoEl) confirmWoEl.textContent = '—';
 }
 
 async function submitPlannedIssue() {
@@ -2999,9 +3280,6 @@ async function submitPlannedIssue() {
   const sel = document.getElementById('planned-wo-select');
   const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) { toast('Select a work order', 'error'); return; }
-  if (!document.getElementById('pick-confirm-check')?.checked) {
-    toast('Confirm physical pick before issuing', 'error'); return;
-  }
 
   const wo_no   = opt.value;
   const product = opt.dataset.product;
@@ -3506,106 +3784,6 @@ function printBagLabels() {
     +'@media print{@page{size:A4;margin:5mm}}'
     +'</style></head><body><div class="page">'+labelHTML+'</div>'
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
-  win.document.close();
-}
-
-// ── PICK LIST ─────────────────────────────────────────────────
-function toggleIssueBtn() {
-  const checked = document.getElementById('pick-confirm-check')?.checked;
-  const btn = document.getElementById('planned-submit-btn');
-  if (btn) btn.disabled = !checked;
-}
-
-function printPickList() {
-  const sel = document.getElementById('planned-wo-select');
-  const opt = sel?.options[sel.selectedIndex];
-  if (!opt || !opt.value || !plannedKitData.length) {
-    toast('Load a work order kit first', 'error'); return;
-  }
-  const woNo    = opt.value;
-  const product = opt.dataset.product || '';
-  const variant = opt.dataset.variant || 'Common';
-  const units   = opt.dataset.qty || '—';
-  const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
-
-  const rows = plannedKitData.map(r => {
-    const isShort = r.status === 'SHORT';
-    const rowStyle = isShort ? 'background:#fff8f0' : '';
-    const statusCell = isShort
-      ? `<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −${r.shortfall}</td>`
-      : `<td style="color:#27ae60;font-size:10pt">OK</td>`;
-    return `<tr style="${rowStyle}">
-      <td style="text-align:center;font-size:14pt">☐</td>
-      <td style="font-family:monospace;font-size:9pt">${r.part_code}</td>
-      <td style="font-size:10pt">${r.part_name}</td>
-      <td style="font-family:monospace;font-size:9pt;color:#666">${r.category||'—'}</td>
-      <td style="text-align:right;font-family:monospace">${r.bom_qty}</td>
-      <td style="text-align:right;font-family:monospace;font-weight:700">${r.total_qty}</td>
-      ${statusCell}
-    </tr>`;
-  }).join('');
-
-  const shortCount = plannedKitData.filter(r => r.status === 'SHORT').length;
-  const shortNote  = shortCount > 0
-    ? `<div style="background:#fff0f0;border:1px solid #e74c3c;border-radius:3px;padding:8px 12px;margin-bottom:12px;font-size:9pt;color:#c0392b">
-        ⚠ ${shortCount} line(s) are SHORT — flag to supervisor before picking
-       </div>` : '';
-
-  const html = `<!DOCTYPE html><html><head><title>Pick List — ${woNo}</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; font-size:10pt; color:#111; padding:12mm; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; border-bottom:2px solid #111; padding-bottom:8px; }
-    .logo { font-size:18pt; font-weight:900; letter-spacing:2px; }
-    .logo span { color:#c9a800; }
-    .doc-type { font-size:14pt; font-weight:700; letter-spacing:1px; text-align:right; }
-    .meta { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-bottom:10px; padding:8px; background:#f5f5f5; border-radius:3px; }
-    .meta-item label { font-size:7pt; text-transform:uppercase; letter-spacing:1px; color:#666; display:block; margin-bottom:2px; }
-    .meta-item span { font-size:11pt; font-weight:700; }
-    table { width:100%; border-collapse:collapse; font-size:10pt; }
-    th { background:#111; color:#fff; padding:6px 8px; text-align:left; font-size:8pt; letter-spacing:0.5px; text-transform:uppercase; }
-    th:nth-child(5), th:nth-child(6) { text-align:right; }
-    td { padding:7px 8px; border-bottom:1px solid #ddd; }
-    tr:last-child td { border-bottom:none; }
-    .footer { margin-top:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
-    .sig-line { border-top:1px solid #111; padding-top:4px; font-size:8pt; color:#666; text-align:center; margin-top:30px; }
-    @media print { @page { size:A4; margin:10mm; } body { padding:0; } }
-  </style></head><body>
-  <div class="header">
-    <div class="logo">LEGEND<span>OF</span>TOYS</div>
-    <div class="doc-type">PICK LIST<br><span style="font-size:9pt;color:#666;font-weight:400">Store → Production</span></div>
-  </div>
-  <div class="meta">
-    <div class="meta-item"><label>Work Order</label><span>${woNo}</span></div>
-    <div class="meta-item"><label>Product</label><span>${product}</span></div>
-    <div class="meta-item"><label>Variant / Units</label><span>${variant} · ${units} units</span></div>
-    <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>
-  </div>
-  ${shortNote}
-  <table>
-    <thead>
-      <tr>
-        <th style="width:32px">✓</th>
-        <th>Part Code</th>
-        <th>Part Name</th>
-        <th>Category</th>
-        <th style="text-align:right">BOM Qty</th>
-        <th style="text-align:right">Total Pick</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div class="footer">
-    <div class="sig-line">Picked by (name)</div>
-    <div class="sig-line">Checked by (name)</div>
-    <div class="sig-line">Time issued</div>
-  </div>
-  <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`;
-
-  const win = window.open('', '_blank');
-  win.document.write(html);
   win.document.close();
 }
 
