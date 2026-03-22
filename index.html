@@ -1190,7 +1190,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="form-group">
                 <label class="form-label">Origin</label>
                 <select class="form-select" id="shp-origin">
-                  <option>China</option><option>India</option><option>Other</option>
+                  <option>China</option><option>India</option><option>USA</option>
+                  <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                  <option>Bangladesh</option><option>Other</option>
                 </select>
               </div>
             </div>
@@ -1796,6 +1798,23 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="page-subtitle">Purchase orders across all teams — raise, track, receive</div>
       </div>
 
+      <!-- Sub-nav -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0">
+        <button class="nav-btn active" id="proc-tab-po" onclick="switchProcTab('po')" style="border-radius:3px 3px 0 0;padding:6px 16px">PURCHASE ORDERS</button>
+        <button class="nav-btn" id="proc-tab-vendors" onclick="switchProcTab('vendors')" style="border-radius:3px 3px 0 0;padding:6px 16px">VENDORS</button>
+      </div>
+
+      <!-- ── PO SECTION ── -->
+      <div id="proc-po-section">
+      <!-- Sub-nav -->
+      <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="proc-tab-po" onclick="switchProcTab('po')" style="border-radius:3px 3px 0 0">PURCHASE ORDERS</button>
+        <button class="nav-btn" id="proc-tab-vendors" onclick="switchProcTab('vendors')" style="border-radius:3px 3px 0 0">VENDORS</button>
+      </div>
+
+      <!-- ── PO SECTION ── -->
+      <div id="proc-po-section">
+
       <!-- PO List View -->
       <div id="po-list-view">
         <!-- Filters + New PO -->
@@ -1812,12 +1831,17 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </select>
           <select class="form-select" id="po-filter-source" style="max-width:140px" onchange="loadPOs()">
             <option value="">All Sources</option>
-            <option>China</option><option>India</option><option>Other</option>
+            <option>China</option><option>India</option><option>USA</option>
+            <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+            <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+            <option>UK</option><option>Italy</option><option>Turkey</option>
+            <option>Other</option>
           </select>
           <select class="form-select" id="po-filter-type" style="max-width:160px" onchange="loadPOs()">
             <option value="">All Types</option>
             <option>Product</option><option>Packaging</option><option>Para</option>
             <option>Consumable</option><option>Component</option>
+            <option>Tools</option><option>Machines</option>
           </select>
           <div style="margin-left:auto;display:flex;gap:8px">
             <button class="btn btn-secondary" onclick="loadPOs()" style="padding:6px 14px">↻ Refresh</button>
@@ -1867,17 +1891,25 @@ tr:hover td { background:rgba(255,255,255,.02); }
                     <option value="">Select...</option>
                     <option>Product</option><option>Packaging</option><option>Para</option>
                     <option>Consumable</option><option>Component</option>
+                    <option>Tools</option><option>Machines</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Source</label>
                   <select class="form-select" id="po-source">
-                    <option>China</option><option>India</option><option>Other</option>
+                    <option>China</option><option>India</option><option>USA</option>
+                    <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                    <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+                    <option>UK</option><option>Italy</option><option>Turkey</option>
+                    <option>Other</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Vendor Name</label>
-                  <input class="form-input" id="po-vendor" placeholder="Supplier / vendor name">
+                  <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
+                         list="vendor-datalist" autocomplete="off"
+                         oninput="prefillVendorFields(this.value)">
+                  <datalist id="vendor-datalist"></datalist>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Currency</label>
@@ -1903,11 +1935,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
                 </div>
                 <div class="form-group">
                   <label class="form-label">Expected Delivery</label>
-                  <input class="form-input" type="date" id="po-delivery">
+                  <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Lead Time (days)</label>
-                  <input class="form-input" type="number" id="po-lead-time" placeholder="e.g. 45">
+                  <label class="form-label">Lead Time (auto)</label>
+                  <div id="po-lead-time-display" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--text2)">— days</div>
+                  <input type="hidden" id="po-lead-time">
                 </div>
                 <div class="form-group">
                   <label class="form-label">Port of Loading</label>
@@ -1992,8 +2025,113 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </table>
           </div>
         </div>
-      </div>
-    </div>
+      </div> <!-- /po-detail-view -->
+      </div> <!-- /proc-po-section -->
+
+      <!-- ── VENDORS SECTION ── -->
+      <div id="proc-vendors-section" style="display:none">
+        <div id="vendor-list-view">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+            <button class="btn btn-primary" id="new-vendor-btn" onclick="showNewVendorForm()" style="padding:6px 16px">+ NEW VENDOR</button>
+          </div>
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Code</th><th>Vendor Name</th><th>Category</th><th>Country</th><th>Contact</th><th>Payment Terms</th><th>Lead Time</th><th>Status</th><th></th></tr></thead>
+                <tbody id="vendor-table-body">
+                  <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="vendor-form-view" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="showVendorList()" style="padding:4px 12px">← Back</button>
+            <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="vendor-form-title">NEW VENDOR</div>
+          </div>
+          <div class="panel" style="max-width:800px">
+            <div class="panel-header"><div class="panel-title">VENDOR DETAILS</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Vendor Name</label>
+                  <input class="form-input" id="vnd-name" placeholder="Full vendor / supplier name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Category</label>
+                  <select class="form-select" id="vnd-category">
+                    <option value="">Select...</option>
+                    <option>Packaging</option><option>Para</option><option>Components</option>
+                    <option>Products</option><option>Consumables</option>
+                    <option>Tools &amp; Machines</option><option>Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Source Country</label>
+                  <select class="form-select" id="vnd-country">
+                    <option>India</option><option>China</option><option>USA</option>
+                    <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                    <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+                    <option>UK</option><option>Italy</option><option>Turkey</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Location (city / region)</label>
+                  <input class="form-input" id="vnd-location" placeholder="e.g. Mumbai, Guangzhou, Shenzhen">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Currency</label>
+                  <select class="form-select" id="vnd-currency">
+                    <option>INR</option><option>USD</option><option>RMB</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Name</label>
+                  <input class="form-input" id="vnd-contact-name" placeholder="Primary contact">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Phone</label>
+                  <input class="form-input" id="vnd-contact-phone" placeholder="+91 ...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Contact Email</label>
+                  <input class="form-input" id="vnd-contact-email" placeholder="email@vendor.com">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Default Payment Terms</label>
+                  <select class="form-select" id="vnd-payment-terms">
+                    <option value="">Select...</option>
+                    <option>Advance</option><option>Credit 30</option>
+                    <option>Credit 60</option><option>LC</option><option>TT</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Typical Lead Time (days)</label>
+                  <input class="form-input" type="number" id="vnd-lead-time" placeholder="e.g. 45">
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:12px">
+                <label class="form-label">Address</label>
+                <input class="form-input" id="vnd-address" placeholder="Vendor address">
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="vnd-notes" placeholder="Any notes about this vendor">
+              </div>
+              <input type="hidden" id="vnd-editing-code">
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitVendor()">SAVE VENDOR</button>
+                <button class="btn btn-secondary" onclick="showVendorList()">CANCEL</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> <!-- /proc-vendors-section -->
+
+    </div> <!-- /view-procurement -->
 
   </div><!-- /content -->
 </div><!-- /app -->
@@ -3990,14 +4128,13 @@ const PO_STATUS_COLORS = {
 let currentPONumber = null;
 
 function initProcurement() {
-  // Show nav tab for procurement-enabled roles
   if (PROCUREMENT_ROLES.includes(currentRole) || currentRole === 'store') {
     const btn = document.getElementById('nav-procurement');
     if (btn) btn.style.display = '';
   }
-  // Show/hide new PO button based on role
   const newPOBtn = document.getElementById('new-po-btn');
   if (newPOBtn) newPOBtn.style.display = PERMS_FE[currentRole]?.raisePO ? '' : 'none';
+  ensureVendorCache();
   loadPOs();
   loadPendingInwardPOs();
 }
@@ -4087,63 +4224,122 @@ function showPOList() {
   loadPOs();
 }
 
+function calcLeadTime() {
+  const val = document.getElementById('po-delivery').value;
+  const display = document.getElementById('po-lead-time-display');
+  const hidden  = document.getElementById('po-lead-time');
+  if (!val) { display.textContent = '— days'; hidden.value = ''; return; }
+  const days = Math.round((new Date(val) - new Date()) / 86400000);
+  display.textContent = days > 0 ? days + ' days' : 'Past date';
+  hidden.value = days > 0 ? days : '';
+}
+
 function showNewPOForm() {
   document.getElementById('po-list-view').style.display   = 'none';
   document.getElementById('po-new-form').style.display    = '';
   document.getElementById('po-detail-view').style.display = 'none';
+  // Clear all header fields
+  ['po-vendor','po-port','po-freight','po-notes','po-delivery'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['po-order-type','po-payment-terms','po-incoterms'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('po-source').value   = 'China';
+  document.getElementById('po-currency').value = 'INR';
+  const ltd = document.getElementById('po-lead-time-display');
+  if (ltd) ltd.textContent = '— days';
+  const lth = document.getElementById('po-lead-time');
+  if (lth) lth.value = '';
+  const tot = document.getElementById('po-total-value');
+  if (tot) tot.textContent = '—';
+  // Clear and add one fresh line
   document.getElementById('po-lines-container').innerHTML = '';
-  addPOLine(); // start with one line
+  addPOLine();
 }
 
 function addPOLine() {
+  ensureMaterialCache();
   const container = document.getElementById('po-lines-container');
-  const idx = container.children.length + 1;
+  const idx = container.children.length;
+  const showHeader = idx === 0;
   const div = document.createElement('div');
   div.className = 'po-line-item';
-  div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 80px 80px 90px 28px;gap:6px;margin-bottom:8px;align-items:start';
+  div.style.cssText = 'display:grid;grid-template-columns:130px 1fr 1fr 80px 80px 70px 80px 28px;gap:6px;margin-bottom:8px;align-items:start';
   div.innerHTML = `
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">Item Type</label>':''}
-      <select class="form-select" style="font-size:12px" onchange="recalcPOTotal()">
-        <option value="">Type...</option>
-        <option>Comic</option><option>Manual</option><option>Licence Card</option>
-        <option>Sticker (product)</option><option>Sticker (packaging)</option>
-        <option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option>
-        <option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option>
-        <option>RC Car</option><option>Construction Toy</option><option>Part</option><option>Other</option>
-      </select>
-    </div>
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">Description / Product</label>':''}
-      <input class="form-input" placeholder="Description / product" style="font-size:12px">
-    </div>
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">Qty</label>':''}
-      <input class="form-input" type="number" placeholder="0" min="0" style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-    </div>
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">Unit Price</label>':''}
-      <input class="form-input" type="number" placeholder="0.00" min="0" step="0.01" style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-    </div>
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">Unit</label>':''}
-      <select class="form-select" style="font-size:12px">
-        <option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>
-      </select>
-    </div>
-    <div class="form-group">
-      ${idx===1?'<label class="form-label">&nbsp;</label>':''}
-      <button style="width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px;border-radius:2px" onclick="this.closest('.po-line-item').remove();recalcPOTotal()" title="Remove">×</button>
-    </div>`;
+    ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:130px 1fr 1fr 80px 80px 70px 80px 28px;gap:6px;margin-bottom:2px">
+      <div class="form-label">Part Code</div>
+      <div class="form-label">Part Name</div>
+      <div class="form-label">Item Type</div>
+      <div class="form-label">Qty</div>
+      <div class="form-label">Unit Price</div>
+      <div class="form-label">Lead (days)</div>
+      <div class="form-label">Unit</div>
+      <div></div>
+    </div>` : ''}
+    <input class="form-input mono" placeholder="Part code" style="font-size:11px;text-transform:uppercase"
+           oninput="this.value=this.value.toUpperCase()"
+           onblur="lookupPOLinePart(this)">
+    <input class="form-input" placeholder="Auto-fills from code" style="font-size:11px;color:var(--text3)" readonly>
+    <select class="form-select" style="font-size:11px" onchange="recalcPOTotal()">
+      <option value="">Type...</option>
+      <option>Comic</option><option>Manual</option><option>Licence Card</option>
+      <option>Sticker (product)</option><option>Sticker (packaging)</option>
+      <option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option>
+      <option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option>
+      <option>RC Car</option><option>Construction Toy</option><option>Part</option>
+      <option>Tools</option><option>Machines</option><option>Other</option>
+    </select>
+    <input class="form-input" type="number" placeholder="0" min="0"
+           style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
+    <input class="form-input" type="number" placeholder="0.00" min="0" step="0.01"
+           style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
+    <input class="form-input" type="number" placeholder="—" min="0"
+           style="font-size:11px;text-align:right" title="Override vendor default lead time for this line">
+    <select class="form-select" style="font-size:11px">
+      <option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>
+    </select>
+    <button style="width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px"
+            onclick="this.closest('.po-line-item').remove();recalcPOTotal()" title="Remove">×</button>`;
   container.appendChild(div);
+}
+
+function lookupPOLinePart(input) {
+  const code = input.value.trim().toUpperCase();
+  const row = input.closest('.po-line-item');
+  if (!row) return;
+  const inputs = row.querySelectorAll('input');
+  const nameInput = inputs[1];
+  const itemTypeSel = row.querySelector('select');
+  const part = materialCache[code];
+  if (part) {
+    nameInput.value = part.part_name || '';
+    nameInput.style.color = 'var(--green)';
+    input.style.borderColor = 'var(--green)';
+    // Auto-map category → item type
+    const catMap = {
+      'Packaging':   'Ecom Packaging',
+      'Para':        'Comic',
+      'Electronics': 'Part',
+      'Mechanical':  'Part',
+      'Consumable':  'Other',
+    };
+    if (itemTypeSel && part.category && catMap[part.category]) {
+      itemTypeSel.value = catMap[part.category];
+    }
+  } else if (code.length >= 3) {
+    nameInput.value = '⚠ Not in material master';
+    nameInput.style.color = 'var(--red)';
+    input.style.borderColor = 'var(--red)';
+  }
 }
 
 function recalcPOTotal() {
   let total = 0;
   document.querySelectorAll('.po-line-item').forEach(div => {
-    const inputs = div.querySelectorAll('input[type=number]');
-    const qty   = parseFloat(inputs[0]?.value) || 0;
-    const price = parseFloat(inputs[1]?.value) || 0;
+    const numInputs = div.querySelectorAll('input[type=number]');
+    const qty   = parseFloat(numInputs[0]?.value) || 0;
+    const price = parseFloat(numInputs[1]?.value) || 0;
     total += qty * price;
   });
   const currency = document.getElementById('po-currency')?.value || '';
@@ -4159,18 +4355,21 @@ async function submitNewPO() {
   if (!vendor)    { toast('Enter vendor name', 'error'); return; }
 
   const lines = [];
-  document.querySelectorAll('.po-line-item').forEach((div, i) => {
-    const sel    = div.querySelector('select');
-    const inputs = div.querySelectorAll('input');
-    const numInputs = div.querySelectorAll('input[type=number]');
-    const unitSel = div.querySelectorAll('select')[1];
-    lines.push({
-      item_type:   sel?.value || 'Other',
-      description: inputs[0]?.value || '',
-      qty_ordered: parseFloat(numInputs[0]?.value) || 0,
-      unit_price:  parseFloat(numInputs[1]?.value) || null,
-      unit:        unitSel?.value || 'pcs',
-    });
+  document.querySelectorAll('.po-line-item').forEach((div) => {
+    const allInputs  = div.querySelectorAll('input');
+    const numInputs  = div.querySelectorAll('input[type=number]');
+    const allSelects = div.querySelectorAll('select');
+    const partCode   = allInputs[0]?.value?.trim() || '';
+    const partName   = allInputs[1]?.value?.trim() || '';
+    const itemType   = allSelects[0]?.value || 'Other';
+    const qty        = parseFloat(numInputs[0]?.value) || 0;
+    const unitPrice  = parseFloat(numInputs[1]?.value) || null;
+    const leadOverride = parseInt(numInputs[2]?.value) || null;
+    const unit       = allSelects[1]?.value || 'pcs';
+    if (partCode || qty > 0) {
+      lines.push({ part_code: partCode, description: partName, item_type: itemType,
+        qty_ordered: qty, unit_price: unitPrice, lead_time_override: leadOverride, unit });
+    }
   });
 
   const data = {
@@ -4337,6 +4536,145 @@ async function poAction(action) {
   }
 }
 
+
+// ── VENDOR CACHE & AUTOCOMPLETE ──────────────────────────────
+let vendorCache = [];
+
+async function ensureVendorCache() {
+  if (vendorCache.length) return;
+  try {
+    const res = await api('getVendors');
+    if (res.ok) { vendorCache = res.data || []; populateVendorDatalist(); }
+  } catch(e) {}
+}
+
+function populateVendorDatalist() {
+  const dl = document.getElementById('vendor-datalist');
+  if (!dl) return;
+  dl.innerHTML = vendorCache.map(v =>
+    `<option value="${v.vendor_name}">${v.vendor_name} (${v.vendor_code})</option>`
+  ).join('');
+}
+
+function prefillVendorFields(name) {
+  const match = vendorCache.find(v => v.vendor_name.toLowerCase() === name.toLowerCase());
+  if (!match) return;
+  const srcEl = document.getElementById('po-source');
+  if (srcEl && match.source_country) srcEl.value = match.source_country;
+  const ptEl = document.getElementById('po-payment-terms');
+  if (ptEl && match.payment_terms) ptEl.value = match.payment_terms;
+  const curEl = document.getElementById('po-currency');
+  if (curEl && match.currency) curEl.value = match.currency;
+  calcLeadTime();
+}
+
+// ── PROCUREMENT SUB-NAV ───────────────────────────────────────
+function switchProcTab(tab) {
+  document.getElementById('proc-po-section').style.display      = tab === 'po'      ? '' : 'none';
+  document.getElementById('proc-vendors-section').style.display = tab === 'vendors' ? '' : 'none';
+  document.getElementById('proc-tab-po').className      = 'nav-btn' + (tab === 'po'      ? ' active' : '');
+  document.getElementById('proc-tab-vendors').className = 'nav-btn' + (tab === 'vendors' ? ' active' : '');
+  if (tab === 'vendors') loadVendors();
+}
+
+// ── VENDORS ───────────────────────────────────────────────────
+async function loadVendors() {
+  const tbody = document.getElementById('vendor-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getVendors');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; return; }
+    const rows = res.data || [];
+    vendorCache = rows; populateVendorDatalist();
+    tbody.innerHTML = rows.length ? rows.map(v => `<tr>
+      <td class="mono" style="font-size:11px;color:var(--yellow)">${v.vendor_code}</td>
+      <td style="font-weight:600">${v.vendor_name}</td>
+      <td><span class="badge badge-gray" style="font-size:9px">${v.category||'—'}</span></td>
+      <td style="font-size:11px">${v.source_country||'—'}${v.location?' · '+v.location:''}</td>
+      <td style="font-size:11px;color:var(--text3)">${v.contact_name||'—'}${v.contact_phone?' · '+v.contact_phone:''}</td>
+      <td style="font-size:11px">${v.payment_terms||'—'}</td>
+      <td class="mono" style="font-size:11px">${v.lead_time_days ? v.lead_time_days+'d' : '—'}</td>
+      <td><span class="badge ${v.active?'badge-green':'badge-red'}" style="font-size:9px">${v.active?'Active':'Inactive'}</span></td>
+      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="editVendor('${v.vendor_code}')">EDIT</button></td>
+    </tr>`).join('') : '<tr><td colspan="9" class="empty">No vendors yet</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; }
+}
+
+function showVendorList() {
+  document.getElementById('vendor-list-view').style.display = '';
+  document.getElementById('vendor-form-view').style.display = 'none';
+  loadVendors();
+}
+
+function showNewVendorForm() {
+  document.getElementById('vendor-list-view').style.display = 'none';
+  document.getElementById('vendor-form-view').style.display = '';
+  document.getElementById('vendor-form-title').textContent  = 'NEW VENDOR';
+  ['vnd-name','vnd-contact-name','vnd-contact-phone','vnd-contact-email','vnd-address','vnd-notes','vnd-location'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['vnd-category','vnd-payment-terms'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('vnd-country').value  = 'India';
+  document.getElementById('vnd-currency').value = 'INR';
+  const lt = document.getElementById('vnd-lead-time'); if (lt) lt.value = '';
+  const ec = document.getElementById('vnd-editing-code'); if (ec) ec.value = '';
+}
+
+async function editVendor(vendorCode) {
+  document.getElementById('vendor-list-view').style.display = 'none';
+  document.getElementById('vendor-form-view').style.display = '';
+  document.getElementById('vendor-form-title').textContent  = 'EDIT VENDOR — ' + vendorCode;
+  try {
+    const res = await api('getVendor', { vendor_code: vendorCode });
+    if (!res.ok) { toast('Vendor not found','error'); showVendorList(); return; }
+    const v = res.data;
+    document.getElementById('vnd-name').value          = v.vendor_name    || '';
+    document.getElementById('vnd-category').value      = v.category       || '';
+    document.getElementById('vnd-country').value       = v.source_country || 'India';
+    document.getElementById('vnd-currency').value      = v.currency       || 'INR';
+    document.getElementById('vnd-contact-name').value  = v.contact_name   || '';
+    document.getElementById('vnd-contact-phone').value = v.contact_phone  || '';
+    document.getElementById('vnd-contact-email').value = v.contact_email  || '';
+    document.getElementById('vnd-payment-terms').value = v.payment_terms  || '';
+    document.getElementById('vnd-lead-time').value     = v.lead_time_days || '';
+    document.getElementById('vnd-address').value       = v.address        || '';
+    document.getElementById('vnd-notes').value         = v.notes          || '';
+    document.getElementById('vnd-location').value     = v.location       || '';
+    document.getElementById('vnd-editing-code').value  = vendorCode;
+  } catch(e) { toast('Error loading vendor','error'); showVendorList(); }
+}
+
+async function submitVendor() {
+  const name = document.getElementById('vnd-name').value.trim();
+  if (!name) { toast('Vendor name required','error'); return; }
+  const editingCode = document.getElementById('vnd-editing-code')?.value;
+  const data = {
+    vendor_name:    name,
+    category:       document.getElementById('vnd-category').value       || null,
+    source_country: document.getElementById('vnd-country').value,
+    currency:       document.getElementById('vnd-currency').value,
+    location:       document.getElementById('vnd-location').value       || null,
+    contact_phone:  document.getElementById('vnd-contact-phone').value  || null,
+    contact_email:  document.getElementById('vnd-contact-email').value  || null,
+    payment_terms:  document.getElementById('vnd-payment-terms').value  || null,
+    lead_time_days: parseInt(document.getElementById('vnd-lead-time').value) || null,
+    address:        document.getElementById('vnd-address').value        || null,
+    notes:          document.getElementById('vnd-notes').value          || null,
+  };
+  try {
+    const action = editingCode ? 'updateVendor' : 'postVendor';
+    const payload = editingCode ? { vendor_code: editingCode, ...data } : data;
+    const res = await apiPost(action, { data: payload });
+    if (res.ok) {
+      toast(editingCode ? 'Vendor updated' : `${res.data.vendor_code} created`, 'success');
+      vendorCache = [];
+      showVendorList();
+    } else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error','error'); }
+}
 
 function toggleIssueBtn() {
   const checked = document.getElementById('pick-confirm-check')?.checked;
