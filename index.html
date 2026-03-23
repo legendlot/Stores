@@ -5354,6 +5354,7 @@ function printPickList() {
   const rows = plannedKitData.map(r => {
     const isShort = r.status === 'SHORT';
     const rowStyle = isShort ? 'background:#fff8f0' : '';
+    const bags = Math.ceil((r.total_qty || 0) / 25);
     const statusCell = isShort
       ? `<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −${r.shortfall}</td>`
       : `<td style="color:#27ae60;font-size:10pt">OK</td>`;
@@ -5364,6 +5365,7 @@ function printPickList() {
       <td style="font-family:monospace;font-size:9pt;color:#666">${r.category||'—'}</td>
       <td style="text-align:right;font-family:monospace">${r.bom_qty}</td>
       <td style="text-align:right;font-family:monospace;font-weight:700">${r.total_qty}</td>
+      <td style="text-align:right;font-family:monospace;color:#555">${bags}</td>
       ${statusCell}
     </tr>`;
   }).join('');
@@ -5385,7 +5387,7 @@ function printPickList() {
     .meta-item span{font-size:11pt;font-weight:700}
     table{width:100%;border-collapse:collapse;font-size:10pt}
     th{background:#111;color:#fff;padding:6px 8px;text-align:left;font-size:8pt;letter-spacing:.5px;text-transform:uppercase}
-    th:nth-child(5),th:nth-child(6){text-align:right}
+    th:nth-child(5),th:nth-child(6),th:nth-child(7){text-align:right}
     td{padding:7px 8px;border-bottom:1px solid #ddd}tr:last-child td{border-bottom:none}
     .footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
     .sig-line{border-top:1px solid #111;padding-top:4px;font-size:8pt;color:#666;text-align:center;margin-top:30px}
@@ -5403,7 +5405,7 @@ function printPickList() {
   </div>
   ${shortNote}
   <table>
-    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th>Category</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th>Status</th></tr></thead>
+    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th>Category</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th style="text-align:right">Bags (×25)</th><th>Status</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="footer">
