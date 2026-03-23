@@ -728,28 +728,47 @@ tr:hover td { background:rgba(255,255,255,.02); }
 <div id="pin-screen">
   <div class="pin-logo">LEGEND OF TOYS &nbsp;·&nbsp; <span>OPS</span></div>
   <div class="pin-title">STORE CONTROL</div>
-  <div class="pin-sub">ENTER ACCESS PIN</div>
-  <div class="pin-dots">
-    <div class="pin-dot" id="d0"></div>
-    <div class="pin-dot" id="d1"></div>
-    <div class="pin-dot" id="d2"></div>
-    <div class="pin-dot" id="d3"></div>
+  <div class="pin-sub" id="login-sub">SIGN IN TO CONTINUE</div>
+
+  <div id="login-form" style="width:320px;display:flex;flex-direction:column;gap:12px">
+    <div class="form-group">
+      <label class="form-label" style="color:var(--text3)">Email</label>
+      <input class="form-input" type="email" id="login-email" placeholder="your@email.com"
+             onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()"
+             style="background:var(--bg3);border-color:var(--border2)">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="color:var(--text3)">Password</label>
+      <div style="position:relative">
+        <input class="form-input" type="password" id="login-password" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter')submitLogin()"
+               style="background:var(--bg3);border-color:var(--border2);padding-right:40px">
+        <button onclick="toggleLoginPwd()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" id="pwd-eye">👁</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="submitLogin()" id="login-btn" style="width:100%;padding:12px;font-size:14px;margin-top:4px">SIGN IN</button>
+    <div class="pin-error" id="pin-error" style="text-align:center"></div>
   </div>
-  <div class="pin-pad">
-    <button class="pin-btn" onclick="pinPress('1')">1</button>
-    <button class="pin-btn" onclick="pinPress('2')">2</button>
-    <button class="pin-btn" onclick="pinPress('3')">3</button>
-    <button class="pin-btn" onclick="pinPress('4')">4</button>
-    <button class="pin-btn" onclick="pinPress('5')">5</button>
-    <button class="pin-btn" onclick="pinPress('6')">6</button>
-    <button class="pin-btn" onclick="pinPress('7')">7</button>
-    <button class="pin-btn" onclick="pinPress('8')">8</button>
-    <button class="pin-btn" onclick="pinPress('9')">9</button>
-    <button class="pin-btn del" onclick="pinClear()">CLR</button>
-    <button class="pin-btn" onclick="pinPress('0')">0</button>
-    <button class="pin-btn del" onclick="pinBack()">⌫</button>
+
+  <!-- Change password screen (shown on first login) -->
+  <div id="change-pwd-form" style="width:320px;display:none;flex-direction:column;gap:12px">
+    <div style="padding:10px 14px;background:rgba(242,205,26,.08);border:1px solid rgba(242,205,26,.2);border-radius:3px;font-size:12px;color:var(--yellow);text-align:center;margin-bottom:4px">
+      First login — please set your password
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="color:var(--text3)">New Password</label>
+      <input class="form-input" type="password" id="new-pwd" placeholder="At least 8 characters"
+             style="background:var(--bg3);border-color:var(--border2)">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="color:var(--text3)">Confirm Password</label>
+      <input class="form-input" type="password" id="confirm-pwd" placeholder="Repeat password"
+             onkeydown="if(event.key==='Enter')submitChangePassword()"
+             style="background:var(--bg3);border-color:var(--border2)">
+    </div>
+    <button class="btn btn-primary" onclick="submitChangePassword()" style="width:100%;padding:12px;font-size:14px">SET PASSWORD &amp; CONTINUE</button>
+    <div class="pin-error" id="change-pwd-error" style="text-align:center"></div>
   </div>
-  <div class="pin-error" id="pin-error">INVALID PIN — TRY AGAIN</div>
 </div>
 
 <!-- ══ APP ══════════════════════════════════════════════════ -->
@@ -769,6 +788,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
       <button class="nav-btn" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">LINE FLUSH</button>
       <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
+      <button class="nav-btn" onclick="showView('users')"     id="nav-users" style="display:none">USERS</button>
       <button class="nav-btn" onclick="showView('procurement')" id="nav-procurement" style="display:none">PROCUREMENT</button>
     </nav>
     <div class="topbar-right">
@@ -2544,6 +2564,102 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div> <!-- /view-lineflush -->
 
+    <!-- ── USERS ── -->
+    <div class="view" id="view-users">
+      <div class="page-header">
+        <div class="page-title">USERS</div>
+        <div class="page-subtitle">Manage team access — ops and Vinay only</div>
+      </div>
+
+      <div id="users-list-view">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+          <button class="btn btn-primary" onclick="showNewUserForm()" style="padding:6px 16px">+ NEW USER</button>
+        </div>
+        <div class="panel">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Team</th><th>Phone</th><th>Status</th><th>Must Change Pwd</th><th></th></tr></thead>
+              <tbody id="users-table-body">
+                <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="users-form-view" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="showUsersList()" style="padding:4px 12px">← Back</button>
+          <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="users-form-title">NEW USER</div>
+        </div>
+        <div class="panel" style="max-width:700px">
+          <div class="panel-header"><div class="panel-title">USER DETAILS</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-input" id="usr-fullname" placeholder="First Last">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" type="email" id="usr-email" placeholder="name@legendoftoys.com">
+              </div>
+              <div class="form-group" id="usr-pwd-group">
+                <label class="form-label">Temporary Password</label>
+                <input class="form-input" type="text" id="usr-password" placeholder="Min 8 characters">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select class="form-select" id="usr-role">
+                  <option value="">Select...</option>
+                  <option value="store">Store</option>
+                  <option value="store_manager">Store Manager</option>
+                  <option value="ops">Ops</option>
+                  <option value="vinay">Vinay (Admin)</option>
+                  <option value="brand">Brand</option>
+                  <option value="founders">Founder's Office</option>
+                  <option value="production">Production</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Team</label>
+                <input class="form-input" id="usr-team" placeholder="e.g. Store, Brand, Production">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input class="form-input" id="usr-phone" placeholder="+91 ...">
+              </div>
+            </div>
+            <input type="hidden" id="usr-editing-id">
+            <div class="btn-row" style="margin-top:8px">
+              <button class="btn btn-primary" onclick="submitUser()">SAVE USER</button>
+              <button class="btn btn-secondary" id="usr-reset-btn" style="display:none" onclick="resetUserPassword()">RESET PASSWORD</button>
+              <button class="btn btn-secondary" onclick="showUsersList()">CANCEL</button>
+            </div>
+            <div style="margin-top:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)" id="usr-note">
+              User will be asked to set their own password on first login.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset password modal -->
+      <div id="reset-pwd-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:24px;width:360px">
+          <div style="font-family:var(--cond);font-weight:700;font-size:16px;margin-bottom:16px">RESET PASSWORD</div>
+          <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label">New Temporary Password</label>
+            <input class="form-input" type="text" id="reset-pwd-input" placeholder="Min 8 characters">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="confirmResetPassword()">RESET</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('reset-pwd-modal').style.display='none'">CANCEL</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
   </div><!-- /content -->
 </div><!-- /app -->
 
@@ -2597,57 +2713,86 @@ const PRODUCT_SUBVARIANTS = {
 };
 
 // ══ STATE ════════════════════════════════════════════════════
-let currentPin  = '';
-let currentRole = '';
-let currentView = 'dashboard';
-let stockData   = [];
-let bomCache    = {};
+let currentToken = '';
+let currentRole  = '';
+let currentUser  = {};   // { email, full_name, role }
+let currentView  = 'dashboard';
+let stockData    = [];
+let bomCache     = {};
 
-// ══ PIN LOGIC ════════════════════════════════════════════════
-function pinPress(d) {
-  if (currentPin.length >= 4) return;
-  currentPin += d;
-  updateDots();
-  if (currentPin.length === 4) setTimeout(submitPin, 150);
+// ══ AUTH LOGIC ═══════════════════════════════════════════════
+function toggleLoginPwd() {
+  const inp = document.getElementById('login-password');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
-function pinBack() {
-  currentPin = currentPin.slice(0,-1);
-  updateDots();
+function showLoginError(msg) {
+  const el = document.getElementById('pin-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => { el.classList.remove('show'); el.textContent = ''; }, 3000);
 }
 
-function pinClear() {
-  currentPin = '';
-  updateDots();
-}
-
-function updateDots() {
-  for (let i=0;i<4;i++) {
-    document.getElementById('d'+i).classList.toggle('filled', i < currentPin.length);
-  }
-}
-
-async function submitPin() {
+async function submitLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn      = document.getElementById('login-btn');
+  if (!email || !password) { showLoginError('Enter email and password'); return; }
+  btn.textContent = 'SIGNING IN...'; btn.disabled = true;
   try {
-    const res = await api('ping', { pin: currentPin });
-    if (res.ok) {
-      currentRole = res.data.role;
-      launchApp();
+    const res = await fetch(`${API}?action=login`, {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
+    currentToken = data.data.access_token;
+    currentRole  = data.data.role;
+    currentUser  = { email, full_name: data.data.full_name, role: data.data.role };
+    if (data.data.must_change_password) {
+      showChangePasswordScreen();
     } else {
-      showPinError();
+      launchApp();
     }
   } catch(e) {
-    showPinError();
+    showLoginError('Network error — check connection');
+  } finally {
+    btn.textContent = 'SIGN IN'; btn.disabled = false;
   }
 }
 
-function showPinError() {
-  const el = document.getElementById('pin-error');
-  el.classList.add('show');
-  currentPin = '';
-  updateDots();
-  setTimeout(() => el.classList.remove('show'), 2000);
+function showChangePasswordScreen() {
+  document.getElementById('login-form').style.display      = 'none';
+  document.getElementById('change-pwd-form').style.display = 'flex';
+  document.getElementById('login-sub').textContent         = 'CHANGE YOUR PASSWORD';
 }
+
+async function submitChangePassword() {
+  const newPwd     = document.getElementById('new-pwd').value;
+  const confirmPwd = document.getElementById('confirm-pwd').value;
+  const errEl      = document.getElementById('change-pwd-error');
+  const showErr    = msg => { errEl.textContent = msg; errEl.classList.add('show'); };
+  if (newPwd.length < 8)          { showErr('Password must be at least 8 characters'); return; }
+  if (newPwd !== confirmPwd)      { showErr('Passwords do not match'); return; }
+  try {
+    const res = await apiPost('changeMyPassword', { data: { new_password: newPwd } });
+    if (res.ok) { launchApp(); }
+    else showErr(res.error || 'Failed to change password');
+  } catch(e) { showErr('Network error'); }
+}
+
+function logout() {
+  currentToken = ''; currentRole = ''; currentUser = {}; currentView = 'dashboard';
+  stockData = []; bomCache = {};
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-form').style.display      = 'flex';
+  document.getElementById('change-pwd-form').style.display = 'none';
+  document.getElementById('app').style.display   = 'none';
+  document.getElementById('pin-screen').style.display = 'flex';
+}
+
+
 
 function launchApp() {
   document.getElementById('pin-screen').style.display = 'none';
@@ -2656,8 +2801,14 @@ function launchApp() {
 
   // Role badge
   const badge = document.getElementById('role-badge');
-  badge.textContent = currentRole.toUpperCase().replace('_',' ');
+  badge.textContent = (currentUser.full_name || currentRole).toUpperCase().replace('_',' ');
   badge.className = 'role-badge ' + (currentRole === 'ops' ? 'ops' : currentRole === 'vinay' ? 'vinay' : 'reann');
+
+  // Show users tab for admins only
+  if (['ops','vinay'].includes(currentRole)) {
+    const usersBtn = document.getElementById('nav-users');
+    if (usersBtn) usersBtn.style.display = '';
+  }
 
   // Show line flush tab for store, ops, vinay, store_manager, production
   const lfBtn = document.getElementById('nav-lineflush');
@@ -2756,13 +2907,6 @@ function launchApp() {
   }, 60000);
 }
 
-function logout() {
-  currentPin = ''; currentRole = ''; currentView = 'dashboard';
-  stockData = []; bomCache = {};
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('pin-screen').style.display = 'flex';
-  updateDots();
-}
 
 // ══ DATE HELPERS ═════════════════════════════════════════════
 function formatDisplayDate(raw) {
@@ -2789,14 +2933,15 @@ function formatDateForAPI(dateStr) {
   return String(d.getDate()).padStart(2,'0') + '-' + months[d.getMonth()] + '-' + d.getFullYear();
 }
 
+
 // ══ API ══════════════════════════════════════════════════════
-// Apps Script deployed as "Anyone" returns CORS headers on final response
-// Plain fetch with redirect:follow gets clean JSON from googleusercontent.com
 async function api(action, params = {}) {
-  const p = { action, pin: currentPin || params.pin || '' };
-  Object.keys(params).forEach(k => { if (k !== 'pin') p[k] = params[k]; });
+  const p = { action };
+  Object.keys(params).forEach(k => { p[k] = params[k]; });
   const qs = new URLSearchParams(p).toString();
-  const res = await fetch(`${API}?${qs}`);
+  const res = await fetch(`${API}?${qs}`, {
+    headers: { 'Authorization': `Bearer ${currentToken}` },
+  });
   const text = await res.text();
   console.log('[API]', action, '→', text.slice(0, 120));
   try { return JSON.parse(text); }
@@ -2804,13 +2949,15 @@ async function api(action, params = {}) {
 }
 
 async function apiPost(action, data = {}) {
-  const qs = new URLSearchParams({ action, pin: currentPin }).toString();
-  const res = await fetch(`${API}?${qs}`, {
+  const res = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
-    body: JSON.stringify({ action, pin: currentPin, ...data }),
+    headers: { 'Authorization': `Bearer ${currentToken}` },
+    body: JSON.stringify({ action, ...data }),
   });
   return res.json();
 }
+
+
 
 // ══ NAVIGATION ═══════════════════════════════════════════════
 function showView(name) {
@@ -2830,7 +2977,8 @@ function showView(name) {
     ensureMaterialCache();
     loadShipments();
   }
-  if (name === 'lineflush') { initLineFlush(); }
+  if (name === 'lineflush')   { initLineFlush(); }
+  if (name === 'users')       { loadUsers(); }
   if (name === 'procurement') { initProcurement(); }
 }
 
@@ -5977,6 +6125,111 @@ async function loadQuarantine() {
       </tr>`;
     }).join('') : '<tr><td colspan="9" class="empty">No quarantined items</td></tr>';
   } catch(e) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; }
+}
+// ══ USERS ════════════════════════════════════════════════════
+const ROLE_LABELS = {
+  store:'Store', store_manager:'Store Manager', ops:'Ops', vinay:'Vinay (Admin)',
+  brand:'Brand', founders:"Founder's Office", production:'Production',
+};
+
+let editingUserId = null;
+
+async function loadUsers() {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getUsers');
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="8" class="empty">${res.error||'Error'}</td></tr>`; return; }
+    const users = res.data || [];
+    tbody.innerHTML = users.length ? users.map(u => `<tr>
+      <td style="font-weight:600">${u.full_name}</td>
+      <td style="font-size:11px;color:var(--text3)">${u.email||'—'}</td>
+      <td><span class="badge badge-gray" style="font-size:9px">${ROLE_LABELS[u.role]||u.role}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${u.team||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${u.phone||'—'}</td>
+      <td><span class="badge ${u.active?'badge-green':'badge-red'}" style="font-size:9px">${u.active?'Active':'Inactive'}</span></td>
+      <td>${u.must_change_password?'<span style="color:var(--yellow);font-size:11px">⚠ Pending</span>':'<span style="color:var(--text3);font-size:11px">—</span>'}</td>
+      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="editUser('${u.id}','${u.full_name}','${u.email||''}','${u.role}','${u.team||''}','${u.phone||''}',${u.active})">EDIT</button></td>
+    </tr>`).join('') : '<tr><td colspan="8" class="empty">No users yet</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading users</td></tr>'; }
+}
+
+function showNewUserForm() {
+  editingUserId = null;
+  document.getElementById('users-list-view').style.display = 'none';
+  document.getElementById('users-form-view').style.display = '';
+  document.getElementById('users-form-title').textContent  = 'NEW USER';
+  ['usr-fullname','usr-email','usr-password','usr-team','usr-phone'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('usr-role').value = '';
+  document.getElementById('usr-pwd-group').style.display  = '';
+  document.getElementById('usr-reset-btn').style.display  = 'none';
+  document.getElementById('usr-editing-id').value         = '';
+}
+
+function editUser(id, fullName, email, role, team, phone, active) {
+  editingUserId = id;
+  document.getElementById('users-list-view').style.display = 'none';
+  document.getElementById('users-form-view').style.display = '';
+  document.getElementById('users-form-title').textContent  = 'EDIT USER — ' + fullName;
+  document.getElementById('usr-fullname').value = fullName;
+  document.getElementById('usr-email').value    = email;
+  document.getElementById('usr-role').value     = role;
+  document.getElementById('usr-team').value     = team;
+  document.getElementById('usr-phone').value    = phone;
+  document.getElementById('usr-editing-id').value = id;
+  document.getElementById('usr-pwd-group').style.display = 'none';
+  document.getElementById('usr-reset-btn').style.display = '';
+}
+
+function showUsersList() {
+  document.getElementById('users-list-view').style.display = '';
+  document.getElementById('users-form-view').style.display = 'none';
+  loadUsers();
+}
+
+async function submitUser() {
+  const id       = document.getElementById('usr-editing-id').value;
+  const fullName = document.getElementById('usr-fullname').value.trim();
+  const email    = document.getElementById('usr-email').value.trim();
+  const role     = document.getElementById('usr-role').value;
+  const team     = document.getElementById('usr-team').value.trim();
+  const phone    = document.getElementById('usr-phone').value.trim();
+  const password = document.getElementById('usr-password').value.trim();
+  if (!fullName || !role) { toast('Name and role required', 'error'); return; }
+  try {
+    let res;
+    if (id) {
+      res = await apiPost('updateUser', { data: { id, full_name: fullName, role, team: team||null, phone: phone||null } });
+    } else {
+      if (!email || !password) { toast('Email and password required for new user', 'error'); return; }
+      if (password.length < 8)  { toast('Password must be at least 8 characters', 'error'); return; }
+      res = await apiPost('createUser', { data: { email, password, full_name: fullName, role, team: team||null, phone: phone||null } });
+    }
+    if (res.ok) { toast(id ? 'User updated' : 'User created — they must change password on first login', 'success'); showUsersList(); }
+    else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+function resetUserPassword() {
+  document.getElementById('reset-pwd-input').value = '';
+  document.getElementById('reset-pwd-modal').style.display = 'flex';
+}
+
+async function confirmResetPassword() {
+  const id  = document.getElementById('usr-editing-id').value;
+  const pwd = document.getElementById('reset-pwd-input').value.trim();
+  if (!id || !pwd) { toast('Enter new password', 'error'); return; }
+  if (pwd.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
+  try {
+    const res = await apiPost('resetPassword', { data: { id, new_password: pwd } });
+    if (res.ok) {
+      toast('Password reset — user must change it on next login', 'success');
+      document.getElementById('reset-pwd-modal').style.display = 'none';
+    } else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
 }
 
 </script>
