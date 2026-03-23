@@ -1952,9 +1952,77 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="panel" style="margin-bottom:16px">
           <div class="panel-header">
             <div class="panel-title">LINE ITEMS</div>
-            <button class="btn btn-secondary" onclick="addPOLine()" style="padding:2px 10px;font-size:10px">+ ADD LINE</button>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn btn-secondary" id="po-mode-bom" onclick="setPOLineMode('bom')" style="padding:3px 10px;font-size:10px">📋 FROM BOM</button>
+              <button class="btn btn-secondary" id="po-mode-manual" onclick="setPOLineMode('manual')" style="padding:3px 10px;font-size:10px">✏ MANUAL</button>
+              <button class="btn btn-secondary" id="po-add-line-btn" onclick="addPOLine()" style="padding:3px 10px;font-size:10px;display:none">+ ADD LINE</button>
+            </div>
           </div>
-          <div id="po-lines-container" style="padding:12px">
+
+          <!-- BOM Selector UI -->
+          <div id="po-bom-selector" style="padding:12px;border-bottom:1px solid var(--border)">
+            <!-- Step 1: Product + Variant -->
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+              <div class="form-group" style="flex:0 0 160px">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="po-bom-product" onchange="loadPOBOMVariants()">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:0 0 160px" id="po-bom-variant-group">
+                <label class="form-label">Variant</label>
+                <select class="form-select" id="po-bom-variant">
+                  <option value="">All variants</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex:0 0 100px">
+                <label class="form-label">Units Qty</label>
+                <input class="form-input" type="number" id="po-bom-qty" value="1" min="1" placeholder="1">
+              </div>
+            </div>
+
+            <!-- Step 2: Group selector buttons -->
+            <div style="margin-bottom:10px">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:6px">SELECT COMPONENT GROUP</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap" id="po-bom-group-btns">
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('full')"     style="padding:4px 12px;font-size:11px">🚗 Full Product</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('car')"      style="padding:4px 12px;font-size:11px">🔩 Car Parts</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('remote')"   style="padding:4px 12px;font-size:11px">📡 Remote Only</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('accessories')" style="padding:4px 12px;font-size:11px">🧰 Accessories</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('metal')"    style="padding:4px 12px;font-size:11px">⚙ Metal Parts</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('packaging')" style="padding:4px 12px;font-size:11px">📦 Packaging</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('para')"     style="padding:4px 12px;font-size:11px">📄 Para</button>
+                <button class="btn btn-secondary po-group-btn" onclick="loadPOBOMGroup('consumables')" style="padding:4px 12px;font-size:11px">🔧 Consumables</button>
+              </div>
+            </div>
+
+            <!-- Step 3: BOM checklist -->
+            <div id="po-bom-checklist" style="display:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-family:var(--mono);font-size:10px;color:var(--text3)" id="po-bom-checklist-label">— lines</span>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-secondary" onclick="toggleAllPOBOM(true)"  style="padding:2px 8px;font-size:10px">SELECT ALL</button>
+                  <button class="btn btn-secondary" onclick="toggleAllPOBOM(false)" style="padding:2px 8px;font-size:10px">CLEAR ALL</button>
+                  <button class="btn btn-primary"   onclick="addBOMLinesToPO()"     style="padding:2px 10px;font-size:10px">ADD SELECTED →</button>
+                </div>
+              </div>
+              <div style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:3px">
+                <table style="font-size:11px">
+                  <thead>
+                    <tr>
+                      <th style="width:32px;padding:6px 8px"><input type="checkbox" id="po-bom-check-all" onchange="toggleAllPOBOM(this.checked)" style="accent-color:var(--yellow)"></th>
+                      <th>Part Code</th><th>Part Name</th><th>Category</th><th>Type</th>
+                      <th style="text-align:right">BOM Qty</th><th style="text-align:right">Order Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody id="po-bom-checklist-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual lines (shown in manual mode) -->
+          <div id="po-lines-container" style="padding:12px;display:none">
             <!-- lines added dynamically -->
           </div>
           <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
@@ -2446,7 +2514,7 @@ function launchApp() {
 
   // Populate product dropdowns
   PRODUCTS.forEach(p => {
-    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product'].forEach(id => {
+    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product','po-bom-product'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
     });
@@ -4453,12 +4521,221 @@ function showNewPOForm() {
   if (placedEl) placedEl.textContent = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   document.getElementById('po-prod-lead-display').textContent = '— days';
   document.getElementById('po-arrival-display').textContent = '— auto-calc —';
-  // Clear and add one fresh line
+  // Reset BOM selector
+  document.getElementById('po-bom-product').value = '';
+  document.getElementById('po-bom-variant').innerHTML = '<option value="">All variants</option>';
+  document.getElementById('po-bom-qty').value = '1';
+  document.getElementById('po-bom-checklist').style.display = 'none';
+  document.getElementById('po-bom-checklist-body').innerHTML = '';
+  document.querySelectorAll('.po-group-btn').forEach(b => b.classList.remove('btn-primary'));
+  document.querySelectorAll('.po-group-btn').forEach(b => b.classList.add('btn-secondary'));
+  setPOLineMode('bom');
+  // Clear manual lines container for when user switches to manual mode
   document.getElementById('po-lines-container').innerHTML = '';
-  addPOLine();
 }
 
-function addPOLine() {
+// ── PO LINE MODE ─────────────────────────────────────────────
+function setPOLineMode(mode) {
+  const isBOM = mode === 'bom';
+  document.getElementById('po-bom-selector').style.display    = isBOM  ? '' : 'none';
+  document.getElementById('po-lines-container').style.display = !isBOM ? '' : 'none';
+  document.getElementById('po-add-line-btn').style.display    = !isBOM ? '' : 'none';
+  document.getElementById('po-mode-bom').className    = 'btn ' + (isBOM  ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('po-mode-manual').className = 'btn ' + (!isBOM ? 'btn-primary' : 'btn-secondary');
+  if (!isBOM && document.getElementById('po-lines-container').children.length === 0) addPOLine();
+}
+
+// ── BOM GROUP DEFINITIONS ────────────────────────────────────
+const PO_BOM_GROUPS = {
+  full:        { label: 'Full Product',  cats: ['Car','Remote','Remote/Car','Accessories'] },
+  car:         { label: 'Car Parts',     cats: ['Car','Remote/Car'] },
+  remote:      { label: 'Remote Only',   cats: ['Remote','Remote/Car'] },
+  accessories: { label: 'Accessories',   cats: ['Accessories'] },
+  metal:       { label: 'Metal Parts',   cats: ['Metal'] },
+  packaging:   { label: 'Packaging',     cats: ['Packaging'] },
+  para:        { label: 'Para',          cats: ['Para'] },
+  consumables: { label: 'Consumables',   cats: ['Consumables'] },
+};
+
+let poBOMData = []; // full BOM for current product/variant
+let poBOMGroup = ''; // current active group
+
+async function loadPOBOMVariants() {
+  const product = document.getElementById('po-bom-product').value;
+  const varSel  = document.getElementById('po-bom-variant');
+  varSel.innerHTML = '<option value="">All variants</option>';
+  document.getElementById('po-bom-checklist').style.display = 'none';
+  poBOMData = []; poBOMGroup = '';
+  document.querySelectorAll('.po-group-btn').forEach(b => {
+    b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
+  });
+  if (!product) return;
+  const variants = PRODUCT_VARIANTS[product] || [];
+  variants.forEach(v => { varSel.innerHTML += `<option value="${v}">${v}</option>`; });
+}
+
+async function loadPOBOMGroup(group) {
+  const product = document.getElementById('po-bom-product').value;
+  if (!product) { toast('Select a product first', 'error'); return; }
+  poBOMGroup = group;
+
+  // Highlight active group button
+  document.querySelectorAll('.po-group-btn').forEach(b => {
+    b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
+  });
+  event.target.classList.remove('btn-secondary');
+  event.target.classList.add('btn-primary');
+
+  // Fetch full BOM if not already loaded for this product/variant
+  const variant = document.getElementById('po-bom-variant').value || '';
+  try {
+    const res = await api('getBOM', { product });
+    if (!res.ok) { toast('Failed to load BOM', 'error'); return; }
+    poBOMData = res.data || [];
+  } catch(e) { toast('Error loading BOM', 'error'); return; }
+
+  const cats = PO_BOM_GROUPS[group]?.cats || [];
+  const filtered = poBOMData.filter(r => cats.includes(r.part_category));
+
+  if (!filtered.length) {
+    toast('No parts in this group for ' + product, 'info');
+    document.getElementById('po-bom-checklist').style.display = 'none';
+    return;
+  }
+
+  renderPOBOMChecklist(filtered);
+}
+
+function renderPOBOMChecklist(lines) {
+  const qty = parseInt(document.getElementById('po-bom-qty').value) || 1;
+  const tbody = document.getElementById('po-bom-checklist-body');
+  tbody.innerHTML = lines.map((r, i) => {
+    const orderQty = (r.qty_per_unit || 1) * qty;
+    const catColor = r.part_category === 'Car' ? 'var(--yellow)' :
+                     r.part_category === 'Remote' ? 'var(--blue)' :
+                     r.part_category === 'Remote/Car' ? '#a78bfa' :
+                     r.part_category === 'Accessories' ? 'var(--green)' : 'var(--text3)';
+    return `<tr style="cursor:pointer" onclick="togglePOBOMRow(${i})">
+      <td style="padding:6px 8px;text-align:center">
+        <input type="checkbox" class="po-bom-cb" data-idx="${i}" checked
+               style="accent-color:var(--yellow)" onclick="event.stopPropagation();updatePOBOMCheckAll()">
+      </td>
+      <td class="mono" style="font-size:10px">${r.part_code}</td>
+      <td style="font-size:11px">${r.part_name}</td>
+      <td><span style="font-family:var(--mono);font-size:9px;color:${catColor}">${r.part_category}</span></td>
+      <td style="font-size:10px;color:var(--text3)">${r.part_type||'—'}</td>
+      <td class="mono" style="text-align:right;font-size:11px;color:var(--text3)">${r.qty_per_unit||1}</td>
+      <td style="text-align:right">
+        <input type="number" value="${orderQty}" min="0"
+               class="po-bom-qty-input"
+               style="width:70px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;
+                      padding:2px 6px;color:var(--text);font-family:var(--mono);font-size:11px;text-align:right"
+               onclick="event.stopPropagation()">
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Store lines reference
+  tbody._lines = lines;
+  document.getElementById('po-bom-check-all').checked = true;
+  document.getElementById('po-bom-checklist-label').textContent =
+    lines.length + ' parts · ' + (PO_BOM_GROUPS[poBOMGroup]?.label || '');
+  document.getElementById('po-bom-checklist').style.display = '';
+}
+
+function togglePOBOMRow(idx) {
+  const cb = document.querySelector(`.po-bom-cb[data-idx="${idx}"]`);
+  if (cb) { cb.checked = !cb.checked; updatePOBOMCheckAll(); }
+}
+
+function toggleAllPOBOM(checked) {
+  document.querySelectorAll('.po-bom-cb').forEach(cb => cb.checked = checked);
+  const checkAll = document.getElementById('po-bom-check-all');
+  if (checkAll) checkAll.checked = checked;
+}
+
+function updatePOBOMCheckAll() {
+  const cbs = [...document.querySelectorAll('.po-bom-cb')];
+  const checkAll = document.getElementById('po-bom-check-all');
+  if (checkAll) checkAll.checked = cbs.length > 0 && cbs.every(cb => cb.checked);
+}
+
+function addBOMLinesToPO() {
+  const tbody = document.getElementById('po-bom-checklist-body');
+  const lines = tbody._lines || [];
+  const rows  = tbody.querySelectorAll('tr');
+  let added = 0;
+
+  rows.forEach((row, i) => {
+    const cb  = row.querySelector('.po-bom-cb');
+    const qtyInput = row.querySelector('.po-bom-qty-input');
+    if (!cb?.checked || !lines[i]) return;
+    const r   = lines[i];
+    const qty = parseFloat(qtyInput?.value) || 0;
+    if (qty <= 0) return;
+
+    // Add to manual lines container
+    const container = document.getElementById('po-lines-container');
+    const showHeader = container.children.length === 0;
+    const div = document.createElement('div');
+    div.className = 'po-line-item';
+    div.style.cssText = 'display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:8px;align-items:start';
+
+    // Map part_category → item_type
+    const itemTypeMap = {
+      'Car': 'Part', 'Remote': 'Part', 'Remote/Car': 'Part',
+      'Accessories': 'Other', 'Packaging': 'Ecom Packaging',
+      'Para': 'Comic', 'Metal': 'Part', 'Consumables': 'Other',
+    };
+    const itemType = itemTypeMap[r.part_category] || 'Part';
+
+    div.innerHTML = `
+      ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px">
+        <div class="form-label">Part Code</div><div class="form-label">Part Name</div>
+        <div class="form-label">Item Type</div><div class="form-label">Qty</div>
+        <div class="form-label">Unit Price</div><div class="form-label">Lead (days)</div>
+        <div class="form-label">Unit</div><div></div>
+      </div>` : ''}
+      <input class="form-input mono" value="${r.part_code}" style="font-size:11px;text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()" onblur="lookupPOLinePart(this)">
+      <input class="form-input" value="${r.part_name}" style="font-size:11px;color:var(--green)" readonly>
+      <select class="form-select" style="font-size:11px" onchange="recalcPOTotal()">
+        <option value="">Type...</option>
+        <option>Comic</option><option>Manual</option><option>Licence Card</option>
+        <option>Sticker (product)</option><option>Sticker (packaging)</option>
+        <option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option>
+        <option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option>
+        <option>RC Car</option><option>Construction Toy</option><option>Part</option>
+        <option>Tools</option><option>Machines</option><option>Other</option>
+      </select>
+      <input class="form-input" type="number" value="${qty}" min="0"
+             style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
+      <input class="form-input" type="number" placeholder="0.00" min="0" step="0.01"
+             style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
+      <input class="form-input" type="number" placeholder="—" min="0"
+             style="font-size:11px;text-align:right">
+      <select class="form-select" style="font-size:11px">
+        <option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>
+      </select>
+      <button style="width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px"
+              onclick="this.closest('.po-line-item').remove();recalcPOTotal()" title="Remove">×</button>`;
+
+    // Set item type after appending
+    container.appendChild(div);
+    const sel = div.querySelectorAll('select')[0];
+    if (sel) sel.value = itemType;
+    added++;
+  });
+
+  if (added === 0) { toast('No lines selected', 'error'); return; }
+
+  // Switch to manual mode to show the added lines
+  setPOLineMode('manual');
+  recalcPOTotal();
+  toast(`${added} line${added !== 1 ? 's' : ''} added from BOM`, 'success');
+}
+
+
   ensureMaterialCache();
   const container = document.getElementById('po-lines-container');
   const idx = container.children.length;
