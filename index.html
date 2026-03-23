@@ -1874,95 +1874,91 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div style="font-family:var(--cond);font-weight:700;font-size:20px">NEW PURCHASE ORDER</div>
         </div>
 
-        <div class="grid-2" style="margin-bottom:16px">
-          <div class="panel">
-            <div class="panel-header"><div class="panel-title">PO HEADER</div></div>
-            <div class="panel-body">
-              <div class="form-grid" style="grid-template-columns:1fr 1fr">
-                <div class="form-group">
-                  <label class="form-label">Order Type</label>
-                  <select class="form-select" id="po-order-type">
-                    <option value="">Select...</option>
-                    <option>Product</option><option>Packaging</option><option>Para</option>
-                    <option>Consumable</option><option>Component</option>
-                    <option>Tools</option><option>Machines</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Source</label>
-                  <select class="form-select" id="po-source">
-                    <option>China</option><option>India</option><option>USA</option>
-                    <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
-                    <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
-                    <option>UK</option><option>Italy</option><option>Turkey</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Vendor Name</label>
-                  <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
-                         list="vendor-datalist" autocomplete="off"
-                         oninput="prefillVendorFields(this.value)">
-                  <datalist id="vendor-datalist"></datalist>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Currency</label>
-                  <select class="form-select" id="po-currency">
-                    <option>INR</option><option>USD</option><option>RMB</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Payment Terms</label>
-                  <select class="form-select" id="po-payment-terms">
-                    <option value="">Select...</option>
-                    <option>Advance</option><option>Credit 30</option>
-                    <option>Credit 60</option><option>LC</option><option>TT</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Incoterms</label>
-                  <select class="form-select" id="po-incoterms">
-                    <option value="">Select...</option>
-                    <option>FOB</option><option>CIF</option><option>DDP</option>
-                    <option>Ex-Works</option><option>Local delivery</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Expected Delivery</label>
-                  <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Lead Time (auto)</label>
-                  <div id="po-lead-time-display" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--text2)">— days</div>
-                  <input type="hidden" id="po-lead-time">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Port of Loading</label>
-                  <input class="form-input" id="po-port" placeholder="e.g. Ningbo (China orders)">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Freight Forwarder</label>
-                  <input class="form-input" id="po-freight" placeholder="Forwarder name">
-                </div>
+        <!-- PO Header — full width, 3-col grid inside -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header"><div class="panel-title">PO HEADER</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:repeat(3,1fr)">
+              <div class="form-group">
+                <label class="form-label">Order Type</label>
+                <select class="form-select" id="po-order-type">
+                  <option value="">Select...</option>
+                  <option>Product</option><option>Packaging</option><option>Para</option>
+                  <option>Consumable</option><option>Component</option>
+                  <option>Tools</option><option>Machines</option>
+                </select>
               </div>
               <div class="form-group">
+                <label class="form-label">Source</label>
+                <select class="form-select" id="po-source">
+                  <option>China</option><option>India</option><option>USA</option>
+                  <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                  <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+                  <option>UK</option><option>Italy</option><option>Turkey</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Vendor Name</label>
+                <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
+                       list="vendor-datalist" autocomplete="off"
+                       oninput="prefillVendorFields(this.value)">
+                <datalist id="vendor-datalist"></datalist>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Currency</label>
+                <select class="form-select" id="po-currency">
+                  <option>INR</option><option>USD</option><option>RMB</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Payment Terms</label>
+                <select class="form-select" id="po-payment-terms">
+                  <option value="">Select...</option>
+                  <option>Advance</option><option>Credit 30</option>
+                  <option>Credit 60</option><option>LC</option><option>TT</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Incoterms</label>
+                <select class="form-select" id="po-incoterms">
+                  <option value="">Select...</option>
+                  <option>FOB</option><option>CIF</option><option>DDP</option>
+                  <option>Ex-Works</option><option>Local delivery</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Expected Delivery</label>
+                <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Lead Time (auto)</label>
+                <div id="po-lead-time-display" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--text2)">— days</div>
+                <input type="hidden" id="po-lead-time">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Port of Loading</label>
+                <input class="form-input" id="po-port" placeholder="e.g. Ningbo (China orders)">
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
                 <label class="form-label">Notes</label>
                 <input class="form-input" id="po-notes" placeholder="Any notes about this order">
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">LINE ITEMS</div>
-              <button class="btn btn-secondary" onclick="addPOLine()" style="padding:2px 10px;font-size:10px">+ ADD LINE</button>
-            </div>
-            <div id="po-lines-container" style="padding:12px">
-              <!-- lines added dynamically -->
-            </div>
-            <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
-              <span style="font-family:var(--mono);font-size:13px">Total: <span id="po-total-value" style="color:var(--yellow)">—</span></span>
-            </div>
+        <!-- Line Items — full width -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header">
+            <div class="panel-title">LINE ITEMS</div>
+            <button class="btn btn-secondary" onclick="addPOLine()" style="padding:2px 10px;font-size:10px">+ ADD LINE</button>
+          </div>
+          <div id="po-lines-container" style="padding:12px">
+            <!-- lines added dynamically -->
+          </div>
+          <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+            <span style="font-family:var(--mono);font-size:13px">Total: <span id="po-total-value" style="color:var(--yellow)">—</span></span>
           </div>
         </div>
 
@@ -4434,7 +4430,7 @@ function showNewPOForm() {
   document.getElementById('po-new-form').style.display    = '';
   document.getElementById('po-detail-view').style.display = 'none';
   // Clear all header fields
-  ['po-vendor','po-port','po-freight','po-notes','po-delivery'].forEach(id => {
+  ['po-vendor','po-port','po-notes','po-delivery'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   ['po-order-type','po-payment-terms','po-incoterms'].forEach(id => {
@@ -4469,9 +4465,9 @@ function addPOLine() {
   const showHeader = idx === 0;
   const div = document.createElement('div');
   div.className = 'po-line-item';
-  div.style.cssText = 'display:grid;grid-template-columns:130px 1fr 1fr 80px 80px 70px 80px 28px;gap:6px;margin-bottom:8px;align-items:start';
+  div.style.cssText = 'display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:8px;align-items:start';
   div.innerHTML = `
-    ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:130px 1fr 1fr 80px 80px 70px 80px 28px;gap:6px;margin-bottom:2px">
+    ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px">
       <div class="form-label">Part Code</div>
       <div class="form-label">Part Name</div>
       <div class="form-label">Item Type</div>
