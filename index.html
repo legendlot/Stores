@@ -4689,36 +4689,28 @@ function addBOMLinesToPO() {
     };
     const itemType = itemTypeMap[r.part_category] || 'Part';
 
-    div.innerHTML = `
-      ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px">
-        <div class="form-label">Part Code</div><div class="form-label">Part Name</div>
-        <div class="form-label">Item Type</div><div class="form-label">Qty</div>
-        <div class="form-label">Unit Price</div><div class="form-label">Lead (days)</div>
-        <div class="form-label">Unit</div><div></div>
-      </div>` : ''}
-      <input class="form-input mono" value="${r.part_code}" style="font-size:11px;text-transform:uppercase"
-             oninput="this.value=this.value.toUpperCase()" onblur="lookupPOLinePart(this)">
-      <input class="form-input" value="${r.part_name}" style="font-size:11px;color:var(--green)" readonly>
-      <select class="form-select" style="font-size:11px" onchange="recalcPOTotal()">
-        <option value="">Type...</option>
-        <option>Comic</option><option>Manual</option><option>Licence Card</option>
-        <option>Sticker (product)</option><option>Sticker (packaging)</option>
-        <option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option>
-        <option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option>
-        <option>RC Car</option><option>Construction Toy</option><option>Part</option>
-        <option>Tools</option><option>Machines</option><option>Other</option>
-      </select>
-      <input class="form-input" type="number" value="${qty}" min="0"
-             style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-      <input class="form-input" type="number" placeholder="0.00" min="0" step="0.01"
-             style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-      <input class="form-input" type="number" placeholder="—" min="0"
-             style="font-size:11px;text-align:right">
-      <select class="form-select" style="font-size:11px">
-        <option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>
-      </select>
-      <button style="width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px"
-              onclick="this.closest('.po-line-item').remove();recalcPOTotal()" title="Remove">×</button>`;
+    if (showHeader) {
+      const hdr2 = document.createElement('div');
+      hdr2.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px';
+      hdr2.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Item Type</div><div class="form-label">Qty</div><div class="form-label">Unit Price</div><div class="form-label">Lead (days)</div><div class="form-label">Unit</div><div></div>';
+      div.appendChild(hdr2);
+    }
+    const itemOptions2 = '<option value="">Type...</option><option>Comic</option><option>Manual</option><option>Licence Card</option><option>Sticker (product)</option><option>Sticker (packaging)</option><option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option><option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option><option>RC Car</option><option>Construction Toy</option><option>Part</option><option>Tools</option><option>Machines</option><option>Other</option>';
+    const pc2    = Object.assign(document.createElement('input'),  {className:'form-input mono', value:r.part_code, style:'font-size:11px;text-transform:uppercase'});
+    pc2.oninput  = function(){ this.value=this.value.toUpperCase(); };
+    pc2.onblur   = function(){ lookupPOLinePart(this); };
+    const nm2    = Object.assign(document.createElement('input'),  {className:'form-input', value:r.part_name, readOnly:true, style:'font-size:11px;color:var(--green)'});
+    const ts2    = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:itemOptions2});
+    ts2.onchange = recalcPOTotal;
+    const qt2    = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', value:String(qty), min:'0', style:'font-size:12px;text-align:right'});
+    qt2.oninput  = recalcPOTotal;
+    const pr2    = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'0.00', min:'0', step:'0.01', style:'font-size:12px;text-align:right'});
+    pr2.oninput  = recalcPOTotal;
+    const ld2    = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'—', min:'0', style:'font-size:11px;text-align:right'});
+    const un2    = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:'<option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>'});
+    const rb2    = Object.assign(document.createElement('button'),  {style:'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px', title:'Remove', innerHTML:'×'});
+    rb2.onclick  = function(){ this.closest('.po-line-item').remove(); recalcPOTotal(); };
+    [pc2, nm2, ts2, qt2, pr2, ld2, un2, rb2].forEach(el => div.appendChild(el));
 
     // Set item type after appending
     container.appendChild(div);
@@ -4735,7 +4727,7 @@ function addBOMLinesToPO() {
   toast(`${added} line${added !== 1 ? 's' : ''} added from BOM`, 'success');
 }
 
-
+function addPOLine() {
   ensureMaterialCache();
   const container = document.getElementById('po-lines-container');
   const idx = container.children.length;
@@ -4743,43 +4735,31 @@ function addBOMLinesToPO() {
   const div = document.createElement('div');
   div.className = 'po-line-item';
   div.style.cssText = 'display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:8px;align-items:start';
-  div.innerHTML = `
-    ${showHeader ? `<div style="grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px">
-      <div class="form-label">Part Code</div>
-      <div class="form-label">Part Name</div>
-      <div class="form-label">Item Type</div>
-      <div class="form-label">Qty</div>
-      <div class="form-label">Unit Price</div>
-      <div class="form-label">Lead (days)</div>
-      <div class="form-label">Unit</div>
-      <div></div>
-    </div>` : ''}
-    <input class="form-input mono" placeholder="Part code" style="font-size:11px;text-transform:uppercase"
-           oninput="this.value=this.value.toUpperCase()"
-           onblur="lookupPOLinePart(this)">
-    <input class="form-input" placeholder="Auto-fills from code" style="font-size:11px;color:var(--text3)" readonly>
-    <select class="form-select" style="font-size:11px" onchange="recalcPOTotal()">
-      <option value="">Type...</option>
-      <option>Comic</option><option>Manual</option><option>Licence Card</option>
-      <option>Sticker (product)</option><option>Sticker (packaging)</option>
-      <option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option>
-      <option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option>
-      <option>RC Car</option><option>Construction Toy</option><option>Part</option>
-      <option>Tools</option><option>Machines</option><option>Other</option>
-    </select>
-    <input class="form-input" type="number" placeholder="0" min="0"
-           style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-    <input class="form-input" type="number" placeholder="0.00" min="0" step="0.01"
-           style="font-size:12px;text-align:right" oninput="recalcPOTotal()">
-    <input class="form-input" type="number" placeholder="—" min="0"
-           style="font-size:11px;text-align:right" title="Override vendor default lead time for this line">
-    <select class="form-select" style="font-size:11px">
-      <option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>
-    </select>
-    <button style="width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px"
-            onclick="this.closest('.po-line-item').remove();recalcPOTotal()" title="Remove">×</button>`;
+  if (showHeader) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 90px 100px 80px 80px 28px;gap:8px;margin-bottom:2px';
+    hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Item Type</div><div class="form-label">Qty</div><div class="form-label">Unit Price</div><div class="form-label">Lead (days)</div><div class="form-label">Unit</div><div></div>';
+    div.appendChild(hdr);
+  }
+  const itemOptions = '<option value="">Type...</option><option>Comic</option><option>Manual</option><option>Licence Card</option><option>Sticker (product)</option><option>Sticker (packaging)</option><option>Ecom Packaging</option><option>Retail Packaging</option><option>Tray</option><option>Shrink Wrap</option><option>Elastic Band</option><option>Tie Screw</option><option>RC Car</option><option>Construction Toy</option><option>Part</option><option>Tools</option><option>Machines</option><option>Other</option>';
+  const pcInput   = Object.assign(document.createElement('input'),  {className:'form-input mono', placeholder:'Part code', style:'font-size:11px;text-transform:uppercase'});
+  pcInput.oninput = function(){ this.value=this.value.toUpperCase(); };
+  pcInput.onblur  = function(){ lookupPOLinePart(this); };
+  const nameInput = Object.assign(document.createElement('input'),  {className:'form-input', placeholder:'Auto-fills from code', readOnly:true, style:'font-size:11px;color:var(--text3)'});
+  const typeSel   = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:itemOptions});
+  typeSel.onchange = recalcPOTotal;
+  const qtyInput  = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:12px;text-align:right'});
+  qtyInput.oninput = recalcPOTotal;
+  const priceInput= Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'0.00', min:'0', step:'0.01', style:'font-size:12px;text-align:right'});
+  priceInput.oninput = recalcPOTotal;
+  const leadInput = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'—', min:'0', style:'font-size:11px;text-align:right', title:'Override vendor default lead time for this line'});
+  const unitSel   = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:'<option>pcs</option><option>sets</option><option>rolls</option><option>kg</option>'});
+  const rmBtn     = Object.assign(document.createElement('button'),  {style:'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;border-radius:2px', title:'Remove', innerHTML:'×'});
+  rmBtn.onclick = function(){ this.closest('.po-line-item').remove(); recalcPOTotal(); };
+  [pcInput, nameInput, typeSel, qtyInput, priceInput, leadInput, unitSel, rmBtn].forEach(el => div.appendChild(el));
   container.appendChild(div);
 }
+
 
 function lookupPOLinePart(input) {
   const code = input.value.trim().toUpperCase();
