@@ -767,6 +767,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
       <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">STOCK ISSUE</button>
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
+      <button class="nav-btn" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">LINE FLUSH</button>
       <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
       <button class="nav-btn" onclick="showView('procurement')" id="nav-procurement" style="display:none">PROCUREMENT</button>
     </nav>
@@ -2360,6 +2361,189 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div> <!-- /view-procurement -->
 
+    <!-- ── LINE FLUSH ── -->
+    <div class="view" id="view-lineflush">
+      <div class="page-header">
+        <div class="page-title">LINE FLUSH</div>
+        <div class="page-subtitle">End-of-day line returns — production raises, store verifies</div>
+      </div>
+
+      <!-- Sub-nav -->
+      <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="lf-tab-flushes"    onclick="switchLFTab('flushes')"    style="border-radius:3px 3px 0 0">FLUSHES</button>
+        <button class="nav-btn"        id="lf-tab-quarantine" onclick="switchLFTab('quarantine')" style="border-radius:3px 3px 0 0">QUARANTINE REGISTER</button>
+      </div>
+
+      <!-- ── FLUSHES TAB ── -->
+      <div id="lf-flushes-section">
+
+        <!-- List view -->
+        <div id="lf-list-view">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+            <select class="form-select" id="lf-filter-status" style="max-width:200px" onchange="loadFlushes()">
+              <option value="">All Statuses</option>
+              <option>Pending Verification</option>
+              <option>Verified</option>
+              <option>Disputed</option>
+            </select>
+            <button class="btn btn-secondary" onclick="loadFlushes()" style="padding:6px 14px">↻ Refresh</button>
+            <div style="margin-left:auto">
+              <button class="btn btn-primary" id="new-flush-btn" onclick="showNewFlushForm()" style="padding:6px 16px">+ NEW FLUSH</button>
+            </div>
+          </div>
+
+          <!-- Pending alert -->
+          <div id="lf-pending-strip" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(222,42,42,.08);border:1px solid rgba(222,42,42,.2);border-radius:3px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-family:var(--mono)">⚠ <span id="lf-pending-count">0</span> flush(es) awaiting store verification</span>
+          </div>
+
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr><th>Flush ID</th><th>Date</th><th>WO</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised Qty</th><th>Damages</th><th>Raised By</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody id="lf-table-body">
+                  <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- New Flush Form (production) -->
+        <div id="lf-new-form" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="showLFList()" style="padding:4px 12px">← Back</button>
+            <div style="font-family:var(--cond);font-weight:700;font-size:20px">NEW LINE FLUSH</div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header"><div class="panel-title">FLUSH HEADER</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:repeat(4,1fr)">
+                <div class="form-group">
+                  <label class="form-label">Date</label>
+                  <input class="form-input" type="date" id="lf-date">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Work Order</label>
+                  <select class="form-select" id="lf-wo-select">
+                    <option value="">Select WO...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Line</label>
+                  <select class="form-select" id="lf-line">
+                    <option>L1</option><option>L2</option><option>L3</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Shift</label>
+                  <select class="form-select" id="lf-shift">
+                    <option>Morning</option><option>Afternoon</option><option>Night</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="lf-notes" placeholder="Any notes about this flush">
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header">
+              <div class="panel-title">PARTS BEING RETURNED</div>
+              <button class="btn btn-secondary" onclick="addFlushLine()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
+            </div>
+            <div id="lf-lines-container" style="padding:12px"></div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="submitFlush()">SUBMIT FLUSH</button>
+            <button class="btn btn-secondary" onclick="showLFList()">CANCEL</button>
+          </div>
+        </div>
+
+        <!-- Flush Detail / Verify View -->
+        <div id="lf-detail-view" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="showLFList()" style="padding:4px 12px">← Back</button>
+            <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="lf-detail-id">—</div>
+            <span class="badge" id="lf-detail-status-badge">Pending</span>
+            <div style="margin-left:auto" id="lf-verify-btn-area"></div>
+          </div>
+
+          <!-- Summary -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header"><div class="panel-title">FLUSH DETAILS</div></div>
+            <div class="panel-body" id="lf-detail-summary"></div>
+          </div>
+
+          <!-- Lines raised by production -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header">
+              <div class="panel-title">PARTS RETURNED BY PRODUCTION</div>
+              <span class="badge badge-gray" id="lf-lines-count">0 lines</span>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Part Code</th><th>Part Name</th><th>Return Type</th><th style="text-align:right">Qty Raised</th><th style="text-align:right">Qty Verified</th><th>Variance</th><th>Notes</th></tr></thead>
+                <tbody id="lf-detail-lines"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Verification form (store only, shown when pending) -->
+          <div id="lf-verify-section" style="display:none">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">STORE VERIFICATION — ASSIGN DISPOSITIONS</div>
+                <span class="badge badge-yellow" style="font-size:9px">Each raised line can be split into multiple dispositions</span>
+              </div>
+              <div id="lf-verify-container" style="padding:12px"></div>
+              <div style="padding:12px;border-top:1px solid var(--border)">
+                <button class="btn btn-primary" onclick="submitVerification()">CONFIRM VERIFICATION</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispositions (shown after verification) -->
+          <div id="lf-dispositions-section" style="display:none">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">DISPOSITIONS</div></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>Part Code</th><th>Part Name</th><th>Disposition</th><th style="text-align:right">Qty</th><th>Bin</th><th>Rework WO</th><th>Notes</th></tr></thead>
+                  <tbody id="lf-dispositions-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div> <!-- /lf-flushes-section -->
+
+      <!-- ── QUARANTINE TAB ── -->
+      <div id="lf-quarantine-section" style="display:none">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">QUARANTINE REGISTER</div>
+            <span class="badge badge-red" id="quarantine-count-badge">—</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Disp ID</th><th>Date</th><th>Flush</th><th>WO</th><th>Part Code</th><th>Part Name</th><th>Return Type</th><th style="text-align:right">Qty</th><th>Bin</th></tr></thead>
+              <tbody id="quarantine-table-body">
+                <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- /view-lineflush -->
+
   </div><!-- /content -->
 </div><!-- /app -->
 
@@ -2475,14 +2659,18 @@ function launchApp() {
   badge.textContent = currentRole.toUpperCase().replace('_',' ');
   badge.className = 'role-badge ' + (currentRole === 'ops' ? 'ops' : currentRole === 'vinay' ? 'vinay' : 'reann');
 
-  // Show procurement tab for all roles that can access it
+  // Show line flush tab for store, ops, vinay, store_manager, production
+  const lfBtn = document.getElementById('nav-lineflush');
+  if (lfBtn && ['store','store_manager','ops','vinay','production'].includes(currentRole)) {
+    lfBtn.style.display = '';
+  }
   const procBtn = document.getElementById('nav-procurement');
   if (procBtn && ['ops','vinay','store_manager','brand','founders','production','store'].includes(currentRole)) {
     procBtn.style.display = '';
   }
 
   // Procurement-only roles: hide store tabs, show procurement
-  const procOnlyRoles = ['brand','founders','production'];
+  const procOnlyRoles = ['brand','founders'];
   if (procOnlyRoles.includes(currentRole)) {
     ['nav-stock','nav-grn','nav-receiving','nav-workorder','nav-issue','nav-returns','nav-reports'].forEach(id => {
       const el = document.getElementById(id); if (el) el.style.display = 'none';
@@ -2492,7 +2680,15 @@ function launchApp() {
     return;
   }
 
-  // Hide write-only nav for vinay
+  // Production team: land on Line Flush only
+  if (currentRole === 'production') {
+    ['nav-stock','nav-grn','nav-receiving','nav-workorder','nav-issue','nav-returns','nav-reports','nav-procurement'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.style.display = 'none';
+    });
+    document.getElementById('nav-lineflush').style.display = '';
+    showView('lineflush');
+    return;
+  }
   if (currentRole === 'vinay') {
     ['nav-grn','nav-workorder','nav-issue','nav-returns'].forEach(id => {
       const el = document.getElementById(id);
@@ -2507,7 +2703,7 @@ function launchApp() {
 
   // Init dates
   const today = new Date().toISOString().split('T')[0];
-  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date'].forEach(id => {
+  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date','lf-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = today;
   });
@@ -2634,9 +2830,8 @@ function showView(name) {
     ensureMaterialCache();
     loadShipments();
   }
-  if (name === 'procurement') {
-    initProcurement();
-  }
+  if (name === 'lineflush') { initLineFlush(); }
+  if (name === 'procurement') { initProcurement(); }
 }
 
 function refreshCurrent() {
@@ -5429,6 +5624,361 @@ async function generateBagsForLineBtn(btn) {
   const lineId = row.dataset.lineId || row.dataset.line_id;
   await generateBagsForLine(lineId);
 }
+
+// ══ LINE FLUSH ════════════════════════════════════════════════
+const LF_RETURN_TYPES  = ['Unused','Damaged','QC Rejected','Partial Assembly','Wrong Issue'];
+const LF_DISPOSITIONS  = ['Return to Stock','Quarantine','Scrap','Rework Queue'];
+const LF_DISP_COLORS   = { 'Return to Stock':'badge-green','Quarantine':'badge-red','Scrap':'badge-gray','Rework Queue':'badge-yellow' };
+const LF_STATUS_COLORS = { 'Pending Verification':'badge-yellow','Verified':'badge-green','Disputed':'badge-red' };
+
+let currentFlushId = null;
+let currentFlushData = null;
+
+function initLineFlush() {
+  const newBtn = document.getElementById('new-flush-btn');
+  if (newBtn) newBtn.style.display = ['production','store_manager','ops'].includes(currentRole) ? '' : 'none';
+  loadFlushes();
+}
+
+function switchLFTab(tab) {
+  document.getElementById('lf-flushes-section').style.display    = tab === 'flushes'    ? '' : 'none';
+  document.getElementById('lf-quarantine-section').style.display = tab === 'quarantine' ? '' : 'none';
+  document.getElementById('lf-tab-flushes').className    = 'nav-btn' + (tab === 'flushes'    ? ' active' : '');
+  document.getElementById('lf-tab-quarantine').className = 'nav-btn' + (tab === 'quarantine' ? ' active' : '');
+  if (tab === 'quarantine') loadQuarantine();
+}
+
+// ── FLUSH LIST ────────────────────────────────────────────────
+async function loadFlushes() {
+  const tbody  = document.getElementById('lf-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const status = document.getElementById('lf-filter-status')?.value || '';
+    const res    = await api('getFlushes', { status });
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Error</td></tr>'; return; }
+    const rows = res.data || [];
+    const pending = rows.filter(r => r.status === 'Pending Verification').length;
+    const strip = document.getElementById('lf-pending-strip');
+    if (strip) { strip.style.display = pending > 0 ? 'flex' : 'none'; }
+    const countEl = document.getElementById('lf-pending-count');
+    if (countEl) countEl.textContent = pending;
+    tbody.innerHTML = rows.length ? rows.map(r => {
+      const sc = LF_STATUS_COLORS[r.status] || 'badge-gray';
+      const dmg = (r.damaged_lines||0) + (r.rejected_lines||0);
+      return `<tr style="cursor:pointer" onclick="openFlush('${r.flush_id}')">
+        <td class="mono" style="color:var(--yellow);font-size:11px">${r.flush_id}</td>
+        <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.flush_date)}</td>
+        <td class="mono" style="font-size:11px">${r.wo_no}</td>
+        <td class="mono" style="font-size:11px">${r.line_no}</td>
+        <td style="font-size:11px">${r.shift}</td>
+        <td class="mono">${r.total_lines||0}</td>
+        <td class="mono">${r.total_qty_raised||0}</td>
+        <td>${dmg > 0 ? `<span style="color:var(--red);font-family:var(--mono);font-size:11px">${dmg} lines</span>` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.raised_by}</td>
+        <td><span class="badge ${sc}" style="font-size:9px">${r.status}</span></td>
+        <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation();openFlush('${r.flush_id}')">VIEW →</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="11" class="empty">No flushes yet</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Error</td></tr>'; }
+}
+
+function showLFList() {
+  document.getElementById('lf-list-view').style.display   = '';
+  document.getElementById('lf-new-form').style.display    = 'none';
+  document.getElementById('lf-detail-view').style.display = 'none';
+  loadFlushes();
+}
+
+// ── NEW FLUSH FORM (production) ───────────────────────────────
+async function showNewFlushForm() {
+  document.getElementById('lf-list-view').style.display   = 'none';
+  document.getElementById('lf-new-form').style.display    = '';
+  document.getElementById('lf-detail-view').style.display = 'none';
+  document.getElementById('lf-notes').value = '';
+  document.getElementById('lf-lines-container').innerHTML = '';
+  // Load open WOs into dropdown
+  try {
+    const res = await api('getWorkOrders');
+    const sel = document.getElementById('lf-wo-select');
+    sel.innerHTML = '<option value="">Select WO...</option>';
+    (res.data||[]).forEach(wo => {
+      const label = `${wo['wo_no.']||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
+      sel.innerHTML += `<option value="${wo['wo_no.']||wo.wo_no||''}">${label}</option>`;
+    });
+  } catch(e) {}
+  addFlushLine();
+}
+
+function addFlushLine() {
+  ensureMaterialCache();
+  const container = document.getElementById('lf-lines-container');
+  const showHeader = container.children.length === 0;
+  const div = document.createElement('div');
+  div.className = 'flush-line-item';
+  div.style.cssText = 'display:grid;grid-template-columns:140px 1fr 160px 100px 28px;gap:8px;margin-bottom:8px;align-items:start';
+  if (showHeader) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 100px 28px;gap:8px;margin-bottom:2px';
+    hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Return Type</div><div class="form-label">Qty</div><div></div>';
+    div.appendChild(hdr);
+  }
+  const typeOpts = LF_RETURN_TYPES.map(t => `<option>${t}</option>`).join('');
+  const pcInput  = Object.assign(document.createElement('input'), {className:'form-input mono', placeholder:'Part code', style:'font-size:11px;text-transform:uppercase'});
+  pcInput.oninput = function(){ this.value=this.value.toUpperCase(); };
+  pcInput.onblur  = function(){ lookupFlushLinePart(this); };
+  const nmInput  = Object.assign(document.createElement('input'), {className:'form-input', placeholder:'Auto-fills', readOnly:true, style:'font-size:11px;color:var(--text3)'});
+  const typeSel  = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:typeOpts});
+  const qtyInput = Object.assign(document.createElement('input'), {className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:12px;text-align:right'});
+  const rmBtn    = Object.assign(document.createElement('button'), {style:'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px', title:'Remove', innerHTML:'×'});
+  rmBtn.onclick  = function(){ this.closest('.flush-line-item').remove(); };
+  [pcInput, nmInput, typeSel, qtyInput, rmBtn].forEach(el => div.appendChild(el));
+  container.appendChild(div);
+}
+
+function lookupFlushLinePart(input) {
+  const code = input.value.trim().toUpperCase();
+  const row  = input.closest('.flush-line-item');
+  if (!row) return;
+  const nameInput = row.querySelectorAll('input')[1];
+  const part = materialCache[code];
+  if (part) {
+    nameInput.value = part.part_name || '';
+    nameInput.style.color = 'var(--green)';
+    input.style.borderColor = 'var(--green)';
+  } else if (code.length >= 3) {
+    nameInput.value = '⚠ Not found';
+    nameInput.style.color = 'var(--red)';
+    input.style.borderColor = 'var(--red)';
+  }
+}
+
+async function submitFlush() {
+  const woNo = document.getElementById('lf-wo-select').value;
+  if (!woNo) { toast('Select a Work Order', 'error'); return; }
+  const lines = [];
+  document.querySelectorAll('.flush-line-item').forEach(div => {
+    const inputs  = div.querySelectorAll('input');
+    const sel     = div.querySelector('select');
+    const partCode = inputs[0]?.value?.trim();
+    const partName = inputs[1]?.value?.trim();
+    const qty      = parseFloat(inputs[2]?.value) || 0;
+    if (partCode && qty > 0) {
+      lines.push({ part_code: partCode, part_name: partName, return_type: sel?.value||'Unused', qty_raised: qty });
+    }
+  });
+  if (!lines.length) { toast('Add at least one part', 'error'); return; }
+  try {
+    const res = await apiPost('postFlush', { data: {
+      flush_date: document.getElementById('lf-date').value,
+      wo_no:  woNo,
+      line_no: document.getElementById('lf-line').value,
+      shift:   document.getElementById('lf-shift').value,
+      notes:   document.getElementById('lf-notes').value || null,
+      lines,
+    }});
+    if (res.ok) { toast(`${res.data.flush_id} submitted — ${res.data.lines} parts`, 'success'); showLFList(); }
+    else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// ── FLUSH DETAIL & VERIFICATION ──────────────────────────────
+async function openFlush(flushId) {
+  currentFlushId = flushId;
+  document.getElementById('lf-list-view').style.display   = 'none';
+  document.getElementById('lf-new-form').style.display    = 'none';
+  document.getElementById('lf-detail-view').style.display = '';
+  document.getElementById('lf-detail-id').textContent     = flushId;
+  try {
+    const res = await api('getFlush', { flush_id: flushId });
+    if (!res.ok) { toast('Failed to load flush', 'error'); return; }
+    currentFlushData = res.data;
+    renderFlushDetail(res.data);
+  } catch(e) { toast('Error', 'error'); }
+}
+
+function renderFlushDetail({ flush, lines, dispositions }) {
+  const sc = LF_STATUS_COLORS[flush.status] || 'badge-gray';
+  document.getElementById('lf-detail-status-badge').textContent = flush.status;
+  document.getElementById('lf-detail-status-badge').className   = 'badge ' + sc;
+  document.getElementById('lf-lines-count').textContent = lines.length + ' lines';
+
+  // Summary
+  document.getElementById('lf-detail-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+      ${[['Date',      formatDisplayDate(flush.flush_date)],
+         ['Work Order',flush.wo_no],
+         ['Line',      flush.line_no],
+         ['Shift',     flush.shift],
+         ['Raised By', flush.raised_by],
+        ].map(([k,v]) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${k}</div>
+          <div style="font-size:13px;font-weight:600">${v||'—'}</div>
+        </div>`).join('')}
+    </div>
+    ${flush.notes ? `<div style="margin-top:10px;font-size:11px;color:var(--text2)">${flush.notes}</div>` : ''}`;
+
+  // Lines raised
+  const rtColors = {'Unused':'badge-blue','Damaged':'badge-red','QC Rejected':'badge-red','Partial Assembly':'badge-yellow','Wrong Issue':'badge-gray'};
+  document.getElementById('lf-detail-lines').innerHTML = lines.length ? lines.map(l => {
+    const verified = l.qty_verified != null;
+    const variance = verified ? l.qty_verified - l.qty_raised : null;
+    const varCell  = variance === null ? '<td class="empty">—</td>' :
+      variance === 0 ? '<td style="color:var(--green);font-family:var(--mono)">✓</td>' :
+      `<td style="color:var(--red);font-family:var(--mono)">${variance > 0 ? '+' : ''}${variance}</td>`;
+    return `<tr>
+      <td class="mono" style="font-size:11px">${l.part_code}</td>
+      <td style="font-size:11px">${l.part_name}</td>
+      <td><span class="badge ${rtColors[l.return_type]||'badge-gray'}" style="font-size:9px">${l.return_type}</span></td>
+      <td class="mono" style="text-align:right">${l.qty_raised}</td>
+      <td class="mono" style="text-align:right;color:${l.qty_verified!=null?'var(--text)':'var(--text3)'}">${l.qty_verified??'—'}</td>
+      ${varCell}
+      <td style="font-size:11px;color:var(--text3)">${l.notes||'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">No lines</td></tr>';
+
+  // Verify button area
+  const btnArea   = document.getElementById('lf-verify-btn-area');
+  const canVerify = ['store','store_manager','ops','vinay'].includes(currentRole);
+  const isPending = flush.status === 'Pending Verification';
+  btnArea.innerHTML = (isPending && canVerify)
+    ? '<button class="btn btn-primary" onclick="showVerifySection()">VERIFY THIS FLUSH</button>'
+    : '';
+
+  // Show verify section or dispositions
+  document.getElementById('lf-verify-section').style.display    = (isPending && canVerify) ? 'none' : 'none';
+  document.getElementById('lf-dispositions-section').style.display = dispositions.length ? '' : 'none';
+
+  if (dispositions.length) {
+    document.getElementById('lf-dispositions-body').innerHTML = dispositions.map(d => {
+      const dc = LF_DISP_COLORS[d.disposition] || 'badge-gray';
+      return `<tr>
+        <td class="mono" style="font-size:11px">${d.part_code}</td>
+        <td style="font-size:11px">${d.part_name}</td>
+        <td><span class="badge ${dc}" style="font-size:9px">${d.disposition}</span></td>
+        <td class="mono" style="text-align:right">${d.qty}</td>
+        <td style="font-size:11px;color:var(--text3)">${d.bin_code||'—'}</td>
+        <td class="mono" style="font-size:11px;color:var(--green)">${d.rework_wo_no||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${d.notes||'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function showVerifySection() {
+  if (!currentFlushData) return;
+  document.getElementById('lf-verify-section').style.display = '';
+  document.getElementById('lf-verify-btn-area').innerHTML = '';
+  buildVerifyForm(currentFlushData.flush, currentFlushData.lines);
+}
+
+function buildVerifyForm(flush, lines) {
+  const container = document.getElementById('lf-verify-container');
+  container.innerHTML = '';
+  lines.forEach(line => {
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-bottom:16px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px';
+    const rtColor = {'Unused':'var(--blue)','Damaged':'var(--red)','QC Rejected':'var(--red)','Partial Assembly':'var(--yellow)','Wrong Issue':'var(--text3)'}[line.return_type]||'var(--text3)';
+    section.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <span class="mono" style="font-size:12px;color:var(--yellow)">${line.part_code}</span>
+          <span style="font-size:12px;margin-left:8px">${line.part_name}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:${rtColor};margin-left:8px">${line.return_type}</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">Raised: <strong style="color:var(--text)">${line.qty_raised}</strong></div>
+      </div>
+      <div class="disp-rows" data-line-id="${line.line_id}" data-part-code="${line.part_code}" data-part-name="${line.part_name}"></div>
+      <button class="btn btn-secondary" onclick="addDispRow(this)" style="padding:2px 8px;font-size:10px;margin-top:6px">+ Add Disposition</button>`;
+    container.appendChild(section);
+    // Add one default disposition row
+    addDispRow(section.querySelector('button'));
+  });
+}
+
+function addDispRow(btn) {
+  const section  = btn.closest('div[style]');
+  const dispRows = section.querySelector('.disp-rows');
+  const dispOpts = LF_DISPOSITIONS.map(d => `<option>${d}</option>`).join('');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:grid;grid-template-columns:160px 80px 120px 1fr 24px;gap:6px;margin-bottom:6px;align-items:center';
+  const dispSel  = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:dispOpts});
+  const qtyInput = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'Qty', min:'0', style:'font-size:12px;text-align:right'});
+  const binInput = Object.assign(document.createElement('input'),  {className:'form-input', placeholder:'Bin (quarantine)', style:'font-size:11px'});
+  const noteInput= Object.assign(document.createElement('input'),  {className:'form-input', placeholder:'Notes', style:'font-size:11px'});
+  const rmBtn    = Object.assign(document.createElement('button'),  {style:'width:24px;height:28px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px', innerHTML:'×'});
+  rmBtn.onclick  = function(){ row.remove(); };
+  // Show/hide bin field based on disposition
+  dispSel.onchange = function() { binInput.style.display = this.value === 'Quarantine' ? '' : 'none'; };
+  binInput.style.display = 'none';
+  [dispSel, qtyInput, binInput, noteInput, rmBtn].forEach(el => row.appendChild(el));
+  dispRows.appendChild(row);
+}
+
+async function submitVerification() {
+  if (!currentFlushId || !currentFlushData) return;
+  const dispositions = [];
+  const sections = document.querySelectorAll('#lf-verify-container .disp-rows');
+  let valid = true;
+  sections.forEach(section => {
+    const lineId   = section.dataset.lineId;
+    const partCode = section.dataset.partCode;
+    const partName = section.dataset.partName;
+    section.querySelectorAll('div[style*="grid"]').forEach(row => {
+      const els   = row.children;
+      const disp  = els[0]?.value;
+      const qty   = parseFloat(els[1]?.value) || 0;
+      const bin   = els[2]?.value?.trim() || null;
+      const notes = els[3]?.value?.trim() || null;
+      if (qty > 0) {
+        dispositions.push({ line_id: lineId, part_code: partCode, part_name: partName,
+          disposition: disp, qty, bin_code: bin, notes });
+      }
+    });
+  });
+  if (!dispositions.length) { toast('Add at least one disposition with qty', 'error'); return; }
+  try {
+    const res = await apiPost('verifyFlush', { data: {
+      flush_id: currentFlushId, dispositions
+    }});
+    if (res.ok) {
+      const msg = `Verified · ${res.data.stock_returned} returned to stock · ${res.data.rework_wos} rework WO(s) created`;
+      toast(msg, 'success');
+      openFlush(currentFlushId);
+      loadFlushes();
+      loadDashboard();
+    } else toast(res.error || 'Verification failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// ── QUARANTINE ────────────────────────────────────────────────
+async function loadQuarantine() {
+  const tbody = document.getElementById('quarantine-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getQuarantine');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; return; }
+    const rows = res.data || [];
+    const badge = document.getElementById('quarantine-count-badge');
+    if (badge) badge.textContent = rows.length + ' items';
+    tbody.innerHTML = rows.length ? rows.map(r => {
+      const rtColor = r.return_type === 'Damaged' || r.return_type === 'QC Rejected' ? 'badge-red' : 'badge-yellow';
+      return `<tr>
+        <td class="mono" style="font-size:10px;color:var(--text3)">${r.disp_id}</td>
+        <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.quarantined_date||r.created_at)}</td>
+        <td class="mono" style="font-size:11px;color:var(--yellow)">${r.flush_id}</td>
+        <td class="mono" style="font-size:11px">${r.wo_no}</td>
+        <td class="mono" style="font-size:11px">${r.part_code}</td>
+        <td style="font-size:11px">${r.part_name}</td>
+        <td><span class="badge ${rtColor}" style="font-size:9px">${r.return_type}</span></td>
+        <td class="mono" style="text-align:right;font-weight:700">${r.qty}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.bin_code||'—'}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="9" class="empty">No quarantined items</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; }
+}
+
 </script>
 </body>
 </html>
