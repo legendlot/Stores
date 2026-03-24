@@ -1770,47 +1770,220 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <div class="view" id="view-reports">
       <div class="page-header">
         <div class="page-title">REPORTS</div>
-        <div class="page-subtitle">Download data exports</div>
+        <div class="page-subtitle">Analytics, summaries and data exports</div>
       </div>
 
       <div id="reports-no-access" style="display:none">
-        <div class="panel">
-          <div class="panel-body">
-            <div class="empty">Reports are available to Ops and Vinay access levels only.</div>
-          </div>
-        </div>
+        <div class="panel"><div class="panel-body"><div class="empty">Reports are available to Ops and Vinay only.</div></div></div>
       </div>
 
       <div id="reports-grid">
-        <div class="section-label">Download Reports</div>
-        <div class="download-grid">
-          <div class="download-card" onclick="downloadReport('stock')">
-            <div class="download-card-icon">📦</div>
-            <div class="download-card-title">Stock Position</div>
-            <div class="download-card-desc">Current inventory per part code with locations</div>
+        <!-- Sub-nav -->
+        <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+          <button class="nav-btn active" id="rpt-tab-inventory"   onclick="switchRptTab('inventory')"   style="border-radius:3px 3px 0 0">INVENTORY</button>
+          <button class="nav-btn"        id="rpt-tab-inward"      onclick="switchRptTab('inward')"      style="border-radius:3px 3px 0 0">INWARD</button>
+          <button class="nav-btn"        id="rpt-tab-production"  onclick="switchRptTab('production')"  style="border-radius:3px 3px 0 0">PRODUCTION</button>
+          <button class="nav-btn"        id="rpt-tab-lineflush"   onclick="switchRptTab('lineflush')"   style="border-radius:3px 3px 0 0">LINE FLUSH</button>
+          <button class="nav-btn"        id="rpt-tab-procurement" onclick="switchRptTab('procurement')" style="border-radius:3px 3px 0 0">PROCUREMENT</button>
+          <button class="nav-btn"        id="rpt-tab-returns"     onclick="switchRptTab('returns')"     style="border-radius:3px 3px 0 0">RETURNS</button>
+        </div>
+
+        <!-- Date filter bar (shared) -->
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+          <div class="form-group" style="flex:0 0 160px">
+            <label class="form-label">From</label>
+            <input class="form-input" type="date" id="rpt-from" style="font-size:12px">
           </div>
-          <div class="download-card" onclick="downloadReport('grn')">
-            <div class="download-card-icon">📥</div>
-            <div class="download-card-title">GRN Register</div>
-            <div class="download-card-desc">All goods received notes</div>
+          <div class="form-group" style="flex:0 0 160px">
+            <label class="form-label">To</label>
+            <input class="form-input" type="date" id="rpt-to" style="font-size:12px">
           </div>
-          <div class="download-card" onclick="downloadReport('issues')">
-            <div class="download-card-icon">📤</div>
-            <div class="download-card-title">Issue Register</div>
-            <div class="download-card-desc">All material issues to production</div>
+          <button class="btn btn-secondary" onclick="refreshCurrentReport()" style="padding:9px 14px;font-size:12px">Apply Filter</button>
+          <button class="btn btn-secondary" onclick="clearRptFilter()" style="padding:9px 14px;font-size:12px">Clear</button>
+        </div>
+
+        <!-- ── INVENTORY ── -->
+        <div id="rpt-inventory" class="rpt-section">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('stock')">
+              <div class="download-card-icon">📦</div>
+              <div class="download-card-title">Stock Position</div>
+              <div class="download-card-desc">Full inventory — all parts, all products, current qtys</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('reorder')">
+              <div class="download-card-icon">🔴</div>
+              <div class="download-card-title">Reorder Flags</div>
+              <div class="download-card-desc">Parts at or below reorder level</div>
+            </div>
           </div>
-          <div class="download-card" onclick="downloadReport('returns')">
-            <div class="download-card-icon">🔄</div>
-            <div class="download-card-title">Returns Log</div>
-            <div class="download-card-desc">RTO and RTV returns across all channels</div>
-          </div>
-          <div class="download-card" onclick="downloadReport('reorder')">
-            <div class="download-card-icon">🔴</div>
-            <div class="download-card-title">Reorder Flags</div>
-            <div class="download-card-desc">Parts at or below reorder level</div>
+          <!-- Stock summary by product -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Stock Summary by Product</div>
+              <button class="btn btn-secondary" onclick="loadInventorySummary()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Product</th><th style="text-align:right">Parts</th><th style="text-align:right">Stocked</th><th style="text-align:right">Reorder Flags</th><th style="text-align:right">Total Received</th><th style="text-align:right">Total Issued</th></tr></thead>
+                <tbody id="rpt-stock-summary"><tr><td colspan="6" class="empty">Click Load to fetch</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+
+        <!-- ── INWARD ── -->
+        <div id="rpt-inward" class="rpt-section" style="display:none">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('grn')">
+              <div class="download-card-icon">📥</div>
+              <div class="download-card-title">GRN Register</div>
+              <div class="download-card-desc">All goods received notes — filterable by date</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('shipments')">
+              <div class="download-card-icon">🚢</div>
+              <div class="download-card-title">Shipments</div>
+              <div class="download-card-desc">All inbound shipments with progress status</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('receiving')">
+              <div class="download-card-icon">📋</div>
+              <div class="download-card-title">Receiving Lines</div>
+              <div class="download-card-desc">Part-level count records from all shipments</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">GRN Summary</div>
+              <button class="btn btn-secondary" onclick="loadGRNSummaryReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>GRN</th><th>Date</th><th>Supplier</th><th>Product</th><th style="text-align:right">Lines</th><th style="text-align:right">Total Qty</th></tr></thead>
+                <tbody id="rpt-grn-summary"><tr><td colspan="6" class="empty">Click Load to fetch</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PRODUCTION ── -->
+        <div id="rpt-production" class="rpt-section" style="display:none">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('issues')">
+              <div class="download-card-icon">📤</div>
+              <div class="download-card-title">Issue Register</div>
+              <div class="download-card-desc">All material issues to production — filterable by date</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('workorders')">
+              <div class="download-card-icon">🏭</div>
+              <div class="download-card-title">Work Orders</div>
+              <div class="download-card-desc">All work orders including rework</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Issues by Product</div>
+              <button class="btn btn-secondary" onclick="loadIssuesSummaryReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Product</th><th style="text-align:right">Planned Issues</th><th style="text-align:right">Ad Hoc Issues</th><th style="text-align:right">Total Parts Issued</th></tr></thead>
+                <tbody id="rpt-issues-summary"><tr><td colspan="4" class="empty">Click Load to fetch</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── LINE FLUSH ── -->
+        <div id="rpt-lineflush" class="rpt-section" style="display:none">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('flushes')">
+              <div class="download-card-icon">🔁</div>
+              <div class="download-card-title">Flush Register</div>
+              <div class="download-card-desc">All line flushes with verification status</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('quarantine')">
+              <div class="download-card-icon">🚫</div>
+              <div class="download-card-title">Quarantine Register</div>
+              <div class="download-card-desc">All quarantined parts with bin locations</div>
+            </div>
+          </div>
+          <!-- Analytics panels -->
+          <div class="grid-2" style="margin-bottom:16px">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Returns by Type</div>
+                <button class="btn btn-secondary" onclick="loadFlushReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+              </div>
+              <div class="panel-body" id="rpt-flush-types"><div class="empty">Click Load to fetch</div></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Damage Rate Summary</div></div>
+              <div class="panel-body" id="rpt-flush-damage"><div class="empty">—</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PROCUREMENT ── -->
+        <div id="rpt-procurement" class="rpt-section" style="display:none">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('purchase_orders')">
+              <div class="download-card-icon">📋</div>
+              <div class="download-card-title">Purchase Orders</div>
+              <div class="download-card-desc">All POs with status, value and vendor</div>
+            </div>
+            <div class="download-card" onclick="downloadReport('vendors')">
+              <div class="download-card-icon">🏪</div>
+              <div class="download-card-title">Vendor List</div>
+              <div class="download-card-desc">All active vendors with contact details</div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-bottom:16px">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">PO Status Summary</div>
+                <button class="btn btn-secondary" onclick="loadProcurementReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+              </div>
+              <div class="panel-body" id="rpt-po-status"><div class="empty">Click Load to fetch</div></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Overdue POs</div></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>PO</th><th>Vendor</th><th>Expected</th><th>Status</th></tr></thead>
+                  <tbody id="rpt-overdue-pos"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><div class="panel-title">Vendor Spend</div></div>
+            <div class="panel-body" id="rpt-vendor-spend"><div class="empty">—</div></div>
+          </div>
+        </div>
+
+        <!-- ── RETURNS ── -->
+        <div id="rpt-returns" class="rpt-section" style="display:none">
+          <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('returns')">
+              <div class="download-card-icon">🔄</div>
+              <div class="download-card-title">Returns Log</div>
+              <div class="download-card-desc">RTO and RTV returns across all channels — filterable by date</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Returns by Channel</div>
+              <button class="btn btn-secondary" onclick="loadReturnsReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Channel</th><th style="text-align:right">RTO</th><th style="text-align:right">RTV</th><th style="text-align:right">Total Units</th><th style="text-align:right">Scrap</th><th style="text-align:right">Claims Filed</th></tr></thead>
+                <tbody id="rpt-returns-summary"><tr><td colspan="6" class="empty">Click Load to fetch</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /reports-grid -->
     </div>
 
     <!-- ── PROCUREMENT ── -->
@@ -2977,7 +3150,14 @@ function showView(name) {
     ensureMaterialCache();
     loadShipments();
   }
-  if (name === 'lineflush')   { initLineFlush(); }
+  if (name === 'reports') {
+    // Init date range to last 30 days by default if empty
+    const fromEl = document.getElementById('rpt-from');
+    if (fromEl && !fromEl.value) {
+      const d30 = new Date(); d30.setDate(d30.getDate()-30);
+      fromEl.value = d30.toISOString().split('T')[0];
+    }
+  }
   if (name === 'users')       { loadUsers(); }
   if (name === 'procurement') { initProcurement(); }
 }
@@ -3986,39 +4166,6 @@ async function loadReturnsHistory() {
 }
 
 // ══ REPORTS ══════════════════════════════════════════════════
-async function downloadReport(type) {
-  toast('Preparing report...', 'info');
-  try {
-    const res = await api('downloadReport', { report: type });
-    if (!res.ok) { toast(res.error, 'error'); return; }
-    const blob = new Blob(
-      [JSON.stringify(res.data, null, 2)],
-      { type: 'application/json' }
-    );
-    // Convert to CSV
-    const data = res.data;
-    if (data.rows && data.rows.length) {
-      const headers = Object.keys(data.rows[0]);
-      const csv = [
-        headers.join(','),
-        ...data.rows.map(r => headers.map(h => {
-          const v = r[h] === null || r[h] === undefined ? '' : String(r[h]);
-          return v.includes(',') ? `"${v}"` : v;
-        }).join(','))
-      ].join('\n');
-      const csvBlob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(csvBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `LOT_${data.report.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast(`Downloaded: ${data.report} (${data.rows.length} rows)`, 'success');
-    } else {
-      toast('No data to download', 'info');
-    }
-  } catch(e) { toast('Download failed', 'error'); }
-}
 
 // ══ TOAST ════════════════════════════════════════════════════
 function toast(msg, type = 'info') {
@@ -4386,16 +4533,47 @@ async function loadReturnsHistory() {
 }
 
 // ══ REPORTS ══════════════════════════════════════════════════
+// ══ REPORTS ══════════════════════════════════════════════════
+let currentRptTab = 'inventory';
+
+function switchRptTab(tab) {
+  currentRptTab = tab;
+  document.querySelectorAll('.rpt-section').forEach(s => s.style.display = 'none');
+  document.getElementById('rpt-' + tab).style.display = '';
+  ['inventory','inward','production','lineflush','procurement','returns'].forEach(t => {
+    const btn = document.getElementById('rpt-tab-' + t);
+    if (btn) btn.className = 'nav-btn' + (t === tab ? ' active' : '');
+  });
+}
+
+function clearRptFilter() {
+  document.getElementById('rpt-from').value = '';
+  document.getElementById('rpt-to').value   = '';
+}
+
+function refreshCurrentReport() {
+  const tab = currentRptTab;
+  if (tab === 'inventory')   loadInventorySummary();
+  if (tab === 'inward')      loadGRNSummaryReport();
+  if (tab === 'production')  loadIssuesSummaryReport();
+  if (tab === 'lineflush')   loadFlushReport();
+  if (tab === 'procurement') loadProcurementReport();
+  if (tab === 'returns')     loadReturnsReport();
+}
+
+function getRptDates() {
+  return {
+    from: document.getElementById('rpt-from')?.value || '',
+    to:   document.getElementById('rpt-to')?.value   || '',
+  };
+}
+
 async function downloadReport(type) {
   toast('Preparing report...', 'info');
   try {
-    const res = await api('downloadReport', { report: type });
+    const { from, to } = getRptDates();
+    const res = await api('downloadReport', { report: type, from, to });
     if (!res.ok) { toast(res.error, 'error'); return; }
-    const blob = new Blob(
-      [JSON.stringify(res.data, null, 2)],
-      { type: 'application/json' }
-    );
-    // Convert to CSV
     const data = res.data;
     if (data.rows && data.rows.length) {
       const headers = Object.keys(data.rows[0]);
@@ -4403,22 +4581,230 @@ async function downloadReport(type) {
         headers.join(','),
         ...data.rows.map(r => headers.map(h => {
           const v = r[h] === null || r[h] === undefined ? '' : String(r[h]);
-          return v.includes(',') ? `"${v}"` : v;
+          return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
         }).join(','))
       ].join('\n');
-      const csvBlob = new Blob([csv], { type: 'text/csv' });
+      const csvBlob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }); // BOM for Excel
       const url = URL.createObjectURL(csvBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `LOT_${data.report.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.csv`;
+      const a   = document.createElement('a');
+      a.href    = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `LOT_${type.toUpperCase()}_${dateStr}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast(`Downloaded: ${data.report} (${data.rows.length} rows)`, 'success');
+      toast(`Downloaded: ${type} (${data.rows.length} rows)`, 'success');
     } else {
-      toast('No data to download', 'info');
+      toast('No data in selected date range', 'info');
     }
   } catch(e) { toast('Download failed', 'error'); }
 }
+
+// ── Inventory ─────────────────────────────────────────────────
+async function loadInventorySummary() {
+  const tbody = document.getElementById('rpt-stock-summary');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getStock');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; return; }
+    const byProduct = {};
+    (res.data||[]).forEach(r => {
+      if (!byProduct[r.product]) byProduct[r.product] = { parts:0, stocked:0, reorder:0, received:0, issued:0 };
+      const p = byProduct[r.product];
+      p.parts++;
+      if ((r.closing_stock||0) > 0)  p.stocked++;
+      const reorderLevel = r.reorder_level || 0;
+      if (reorderLevel > 0 && (r.closing_stock||0) <= reorderLevel) p.reorder++;
+      p.received += parseFloat(r.total_received||0);
+      p.issued   += parseFloat(r.total_issued||0);
+    });
+    tbody.innerHTML = Object.entries(byProduct).sort(([a],[b])=>a.localeCompare(b)).map(([prod, p]) => `<tr>
+      <td style="font-weight:600">${prod}</td>
+      <td class="mono" style="text-align:right">${p.parts}</td>
+      <td class="mono" style="text-align:right">${p.stocked}</td>
+      <td class="mono" style="text-align:right;color:${p.reorder>0?'var(--red)':'var(--green)'}">${p.reorder}</td>
+      <td class="mono" style="text-align:right;color:var(--green)">${p.received.toLocaleString()}</td>
+      <td class="mono" style="text-align:right;color:#f87171">${p.issued.toLocaleString()}</td>
+    </tr>`).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; }
+}
+
+// ── Inward ────────────────────────────────────────────────────
+async function loadGRNSummaryReport() {
+  const tbody = document.getElementById('rpt-grn-summary');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getGRNSummary');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; return; }
+    const { from, to } = getRptDates();
+    let rows = res.data || [];
+    if (from) rows = rows.filter(r => (r.grn_date||'') >= from);
+    if (to)   rows = rows.filter(r => (r.grn_date||'') <= to);
+    tbody.innerHTML = rows.length ? rows.map(r => `<tr>
+      <td class="mono" style="font-size:11px;color:var(--yellow)">${r.grn_no}</td>
+      <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
+      <td style="font-size:11px">${r.supplier||'—'}</td>
+      <td style="font-size:11px">${r.product||'—'}</td>
+      <td class="mono" style="text-align:right">${r.lines||0}</td>
+      <td class="mono" style="text-align:right">${(r.total_qty||0).toLocaleString()}</td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty">No GRNs in range</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; }
+}
+
+// ── Production ────────────────────────────────────────────────
+async function loadIssuesSummaryReport() {
+  const tbody = document.getElementById('rpt-issues-summary');
+  tbody.innerHTML = '<tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getIssues');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Error</td></tr>'; return; }
+    const { from, to } = getRptDates();
+    let rows = res.data || [];
+    if (from) rows = rows.filter(r => (r.issue_date||'') >= from);
+    if (to)   rows = rows.filter(r => (r.issue_date||'') <= to);
+    const byProduct = {};
+    rows.forEach(r => {
+      if (!byProduct[r.product]) byProduct[r.product] = { planned:0, adhoc:0, total:0 };
+      const p = byProduct[r.product];
+      const qty = parseFloat(r.actual_issued||r.bom_issue_qty||0);
+      if ((r.issue_type||'').toLowerCase() === 'ad hoc') p.adhoc += qty;
+      else p.planned += qty;
+      p.total += qty;
+    });
+    tbody.innerHTML = Object.entries(byProduct).sort(([a],[b])=>a.localeCompare(b)).map(([prod, p]) => `<tr>
+      <td style="font-weight:600">${prod}</td>
+      <td class="mono" style="text-align:right;color:var(--blue)">${p.planned.toLocaleString()}</td>
+      <td class="mono" style="text-align:right;color:var(--red)">${p.adhoc.toLocaleString()}</td>
+      <td class="mono" style="text-align:right;font-weight:700">${p.total.toLocaleString()}</td>
+    </tr>`).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Error</td></tr>'; }
+}
+
+// ── Line Flush ────────────────────────────────────────────────
+async function loadFlushReport() {
+  const { from, to } = getRptDates();
+  try {
+    const res = await api('getReportSummary', { type: 'lineflush', from, to });
+    if (!res.ok) { toast('Error loading flush report', 'error'); return; }
+    const d = res.data;
+    // Returns by type bar chart
+    const typeEl = document.getElementById('rpt-flush-types');
+    const types  = d.by_return_type || {};
+    const maxQty = Math.max(1, ...Object.values(types));
+    const typeColors = { 'Unused':'var(--blue)','Damaged':'var(--red)','QC Rejected':'var(--red)',
+      'Partial Assembly':'var(--yellow)','Wrong Issue':'var(--text3)' };
+    typeEl.innerHTML = Object.keys(types).length
+      ? Object.entries(types).sort((a,b)=>b[1]-a[1]).map(([t,qty]) => `
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:12px">${t}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">${qty.toLocaleString()} pcs</span>
+            </div>
+            <div style="background:var(--bg3);border-radius:3px;height:6px;overflow:hidden">
+              <div style="width:${Math.round((qty/maxQty)*100)}%;height:6px;background:${typeColors[t]||'var(--text3)'};border-radius:3px"></div>
+            </div>
+          </div>`).join('')
+        + `<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">Total: ${d.total_flush_qty?.toLocaleString()||0} parts across ${d.total_flush_lines||0} lines</div>`
+      : '<div class="empty">No flush data in range</div>';
+    // Damage rate
+    const damageEl = document.getElementById('rpt-flush-damage');
+    const damaged  = (types['Damaged']||0) + (types['QC Rejected']||0);
+    const total    = d.total_flush_qty || 0;
+    const rate     = total > 0 ? ((damaged/total)*100).toFixed(1) : '0.0';
+    damageEl.innerHTML = `
+      <div style="text-align:center;padding:16px">
+        <div style="font-family:var(--mono);font-size:36px;font-weight:900;color:${parseFloat(rate)>5?'var(--red)':parseFloat(rate)>2?'var(--yellow)':'var(--green)'}">${rate}%</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">damage rate</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:12px">${damaged.toLocaleString()} damaged / ${total.toLocaleString()} total returned</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">${parseFloat(rate)>5?'⚠ High — investigate':'✅ Within acceptable range'}</div>
+      </div>`;
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// ── Procurement ───────────────────────────────────────────────
+async function loadProcurementReport() {
+  try {
+    const res = await api('getReportSummary', { type: 'procurement' });
+    if (!res.ok) { toast('Error loading procurement report', 'error'); return; }
+    const d = res.data;
+    // PO status
+    const statusEl = document.getElementById('rpt-po-status');
+    const statuses = d.by_status || {};
+    statusEl.innerHTML = Object.keys(statuses).length
+      ? Object.entries(statuses).map(([s, count]) => {
+          const sc = {'Draft':'badge-gray','Approved':'badge-blue','Sent':'badge-yellow',
+            'Confirmed & Payment Done':'badge-green','Partially Received':'badge-yellow',
+            'Closed':'badge-green','Cancelled':'badge-red'}[s]||'badge-gray';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span class="badge ${sc}" style="font-size:10px">${s}</span>
+            <span style="font-family:var(--mono);font-size:14px;font-weight:700">${count}</span>
+          </div>`;
+        }).join(`<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">${d.total} total POs</div>`)
+      : '<div class="empty">No PO data</div>';
+    // Overdue POs
+    const overdueEl = document.getElementById('rpt-overdue-pos');
+    const overdue   = d.overdue_pos || [];
+    overdueEl.innerHTML = overdue.length
+      ? overdue.map(p => `<tr>
+          <td class="mono" style="font-size:11px;color:var(--yellow)">${p.po_number}</td>
+          <td style="font-size:11px">${p.vendor_name}</td>
+          <td style="font-size:11px;color:var(--red)">${formatDisplayDate(p.expected_delivery)}</td>
+          <td><span class="badge badge-yellow" style="font-size:9px">${p.status}</span></td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">No overdue POs ✅</td></tr>';
+    // Vendor spend
+    const spendEl = document.getElementById('rpt-vendor-spend');
+    const spend   = d.vendor_spend || {};
+    const maxSpend= Math.max(1, ...Object.values(spend));
+    spendEl.innerHTML = Object.keys(spend).length
+      ? Object.entries(spend).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([v,amt]) => `
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:12px">${v}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--yellow)">${amt.toLocaleString('en-IN',{minimumFractionDigits:0})}</span>
+            </div>
+            <div style="background:var(--bg3);border-radius:3px;height:5px;overflow:hidden">
+              <div style="width:${Math.round((amt/maxSpend)*100)}%;height:5px;background:var(--yellow);border-radius:3px"></div>
+            </div>
+          </div>`).join('')
+      : '<div class="empty">No spend data</div>';
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// ── Returns ───────────────────────────────────────────────────
+async function loadReturnsReport() {
+  const tbody = document.getElementById('rpt-returns-summary');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getReturns');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; return; }
+    const { from, to } = getRptDates();
+    let rows = res.data || [];
+    if (from) rows = rows.filter(r => (r.return_date||'') >= from);
+    if (to)   rows = rows.filter(r => (r.return_date||'') <= to);
+    const byCh = {};
+    rows.forEach(r => {
+      const ch = r.channel || 'Other';
+      if (!byCh[ch]) byCh[ch] = { rto:0, rtv:0, total:0, scrap:0, claims:0 };
+      const qty = parseInt(r.qty||1);
+      if (r.return_type === 'RTO') byCh[ch].rto += qty;
+      else byCh[ch].rtv += qty;
+      byCh[ch].total += qty;
+      if (r.action === 'Scrap') byCh[ch].scrap += qty;
+      if (r.claim_filed === 'Yes') byCh[ch].claims++;
+    });
+    tbody.innerHTML = Object.keys(byCh).length
+      ? Object.entries(byCh).sort((a,b)=>b[1].total-a[1].total).map(([ch, p]) => `<tr>
+          <td><span class="badge badge-gray" style="font-size:9px">${ch}</span></td>
+          <td class="mono" style="text-align:right">${p.rto}</td>
+          <td class="mono" style="text-align:right">${p.rtv}</td>
+          <td class="mono" style="text-align:right;font-weight:700">${p.total}</td>
+          <td class="mono" style="text-align:right;color:var(--red)">${p.scrap}</td>
+          <td class="mono" style="text-align:right">${p.claims}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No returns in range</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; }
+}
+
 
 // ══ TOAST ════════════════════════════════════════════════════
 function toast(msg, type = 'info') {
