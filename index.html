@@ -4095,11 +4095,11 @@ async function loadWorkOrders() {
     const rows = res.data || [];
     tbody.innerHTML = rows.length
       ? rows.map(r => `<tr>
-          <td class="mono">${r['wo_no.']||r.wo_no||''}</td>
+          <td class="mono">${r.wo_no||r.wo_no||''}</td>
           <td>${r.product||''}</td>
           <td>${r.variant||'—'}</td>
           <td class="mono">${r.qty||''}</td>
-          <td>${r['line_no.']||r.line_no||''}</td>
+          <td>${r.line_no||r.line_no||''}</td>
           <td><span class="badge badge-yellow">${r.status||'Open'}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="7" class="empty">No open work orders</td></tr>';
@@ -4343,8 +4343,8 @@ async function refreshWODropdown() {
     const current = sel.value;
     sel.innerHTML = '<option value="">Select open WO...</option>';
     (res.data || []).forEach(wo => {
-      const label = `${wo['wo_no.']||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units · ${wo['line_no.']||wo.line_no||''}`;
-      sel.innerHTML += `<option value="${wo['wo_no.']||wo.wo_no||''}" 
+      const label = `${wo.wo_no||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units · ${wo.line_no||wo.line_no||''}`;
+      sel.innerHTML += `<option value="${wo.wo_no||wo.wo_no||''}" 
         data-product="${wo.product||''}" 
         data-variant="${wo.variant||''}" 
         data-qty="${wo.qty||0}">${label}</option>`;
@@ -6404,8 +6404,8 @@ async function showNewFlushForm() {
     const sel = document.getElementById('lf-wo-select');
     sel.innerHTML = '<option value="">Select WO...</option>';
     (res.data||[]).forEach(wo => {
-      const label = `${wo['wo_no.']||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
-      sel.innerHTML += `<option value="${wo['wo_no.']||wo.wo_no||''}">${label}</option>`;
+      const label = `${wo.wo_no||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
+      sel.innerHTML += `<option value="${wo.wo_no||wo.wo_no||''}">${label}</option>`;
     });
   } catch(e) {}
   addFlushLine();
