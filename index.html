@@ -809,7 +809,15 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="page-subtitle" id="dash-timestamp">Loading...</div>
       </div>
 
-      <div class="kpi-grid" id="kpi-grid">
+      <!-- Sub-nav -->
+      <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="dash-tab-overview"  onclick="switchDashTab('overview')"  style="border-radius:3px 3px 0 0">OVERVIEW</button>
+        <button class="nav-btn"        id="dash-tab-manpower"  onclick="switchDashTab('manpower')"  style="border-radius:3px 3px 0 0">MANPOWER</button>
+      </div>
+
+      <!-- Overview section -->
+      <div id="dash-overview-section">
+
         <div class="kpi-card yellow">
           <div class="kpi-label">Open Work Orders</div>
           <div class="kpi-value" id="kpi-wo">—</div>
@@ -915,6 +923,10 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
+      </div><!-- /dash-overview-section -->
+
+      <!-- Manpower section -->
+      <div id="dash-manpower-section" style="display:none">
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title">Store Manpower — Last 3 Days</div>
@@ -942,6 +954,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </table>
         </div>
       </div>
+      </div><!-- /dash-manpower-section -->
 
     </div>
 
@@ -3224,7 +3237,14 @@ function refreshCurrent() {
 }
 
 // ══ DASHBOARD ════════════════════════════════════════════════
-let manpowerLog = [];
+function switchDashTab(tab) {
+  document.getElementById('dash-overview-section').style.display  = tab === 'overview'  ? '' : 'none';
+  document.getElementById('dash-manpower-section').style.display  = tab === 'manpower'  ? '' : 'none';
+  document.getElementById('dash-tab-overview').className  = 'nav-btn' + (tab === 'overview'  ? ' active' : '');
+  document.getElementById('dash-tab-manpower').className  = 'nav-btn' + (tab === 'manpower'  ? ' active' : '');
+}
+
+
 
 async function loadDashboard() {
   const dashTimeout = setTimeout(clearDashboardLoadingStates, 20000);
@@ -3258,13 +3278,19 @@ async function loadDashboard() {
     if (!d.reorder_flags || !d.reorder_flags.length) {
       reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
     } else {
+      const flags = d.reorder_flags;
+      const top10 = flags.slice(0, 10);
+      const extra = flags.length - 10;
       reorderList.innerHTML = '<div class="flag-list">' +
-        d.reorder_flags.map(f => `<div class="flag-item">
-          <div><div class="flag-item-name">${f.part_name||''}</div>
-          <div class="flag-item-code">${f.part_code} · ${f.product}</div></div>
-          <div class="flag-item-qty">${f.closing} / ${f.reorder}</div>
-        </div>`).join('') + '</div>';
+        top10.map(f => '<div class="flag-item">' +
+          '<div><div class="flag-item-name">' + (f.part_name||'') + '</div>' +
+          '<div class="flag-item-code">' + (f.part_code||'') + ' · ' + (f.product||'') + '</div></div>' +
+          '<div class="flag-item-qty">' + (f.closing_stock??0) + ' / ' + (f.reorder_level??'-') + '</div>' +
+        '</div>').join('') +
+        (extra > 0 ? '<div style="text-align:center;padding:8px;font-size:11px;color:var(--text3);font-family:var(--mono)">+ ' + extra + ' more parts need reordering</div>' : '') +
+        '</div>';
     }
+
 
     // Producible units
     loadProducibleUnits();
