@@ -954,17 +954,63 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
       <div class="panel" style="margin-bottom:12px">
         <div class="panel-body" style="padding:12px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <input class="form-input" id="stock-search" placeholder="Search part code or name..." style="max-width:280px" oninput="filterStock()">
-            <select class="form-select" id="stock-product-filter" style="max-width:160px" onchange="filterStock()">
-              <option value="">All Products</option>
-            </select>
-            <select class="form-select" id="stock-status-filter" style="max-width:160px" onchange="filterStock()">
-              <option value="">All Status</option>
-              <option value="low">Low / Reorder</option>
-              <option value="ok">OK</option>
-            </select>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="flex:0 0 240px;margin-bottom:0">
+              <input class="form-input" id="stock-search" placeholder="Search part code or name..." oninput="filterStock()">
+            </div>
+            <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
+              <select class="form-select" id="stock-product-filter" onchange="onStockProductChange()">
+                <option value="">All Products</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 150px;margin-bottom:0" id="stock-variant-group">
+              <select class="form-select" id="stock-variant-filter" onchange="onStockVariantChange()">
+                <option value="">All Variants</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 130px;margin-bottom:0" id="stock-colour-group" style="display:none">
+              <select class="form-select" id="stock-colour-filter" onchange="filterStock()">
+                <option value="">All Colours</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
+              <select class="form-select" id="stock-category-filter" onchange="filterStock()">
+                <option value="">All Categories</option>
+                <option value="Car">Car</option>
+                <option value="Remote">Remote</option>
+                <option value="Remote/Car">Remote/Car</option>
+                <option value="Accessories">Accessories</option>
+                <option value="Packaging">Packaging</option>
+                <option value="Para">Para</option>
+                <option value="Metal">Metal</option>
+                <option value="Consumables">Consumables</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
+              <select class="form-select" id="stock-type-filter" onchange="filterStock()">
+                <option value="">All Types</option>
+                <option>Electronic</option>
+                <option>Hardware</option>
+                <option>Plastic</option>
+                <option>Metal</option>
+                <option>Rubber</option>
+                <option>Paper</option>
+                <option>Packaging</option>
+                <option>Sticker</option>
+                <option>Foam</option>
+                <option>Accessories</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
+              <select class="form-select" id="stock-status-filter" onchange="filterStock()">
+                <option value="">All Status</option>
+                <option value="low">Low / Reorder</option>
+                <option value="ok">OK</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="clearStockFilters()" style="padding:9px 12px;font-size:11px;margin-bottom:0">Clear</button>
           </div>
+          <div id="stock-bom-notice" style="display:none;margin-top:8px;font-size:11px;color:var(--yellow);font-family:var(--mono)"></div>
         </div>
       </div>
 
@@ -3507,20 +3553,118 @@ function renderStockTable(rows) {
   }).join('');
 }
 
-function filterStock() {
-  const search  = document.getElementById('stock-search').value.toLowerCase();
+let stockBOMFilter = null; // set of part_codes when variant filter active
+
+function clearStockFilters() {
+  ['stock-search','stock-variant-filter','stock-colour-filter'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['stock-product-filter','stock-category-filter','stock-type-filter','stock-status-filter'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  stockBOMFilter = null;
+  document.getElementById('stock-variant-filter').innerHTML = '<option value="">All Variants</option>';
+  document.getElementById('stock-colour-filter').innerHTML  = '<option value="">All Colours</option>';
+  document.getElementById('stock-colour-group').style.display = 'none';
+  document.getElementById('stock-bom-notice').style.display   = 'none';
+  renderStockTable(stockData);
+}
+
+function onStockProductChange() {
   const product = document.getElementById('stock-product-filter').value;
-  const status  = document.getElementById('stock-status-filter').value;
+  const varSel  = document.getElementById('stock-variant-filter');
+  const colSel  = document.getElementById('stock-colour-filter');
+  varSel.innerHTML = '<option value="">All Variants</option>';
+  colSel.innerHTML = '<option value="">All Colours</option>';
+  document.getElementById('stock-colour-group').style.display = 'none';
+  stockBOMFilter = null;
+  document.getElementById('stock-bom-notice').style.display = 'none';
+  if (product && PRODUCT_VARIANTS[product]) {
+    (PRODUCT_VARIANTS[product]||[]).forEach(v => {
+      varSel.innerHTML += `<option value="${v}">${v}</option>`;
+    });
+  }
+  filterStock();
+}
+
+async function onStockVariantChange() {
+  const product = document.getElementById('stock-product-filter').value;
+  const variant = document.getElementById('stock-variant-filter').value;
+  const colSel  = document.getElementById('stock-colour-filter');
+  const colGrp  = document.getElementById('stock-colour-group');
+  colSel.innerHTML = '<option value="">All Colours</option>';
+  stockBOMFilter = null;
+  if (product && variant) {
+    // Populate colours
+    const subs = PRODUCT_SUBVARIANTS[product]?.[variant] || [];
+    if (subs.length) {
+      subs.forEach(s => { colSel.innerHTML += `<option value="${s}">${s}</option>`; });
+      colGrp.style.display = '';
+    } else {
+      colGrp.style.display = 'none';
+    }
+    // Load BOM to build part code filter set
+    await applyBOMFilter(product, variant, '');
+  } else {
+    colGrp.style.display = 'none';
+    document.getElementById('stock-bom-notice').style.display = 'none';
+    filterStock();
+  }
+}
+
+async function applyBOMFilter(product, variant, colour) {
+  const notice = document.getElementById('stock-bom-notice');
+  notice.textContent = '⏳ Loading BOM...';
+  notice.style.display = '';
+  try {
+    const res = await api('calcKit', { product, variant, colour, qty: 1 });
+    if (!res.ok) { notice.textContent = '⚠ BOM load failed'; return; }
+    const kit = res.data.kit || [];
+    stockBOMFilter = new Set(kit.map(r => r.part_code));
+    const varLabel = [variant, colour].filter(Boolean).join(' ');
+    notice.textContent = `Showing ${stockBOMFilter.size} parts for ${product} ${varLabel}`;
+    filterStock();
+  } catch(e) {
+    notice.textContent = '⚠ Error loading BOM';
+    filterStock();
+  }
+}
+
+function filterStock() {
+  const search   = document.getElementById('stock-search').value.toLowerCase();
+  const product  = document.getElementById('stock-product-filter').value;
+  const category = document.getElementById('stock-category-filter')?.value || '';
+  const partType = document.getElementById('stock-type-filter')?.value || '';
+  const status   = document.getElementById('stock-status-filter').value;
+  const colour   = document.getElementById('stock-colour-filter')?.value || '';
+
+  // If colour changed, re-apply BOM filter
+  if (colour) {
+    const variant = document.getElementById('stock-variant-filter')?.value || '';
+    if (product && variant) {
+      applyBOMFilter(product, variant, colour);
+      return; // applyBOMFilter calls filterStock again after loading
+    }
+  }
 
   let filtered = stockData.filter(r => {
-    const matchSearch  = !search  || (r.part_code||'').toLowerCase().includes(search) || (r.part_name||'').toLowerCase().includes(search);
-    const matchProduct = !product || r.product === product;
-    const isLow = Number(r.reorder_level) > 0 && Number(r.closing_stock) <= Number(r.reorder_level);
-    const matchStatus  = !status  || (status === 'low' ? isLow : !isLow);
-    return matchSearch && matchProduct && matchStatus;
+    const matchSearch   = !search   || (r.part_code||'').toLowerCase().includes(search) || (r.part_name||'').toLowerCase().includes(search);
+    const matchProduct  = !product  || r.product === product || r.product === 'Universal';
+    const matchCategory = !category || r.category === category;
+    const matchType     = !partType || (r.part_type||r.category||'').toLowerCase().includes(partType.toLowerCase());
+    const isLow         = Number(r.reorder_level) > 0 && Number(r.closing_stock) <= Number(r.reorder_level);
+    const matchStatus   = !status   || (status === 'low' ? isLow : !isLow);
+    const matchBOM      = !stockBOMFilter || stockBOMFilter.has(r.part_code);
+    return matchSearch && matchProduct && matchCategory && matchType && matchStatus && matchBOM;
   });
+
+  // Show count
+  const subtitle = document.querySelector('#view-stock .page-subtitle');
+  if (subtitle) subtitle.textContent = `${filtered.length} part${filtered.length !== 1 ? 's' : ''} shown${stockData.length !== filtered.length ? ' of ' + stockData.length : ''}`;
+
   renderStockTable(filtered);
 }
+
 
 // ══ GRN ══════════════════════════════════════════════════════
 let grnMode = 'bulk';
