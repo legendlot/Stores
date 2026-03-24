@@ -6399,15 +6399,26 @@ async function showNewFlushForm() {
   document.getElementById('lf-notes').value = '';
   document.getElementById('lf-lines-container').innerHTML = '';
   // Load open WOs into dropdown
+  const sel = document.getElementById('lf-wo-select');
+  sel.innerHTML = '<option value="">Loading WOs...</option>';
   try {
     const res = await api('getWorkOrders');
-    const sel = document.getElementById('lf-wo-select');
     sel.innerHTML = '<option value="">Select WO...</option>';
-    (res.data||[]).forEach(wo => {
-      const label = `${wo.wo_no||wo.wo_no||''} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
-      sel.innerHTML += `<option value="${wo.wo_no||wo.wo_no||''}">${label}</option>`;
-    });
-  } catch(e) {}
+    const wos = res.ok ? (res.data||[]) : [];
+    if (!wos.length) {
+      sel.innerHTML = '<option value="">No open work orders</option>';
+    } else {
+      wos.forEach(wo => {
+        const woNo = wo.wo_no || '';
+        const label = `${woNo} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
+        sel.innerHTML += `<option value="${woNo}">${label}</option>`;
+      });
+    }
+    if (!res.ok) console.error('[LF] getWorkOrders failed:', res.error);
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error loading WOs</option>';
+    console.error('[LF] getWorkOrders error:', e);
+  }
   addFlushLine();
 }
 
