@@ -6402,15 +6402,15 @@ async function showNewFlushForm() {
   const sel = document.getElementById('lf-wo-select');
   sel.innerHTML = '<option value="">Loading WOs...</option>';
   try {
-    const res = await api('getWorkOrders');
+    const res = await api('getRecentWOs');
     sel.innerHTML = '<option value="">Select WO...</option>';
     const wos = res.ok ? (res.data||[]) : [];
     if (!wos.length) {
-      sel.innerHTML = '<option value="">No open work orders</option>';
+      sel.innerHTML = '<option value="">No work orders in last 30 days</option>';
     } else {
       wos.forEach(wo => {
-        const woNo = wo.wo_no || '';
-        const label = `${woNo} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units`;
+        const woNo  = wo.wo_no || '';
+        const label = `${woNo} — ${wo.product||''} ${wo.variant||''} · ${wo.qty||''} units [${wo.status||'Open'}]`;
         sel.innerHTML += `<option value="${woNo}">${label}</option>`;
       });
     }
