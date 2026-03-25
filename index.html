@@ -6364,16 +6364,12 @@ function renderPODetail({ po, lines, revisions }) {
 
   // Header details
   document.getElementById('po-detail-header').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       ${[
         ['Vendor',           po.vendor_name],
         ['Order Type',       po.order_type],
         ['Source',           po.source],
-        ['Expected Delivery',po.expected_delivery ? formatDisplayDate(po.expected_delivery) : '—'],
-        ['Lead Time',        po.lead_time_days ? po.lead_time_days + ' days' : '—'],
-        ['Port of Loading',  po.port_of_loading || '—'],
-        ['Freight Forwarder',po.freight_forwarder || '—'],
-        ['Raised By',        po.raised_by],
+        ['Raised By',        po.raised_by || '—'],
         ['Approved By',      po.approved_by || '—'],
         ['Quality Hold',     po.quality_hold ? '<span style="color:var(--red)">⚠ ON HOLD</span>' : '✅ Clear'],
       ].map(([k,v]) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
@@ -6381,6 +6377,26 @@ function renderPODetail({ po, lines, revisions }) {
         <div style="font-size:12px;font-weight:600">${v}</div>
       </div>`).join('')}
     </div>
+
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px;padding-top:4px;border-top:1px solid var(--border)">SHIPPING TIMELINE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      ${[
+        ['Order Placed',      po.order_placed_date     ? formatDisplayDate(po.order_placed_date)     : '—'],
+        ['Expected Ready',    po.expected_ready_date   ? formatDisplayDate(po.expected_ready_date)   : '—'],
+        ['Production Lead',   po.lead_time_days        ? po.lead_time_days + ' days'                : '—'],
+        ['Shipping Date',     po.shipping_date         ? formatDisplayDate(po.shipping_date)         : '—'],
+        ['Shipping Mode',     po.shipping_mode         || '—'],
+        ['Forwarder',         po.forwarder_code        || po.freight_forwarder || '—'],
+        ['Transit Days',      po.transit_days          ? po.transit_days + ' days'                  : '—'],
+        ['Expected Arrival',  po.expected_arrival_date ? formatDisplayDate(po.expected_arrival_date) : '—'],
+        ['Actual Arrival',    po.actual_arrival_date   ? formatDisplayDate(po.actual_arrival_date)   : '—'],
+      ].map(([k,v]) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${k}</div>
+        <div style="font-size:12px;font-weight:600">${v}</div>
+      </div>`).join('')}
+    </div>
+
+    ${po.port_of_loading ? `<div style="padding:4px 0;font-size:11px;color:var(--text3)">Port of Loading: <span style="color:var(--text)">${po.port_of_loading}</span></div>` : ''}
     ${po.notes ? `<div style="margin-top:10px;padding:8px 10px;background:var(--bg3);border-radius:3px;font-size:11px;color:var(--text2)">${po.notes}</div>` : ''}`;
 
   // Financial
