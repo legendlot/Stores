@@ -1577,45 +1577,65 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
       <div class="grid-2">
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">New Work Order</div></div>
+          <div class="panel-header">
+            <div class="panel-title">New Work Order</div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-primary" id="wo-type-prod" onclick="setWOType('Production Run')" style="padding:3px 10px;font-size:10px">Production Run</button>
+              <button class="btn btn-secondary" id="wo-type-pr" onclick="setWOType('Parts Request')" style="padding:3px 10px;font-size:10px">Parts Request</button>
+            </div>
+          </div>
           <div class="panel-body">
+
+            <!-- Production Run fields -->
+            <div id="wo-prod-fields">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Product</label>
+                  <select class="form-select" id="wo-product" onchange="loadVariants('wo')">
+                    <option value="">Select...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Variant</label>
+                  <select class="form-select" id="wo-variant" onchange="loadSubVariants('wo')">
+                    <option value="">Common only</option>
+                  </select>
+                </div>
+                <div class="form-group" id="wo-subvariant-group" style="display:none">
+                  <label class="form-label">Colour</label>
+                  <select class="form-select" id="wo-subvariant">
+                    <option value="">All colours</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Units to Build</label>
+                  <input class="form-input" type="number" id="wo-qty" placeholder="0" min="1">
+                </div>
+              </div>
+            </div>
+
+            <!-- Parts Request fields -->
+            <div id="wo-pr-fields" style="display:none">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PARTS NEEDED</div>
+              <div id="wo-pr-lines"></div>
+              <button class="btn btn-secondary" onclick="addWOPRLine()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD PART</button>
+              <div style="padding:8px 10px;background:rgba(33,60,226,.08);border:1px solid rgba(33,60,226,.2);border-radius:3px;font-size:11px;color:var(--blue);margin-bottom:12px">
+                ℹ Parts request WOs are issued directly — no BOM calculation, only the listed parts
+              </div>
+            </div>
+
+            <!-- Common fields -->
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">Product</label>
-                <select class="form-select" id="wo-product" onchange="loadVariants('wo')">
-                  <option value="">Select...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Variant</label>
-                <select class="form-select" id="wo-variant" onchange="loadSubVariants('wo')">
-                  <option value="">Common only</option>
-                </select>
-              </div>
-              <div class="form-group" id="wo-subvariant-group" style="display:none">
-                <label class="form-label">Colour</label>
-                <select class="form-select" id="wo-subvariant">
-                  <option value="">All colours</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Units to Build</label>
-                <input class="form-input" type="number" id="wo-qty" placeholder="0" min="1">
-              </div>
               <div class="form-group">
                 <label class="form-label">Line</label>
                 <select class="form-select" id="wo-line">
-                  <option value="L1">L1</option>
-                  <option value="L2">L2</option>
-                  <option value="L3">L3</option>
+                  <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">Shift</label>
                 <select class="form-select" id="wo-shift">
-                  <option value="Morning">Morning</option>
-                  <option value="Afternoon">Afternoon</option>
-                  <option value="Night">Night</option>
+                  <option>Morning</option><option>Afternoon</option><option>Night</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1639,7 +1659,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>WO No.</th><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Line</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>WO No.</th><th>Date</th><th>Type</th><th>Product</th><th>Variant</th><th>Colour</th><th>Qty</th><th>Line</th><th>Status</th><th></th></tr></thead>
               <tbody id="wo-list">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -4515,29 +4535,95 @@ function renderKit(data) {
 }
 
 let createWOSubmitting = false;
+let currentWOType = 'Production Run';
+
+function setWOType(type) {
+  currentWOType = type;
+  const isPR = type === 'Parts Request';
+  document.getElementById('wo-prod-fields').style.display = isPR ? 'none' : '';
+  document.getElementById('wo-pr-fields').style.display   = isPR ? '' : 'none';
+  document.getElementById('wo-type-prod').className = 'btn ' + (isPR ? 'btn-secondary' : 'btn-primary');
+  document.getElementById('wo-type-pr').className   = 'btn ' + (isPR ? 'btn-primary' : 'btn-secondary');
+  if (isPR && !document.querySelector('#wo-pr-lines > div')) addWOPRLine();
+}
+
+function addWOPRLine() {
+  ensureMaterialCache();
+  const container = document.getElementById('wo-pr-lines');
+  const showHeader = container.children.length === 0;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:130px 1fr 90px 24px;gap:6px;margin-bottom:6px;align-items:start';
+  if (showHeader) {
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:130px 1fr 90px 24px;gap:6px;margin-bottom:2px';
+    hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Qty Needed</div><div></div>';
+    div.appendChild(hdr);
+  }
+  const pcInput  = Object.assign(document.createElement('input'), {className:'form-input mono', placeholder:'Part code', style:'font-size:11px;text-transform:uppercase'});
+  pcInput.oninput = function(){ this.value=this.value.toUpperCase(); };
+  pcInput.onblur  = function(){
+    const code = this.value.trim();
+    const nm = this.closest('div[style*="grid"]').querySelectorAll('input')[1];
+    const part = materialCache[code];
+    if (part) { nm.value = part.part_name||''; nm.style.color='var(--green)'; }
+  };
+  const nmInput  = Object.assign(document.createElement('input'), {className:'form-input', placeholder:'Auto-fills', readOnly:true, style:'font-size:11px;color:var(--text3)'});
+  const qtyInput = Object.assign(document.createElement('input'), {className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:12px;text-align:right'});
+  const rmBtn    = Object.assign(document.createElement('button'), {style:'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px', innerHTML:'×'});
+  rmBtn.onclick  = () => div.remove();
+  [pcInput, nmInput, qtyInput, rmBtn].forEach(el => div.appendChild(el));
+  container.appendChild(div);
+}
+
 async function createWO() {
   if (createWOSubmitting) { toast('Already creating — please wait', 'info'); return; }
-  const product = document.getElementById('wo-product').value;
-  const variant = document.getElementById('wo-variant').value;
-  const colour  = document.getElementById('wo-subvariant')?.value || '';
-  const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
+  const isPR    = currentWOType === 'Parts Request';
   const line_no = document.getElementById('wo-line').value;
   const shift   = document.getElementById('wo-shift').value;
   const date    = formatDateForAPI(document.getElementById('wo-date').value);
-  if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
+
+  let data = { wo_type: currentWOType, line_no, shift, date };
+
+  if (isPR) {
+    const parts = [];
+    document.querySelectorAll('#wo-pr-lines > div').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const pc = inputs[0]?.value?.trim();
+      const pn = inputs[1]?.value?.trim();
+      const qty = parseFloat(inputs[2]?.value) || 0;
+      if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
+    });
+    if (!parts.length) { toast('Add at least one part with a quantity', 'error'); return; }
+    data.parts = parts;
+  } else {
+    const product = document.getElementById('wo-product').value;
+    const variant = document.getElementById('wo-variant').value;
+    const colour  = document.getElementById('wo-subvariant')?.value || '';
+    const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
+    if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
+    Object.assign(data, { product, variant, colour, qty });
+  }
 
   const btn = document.querySelector('#view-workorder .btn-primary');
   try {
     createWOSubmitting = true;
     if (btn) { btn.textContent = 'CREATING...'; btn.disabled = true; }
-    const res = await apiPost('postWorkOrder', { data:{ product, variant, qty, line_no, shift, date }});
+    const res = await apiPost('postWorkOrder', { data });
     if (res.ok) {
-      toast(`✅ ${res.data.wo_no} created — ${product} ${variant||''} · ${qty} units · ${line_no} ${shift}`, 'success');
-      // Clear form
-      document.getElementById('wo-product').value = '';
-      document.getElementById('wo-variant').innerHTML = '<option value="">Common only</option>';
-      document.getElementById('wo-qty').value = '';
-      document.getElementById('wo-subvariant-group').style.display = 'none';
+      const desc = isPR
+        ? `✅ ${res.data.wo_no} created — Parts Request`
+        : `✅ ${res.data.wo_no} created — ${data.product} ${data.variant||''} ${data.colour||''} · ${data.qty} units`;
+      toast(desc, 'success');
+      // Reset form
+      if (!isPR) {
+        document.getElementById('wo-product').value = '';
+        document.getElementById('wo-variant').innerHTML = '<option value="">Common only</option>';
+        document.getElementById('wo-qty').value = '';
+        document.getElementById('wo-subvariant-group').style.display = 'none';
+      } else {
+        document.getElementById('wo-pr-lines').innerHTML = '';
+        addWOPRLine();
+      }
       loadWorkOrders();
       refreshWODropdown();
     } else { toast(res.error || 'Failed to create WO', 'error'); }
@@ -4547,6 +4633,7 @@ async function createWO() {
     if (btn) { btn.textContent = 'CREATE WORK ORDER'; btn.disabled = false; }
   }
 }
+
 
 async function loadWorkOrders() {
   try {
@@ -4565,6 +4652,7 @@ async function loadWorkOrders() {
       ? rows.map(r => {
           const st    = r.status || 'Open';
           const sc    = statusColor[st] || 'badge-gray';
+          const isPR  = r.wo_type === 'Parts Request';
           const canAct = ['Open','Pending Rework'].includes(st);
           const actBtns = canAct ? `
             <div style="display:flex;gap:4px">
@@ -4576,15 +4664,17 @@ async function loadWorkOrders() {
           return `<tr>
             <td class="mono" style="color:var(--yellow)">${r.wo_no||''}</td>
             <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.date||r.created_at)}</td>
-            <td>${r.product||''}</td>
+            <td><span class="badge ${isPR?'badge-blue':'badge-gray'}" style="font-size:9px">${isPR?'Parts Req':'Production'}</span></td>
+            <td>${r.product||'—'}</td>
             <td>${r.variant||'—'}</td>
-            <td class="mono">${r.qty||''}</td>
+            <td style="font-size:11px;color:var(--text3)">${r.colour||'—'}</td>
+            <td class="mono">${r.qty||'—'}</td>
             <td class="mono">${r.line_no||'—'}</td>
             <td><span class="badge ${sc}" style="font-size:9px">${st}</span></td>
             <td>${actBtns}</td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="8" class="empty">No open work orders</td></tr>';
+      : '<tr><td colspan="10" class="empty">No open work orders</td></tr>';
     const woBadge = document.getElementById('wo-open-count');
     const openCount = rows.filter(r => ['Open','Pending Rework'].includes(r.status||'Open')).length;
     if (woBadge) woBadge.textContent = openCount + ' open';
@@ -6744,9 +6834,10 @@ function printPickList() {
   const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
 
   const rows = plannedKitData.map(r => {
-    const isShort = r.status === 'SHORT';
+    const isShort  = r.status === 'SHORT';
     const rowStyle = isShort ? 'background:#fff8f0' : '';
-    const bags = Math.ceil((r.total_qty || 0) / 25);
+    const bagSize  = r.bag_size || 25;
+    const bags     = Math.ceil((r.total_qty || 0) / bagSize);
     const statusCell = isShort
       ? `<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −${r.shortfall}</td>`
       : `<td style="color:#27ae60;font-size:10pt">OK</td>`;
@@ -6757,7 +6848,7 @@ function printPickList() {
       <td style="font-family:monospace;font-size:9pt;color:#666">${r.category||'—'}</td>
       <td style="text-align:right;font-family:monospace">${r.bom_qty}</td>
       <td style="text-align:right;font-family:monospace;font-weight:700">${r.total_qty}</td>
-      <td style="text-align:right;font-family:monospace;color:#555">${bags}</td>
+      <td style="text-align:right;font-family:monospace;color:#555">${bags}<span style="font-size:7pt;color:#888;margin-left:2px">×${bagSize}</span></td>
       ${statusCell}
     </tr>`;
   }).join('');
@@ -6797,7 +6888,7 @@ function printPickList() {
   </div>
   ${shortNote}
   <table>
-    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th>Category</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th style="text-align:right">Bags (×25)</th><th>Status</th></tr></thead>
+    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th>Category</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th style="text-align:right">Bags</th><th>Status</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="footer">
