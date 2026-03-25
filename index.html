@@ -5874,7 +5874,7 @@ function initProcurement() {
     if (btn) btn.style.display = '';
   }
   const newPOBtn = document.getElementById('new-po-btn');
-  if (newPOBtn) newPOBtn.style.display = PERMS_FE[currentRole]?.raisePO ? '' : 'none';
+  if (newPOBtn) newPOBtn.style.display = currentPermissions.procurement_raise ? '' : 'none';
   ensureVendorCache();
   ensureForwarderCache();
   loadPOs();
@@ -6435,8 +6435,8 @@ function renderPODetail({ po, lines, revisions }) {
 
   // Action buttons based on status + role
   const btnArea = document.getElementById('po-action-btns');
-  const canApprove = PERMS_FE[currentRole]?.approvePO;
-  const canRaise   = PERMS_FE[currentRole]?.raisePO;
+  const canApprove = currentPermissions.procurement_approve;
+  const canRaise   = currentPermissions.procurement_raise;
   const btns = [];
 
   if (po.status === 'Draft' && canApprove)
