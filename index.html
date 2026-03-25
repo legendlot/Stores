@@ -3677,6 +3677,7 @@ async function loadProducibleUnits() {
   const el = document.getElementById('producible-list');
   const statusEl = document.getElementById('prod-units-status');
   const products = PRODUCTS.filter(p => p !== 'Atlas');
+  // Don't clear el — keep showing previous data while refreshing silently
   try {
     const results = await Promise.all(
       products.map(p => api('calcKit', { product: p, variant: '', colour: '', qty: 1 })
@@ -3951,9 +3952,8 @@ async function loadManpower() {
 
 function clearDashboardLoadingStates() {
   const reorderList = document.getElementById('reorder-list');
-  if (reorderList) reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
-  const psl = document.getElementById('producible-list');
-  if (psl) psl.innerHTML = '<div class="empty">No data yet</div>';
+  if (reorderList && reorderList.querySelector('.loading')) reorderList.innerHTML = '<div class="empty">✅ No reorder flags</div>';
+  // Note: producible-list is NOT reset here — it keeps showing last known data during refresh
   document.getElementById('dash-timestamp').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
   ['kpi-wo','kpi-grn','kpi-issued','kpi-returns'].forEach(id => {
     const el = document.getElementById(id);
