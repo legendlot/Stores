@@ -3188,6 +3188,108 @@ tr:hover td { background:rgba(255,255,255,.02); }
     </div>
 
   </div><!-- /content -->
+<!-- PO Amendment Modal -->
+<div id="po-amend-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:min(800px,95vw);padding:24px;margin-bottom:40px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div>
+        <div style="font-family:var(--cond);font-weight:700;font-size:18px">AMEND PO <span id="amend-po-number" style="color:var(--yellow)"></span></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">A revision snapshot will be saved before changes are applied</div>
+      </div>
+      <button onclick="closeAmendModal()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:20px">×</button>
+    </div>
+
+    <!-- Change summary -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label">Change Summary <span style="color:var(--red)">*</span></label>
+      <input class="form-input" id="amend-summary" placeholder="Brief description of what changed (e.g. Updated qty on line 3, changed forwarder)">
+    </div>
+
+    <!-- Header fields -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px">PO HEADER</div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+      <div class="form-group">
+        <label class="form-label">Vendor</label>
+        <input class="form-input" id="amend-vendor" placeholder="Vendor name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Currency</label>
+        <select class="form-select" id="amend-currency">
+          <option>CNY</option><option>INR</option><option>USD</option><option>EUR</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Terms</label>
+        <input class="form-input" id="amend-payment-terms" placeholder="e.g. 30% advance, 70% on BL">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Incoterms</label>
+        <select class="form-select" id="amend-incoterms">
+          <option value="">—</option>
+          <option>FOB</option><option>CIF</option><option>EXW</option><option>DDP</option><option>DAP</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Invoice Number</label>
+        <input class="form-input" id="amend-invoice-no" placeholder="Supplier invoice ref">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Invoice Value</label>
+        <input class="form-input" type="number" id="amend-invoice-value" placeholder="0.00" min="0" step="0.01">
+      </div>
+    </div>
+
+    <!-- Shipping timeline -->
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px">SHIPPING TIMELINE</div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
+      <div class="form-group">
+        <label class="form-label">Expected Ready Date</label>
+        <input class="form-input" type="date" id="amend-ready-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Shipping Date</label>
+        <input class="form-input" type="date" id="amend-ship-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Shipping Mode</label>
+        <select class="form-select" id="amend-ship-mode">
+          <option value="">—</option><option>Sea</option><option>Air</option><option>Land</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Forwarder Code</label>
+        <input class="form-input" id="amend-forwarder" placeholder="FWD-IN-001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Transit Days</label>
+        <input class="form-input" type="number" id="amend-transit" placeholder="—" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Actual Arrival Date</label>
+        <input class="form-input" type="date" id="amend-actual-arrival">
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label">Notes</label>
+      <input class="form-input" id="amend-notes" placeholder="Internal notes">
+    </div>
+
+    <!-- Quality hold -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;padding:10px 12px;background:var(--bg3);border-radius:3px">
+      <input type="checkbox" id="amend-quality-hold" style="accent-color:var(--red);width:14px;height:14px">
+      <label for="amend-quality-hold" style="font-size:12px;cursor:pointer">Place on Quality Hold</label>
+      <span style="font-size:11px;color:var(--text3)">(blocks receiving until released)</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitAmendment()">SAVE AMENDMENT</button>
+      <button class="btn btn-secondary" onclick="closeAmendModal()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /app -->
 
 <div id="toast-container"></div>
@@ -5867,6 +5969,7 @@ const PO_STATUS_COLORS = {
 };
 
 let currentPONumber = null;
+let currentPOData   = null;
 
 function initProcurement() {
   if (PROCUREMENT_ROLES.includes(currentRole) || currentRole === 'store') {
@@ -6351,6 +6454,7 @@ async function openPO(poNumber) {
   try {
     const res = await api('getPO', { po_number: poNumber });
     if (!res.ok) { toast('Failed to load PO', 'error'); return; }
+    currentPOData = res.data;
     renderPODetail(res.data);
   } catch(e) { toast('Error loading PO', 'error'); }
 }
@@ -6486,7 +6590,7 @@ async function poAction(action) {
     if (res.ok) { toast('Confirmed & Payment Done', 'success'); openPO(currentPONumber); loadPendingInwardPOs(); }
     else toast(res.error || 'Failed', 'error');
   } else if (action === 'amend') {
-    toast('Amendment form coming in next build', 'info');
+    openAmendModal();
   } else if (action === 'cancel') {
     const reason = prompt('Cancellation reason:');
     if (!reason) return;
@@ -7757,7 +7861,74 @@ async function loadDashboardActivity() {
     feed.innerHTML = '<div class="empty" style="padding:12px">—</div>';
   }
 }
+// ══ PO AMENDMENT ═════════════════════════════════════════════
 
+function openAmendModal() {
+  if (!currentPONumber || !currentPOData) return;
+  const po = currentPOData.po;
+
+  document.getElementById('amend-po-number').textContent = currentPONumber;
+  document.getElementById('amend-summary').value         = '';
+  document.getElementById('amend-vendor').value          = po.vendor_name || '';
+  document.getElementById('amend-currency').value        = po.currency    || 'INR';
+  document.getElementById('amend-payment-terms').value   = po.payment_terms || '';
+  document.getElementById('amend-incoterms').value       = po.incoterms   || '';
+  document.getElementById('amend-invoice-no').value      = po.invoice_number || '';
+  document.getElementById('amend-invoice-value').value   = po.invoice_value  || '';
+  document.getElementById('amend-ready-date').value      = po.expected_ready_date  ? po.expected_ready_date.split('T')[0]  : '';
+  document.getElementById('amend-ship-date').value       = po.shipping_date        ? po.shipping_date.split('T')[0]        : '';
+  document.getElementById('amend-ship-mode').value       = po.shipping_mode  || '';
+  document.getElementById('amend-forwarder').value       = po.forwarder_code || po.freight_forwarder || '';
+  document.getElementById('amend-transit').value         = po.transit_days   || '';
+  document.getElementById('amend-actual-arrival').value  = po.actual_arrival_date ? po.actual_arrival_date.split('T')[0] : '';
+  document.getElementById('amend-notes').value           = po.notes          || '';
+  document.getElementById('amend-quality-hold').checked  = !!po.quality_hold;
+
+  document.getElementById('po-amend-modal').style.display = 'flex';
+}
+
+function closeAmendModal() {
+  document.getElementById('po-amend-modal').style.display = 'none';
+}
+
+async function submitAmendment() {
+  const summary = document.getElementById('amend-summary').value.trim();
+  if (!summary) { toast('Enter a change summary', 'error'); return; }
+
+  const data = {
+    po_number:           currentPONumber,
+    change_summary:      summary,
+    vendor_name:         document.getElementById('amend-vendor').value.trim()          || undefined,
+    currency:            document.getElementById('amend-currency').value               || undefined,
+    payment_terms:       document.getElementById('amend-payment-terms').value.trim()   || null,
+    incoterms:           document.getElementById('amend-incoterms').value              || null,
+    invoice_number:      document.getElementById('amend-invoice-no').value.trim()      || null,
+    invoice_value:       parseFloat(document.getElementById('amend-invoice-value').value) || null,
+    expected_ready_date: document.getElementById('amend-ready-date').value             || null,
+    shipping_date:       document.getElementById('amend-ship-date').value              || null,
+    shipping_mode:       document.getElementById('amend-ship-mode').value              || null,
+    forwarder_code:      document.getElementById('amend-forwarder').value.trim()       || null,
+    transit_days:        parseInt(document.getElementById('amend-transit').value)      || null,
+    actual_arrival_date: document.getElementById('amend-actual-arrival').value         || null,
+    notes:               document.getElementById('amend-notes').value.trim()           || null,
+    quality_hold:        document.getElementById('amend-quality-hold').checked,
+  };
+
+  try {
+    const res = await apiPost('amendPO', { data });
+    if (res.ok) {
+      toast(`${currentPONumber} amended → Rev ${res.data.revision}`, 'success');
+      closeAmendModal();
+      openPO(currentPONumber); // reload detail view
+    } else toast(res.error || 'Amendment failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', e => {
+  const modal = document.getElementById('po-amend-modal');
+  if (modal && e.target === modal) closeAmendModal();
+});
 </script>
 </body>
 </html>
