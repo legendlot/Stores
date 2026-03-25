@@ -2801,9 +2801,17 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <div class="view" id="view-users">
       <div class="page-header">
         <div class="page-title">USERS</div>
-        <div class="page-subtitle">Manage team access — ops and Vinay only</div>
+        <div class="page-subtitle">Manage team access — super admin and admin only</div>
       </div>
 
+      <!-- Sub-nav -->
+      <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="users-tab-users" onclick="switchUsersTab('users')" style="border-radius:3px 3px 0 0">USERS</button>
+        <button class="nav-btn"        id="users-tab-roles" onclick="switchUsersTab('roles')" style="border-radius:3px 3px 0 0">ROLES &amp; PERMISSIONS</button>
+      </div>
+
+      <!-- Users section -->
+      <div id="users-users-section">
       <div id="users-list-view">
         <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
           <button class="btn btn-primary" onclick="showNewUserForm()" style="padding:6px 16px">+ NEW USER</button>
@@ -2844,14 +2852,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="form-group">
                 <label class="form-label">Role</label>
                 <select class="form-select" id="usr-role">
-                  <option value="">Select...</option>
-                  <option value="store">Store</option>
-                  <option value="store_manager">Store Manager</option>
-                  <option value="ops">Ops</option>
-                  <option value="vinay">Vinay (Admin)</option>
-                  <option value="brand">Brand</option>
-                  <option value="founders">Founder's Office</option>
-                  <option value="production">Production</option>
+                  <option value="">Loading roles...</option>
                 </select>
               </div>
               <div class="form-group">
@@ -2891,7 +2892,66 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
-    </div>
+      </div><!-- /users-users-section -->
+
+      <!-- Roles & Permissions section -->
+      <div id="users-roles-section" style="display:none">
+        <div id="roles-list-view">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+            <button class="btn btn-primary" onclick="showNewRoleForm()" style="padding:6px 16px">+ NEW ROLE</button>
+          </div>
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Role ID</th><th>Role Name</th><th>Description</th><th>System</th><th>Users Assigned</th><th></th></tr></thead>
+                <tbody id="roles-table-body">
+                  <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role form -->
+        <div id="roles-form-view" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <button class="btn btn-secondary" onclick="showRolesList()" style="padding:4px 12px">← Back</button>
+            <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="roles-form-title">NEW ROLE</div>
+          </div>
+          <div class="panel" style="max-width:800px">
+            <div class="panel-header"><div class="panel-title">ROLE DETAILS</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+                <div class="form-group">
+                  <label class="form-label">Role ID <span style="color:var(--text3);font-size:9px">slug, no spaces</span></label>
+                  <input class="form-input mono" id="role-id-input" placeholder="e.g. warehouse_staff">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Display Name</label>
+                  <input class="form-input" id="role-name-input" placeholder="e.g. Warehouse Staff">
+                </div>
+                <div class="form-group" style="grid-column:1/-1">
+                  <label class="form-label">Description</label>
+                  <input class="form-input" id="role-desc-input" placeholder="Brief description of this role">
+                </div>
+              </div>
+
+              <!-- Permission Matrix -->
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px">PERMISSIONS</div>
+              <div id="perm-matrix" style="display:grid;grid-template-columns:1fr 1fr;gap:2px"></div>
+
+              <input type="hidden" id="role-editing-id">
+              <div class="btn-row" style="margin-top:16px">
+                <button class="btn btn-primary" onclick="submitRole()">SAVE ROLE</button>
+                <button class="btn btn-secondary" id="role-delete-btn" style="display:none;background:rgba(222,42,42,.1);border-color:var(--red);color:var(--red)" onclick="deleteRole()">DELETE ROLE</button>
+                <button class="btn btn-secondary" onclick="showRolesList()">CANCEL</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /users-roles-section -->
+
+    </div><!-- /view-users -->
 
   </div><!-- /content -->
 </div><!-- /app -->
@@ -2946,12 +3006,13 @@ const PRODUCT_SUBVARIANTS = {
 };
 
 // ══ STATE ════════════════════════════════════════════════════
-let currentToken = '';
-let currentRole  = '';
-let currentUser  = {};   // { email, full_name, role }
-let currentView  = 'dashboard';
-let stockData    = [];
-let bomCache     = {};
+let currentToken       = '';
+let currentRole        = '';
+let currentUser        = {};
+let currentPermissions = {};  // granular permissions from roles table
+let currentView        = 'dashboard';
+let stockData          = [];
+let bomCache           = {};
 
 // ══ AUTH LOGIC ═══════════════════════════════════════════════
 function toggleLoginPwd() {
@@ -2979,9 +3040,10 @@ async function submitLogin() {
     });
     const data = await res.json();
     if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
-    currentToken = data.data.access_token;
-    currentRole  = data.data.role;
-    currentUser  = { email, full_name: data.data.full_name, role: data.data.role };
+    currentToken       = data.data.access_token;
+    currentRole        = data.data.role;
+    currentPermissions = data.data.permissions || {};
+    currentUser        = { email, full_name: data.data.full_name, role: data.data.role };
     if (data.data.must_change_password) {
       showChangePasswordScreen();
     } else {
@@ -3029,67 +3091,58 @@ function logout() {
 
 function launchApp() {
   document.getElementById('pin-screen').style.display = 'none';
-  const app = document.getElementById('app');
-  app.style.display = 'flex';
+  document.getElementById('app').style.display = 'flex';
+
+  const P = currentPermissions;
 
   // Role badge
   const badge = document.getElementById('role-badge');
-  badge.textContent = (currentUser.full_name || currentRole).toUpperCase().replace('_',' ');
-  badge.className = 'role-badge ' + (currentRole === 'ops' ? 'ops' : currentRole === 'vinay' ? 'vinay' : 'reann');
+  badge.textContent = (currentUser.full_name || currentRole).toUpperCase().replace(/_/g,' ');
+  badge.className = 'role-badge ' + (['super_admin','admin'].includes(currentRole) ? 'ops' : 'reann');
 
-  // Show users tab for admins only
-  if (['ops','vinay'].includes(currentRole)) {
-    const usersBtn = document.getElementById('nav-users');
-    if (usersBtn) usersBtn.style.display = '';
-  }
+  // ── Nav visibility driven by permissions ──────────────────
+  const navMap = {
+    'nav-stock':       () => P.stock && P.stock !== 'none',
+    'nav-grn':         () => P.grn && P.grn !== 'none',
+    'nav-receiving':   () => P.receiving && P.receiving !== 'none',
+    'nav-workorder':   () => P.work_order && P.work_order !== 'none',
+    'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
+    'nav-returns':     () => P.returns && P.returns !== 'none',
+    'nav-lineflush':   () => P.line_flush_create || P.line_flush_verify,
+    'nav-procurement': () => P.procurement_view,
+    'nav-reports':     () => P.reports,
+    'nav-users':       () => P.users_view || P.users_manage,
+  };
+  Object.entries(navMap).forEach(([id, check]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = check() ? '' : 'none';
+  });
 
-  // Show line flush tab for store, ops, vinay, store_manager, production
-  const lfBtn = document.getElementById('nav-lineflush');
-  if (lfBtn && ['store','store_manager','ops','vinay','production'].includes(currentRole)) {
-    lfBtn.style.display = '';
-  }
-  const procBtn = document.getElementById('nav-procurement');
-  if (procBtn && ['ops','vinay','store_manager','brand','founders','production','store'].includes(currentRole)) {
-    procBtn.style.display = '';
-  }
+  // Cost KPI card — finance permission only
+  const costCard = document.getElementById('kpi-cost-card');
+  if (costCard) costCard.style.display = P.reports_finance ? '' : 'none';
 
-  // Procurement-only roles: hide store tabs, show procurement
-  const procOnlyRoles = ['brand','founders'];
-  if (procOnlyRoles.includes(currentRole)) {
-    ['nav-stock','nav-grn','nav-receiving','nav-workorder','nav-issue','nav-returns','nav-reports'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.style.display = 'none';
-    });
-    document.getElementById('nav-procurement').style.display = '';
-    showView('procurement');
-    return;
-  }
-
-  // Production team: land on Line Flush only
-  if (currentRole === 'production') {
-    ['nav-stock','nav-grn','nav-receiving','nav-workorder','nav-issue','nav-returns','nav-reports','nav-procurement'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.style.display = 'none';
-    });
-    document.getElementById('nav-lineflush').style.display = '';
-    showView('lineflush');
-    return;
-  }
-  if (currentRole === 'vinay') {
-    ['nav-grn','nav-workorder','nav-issue','nav-returns'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
+  // Reports grid — hide if no reports access
+  if (!P.reports) {
+    const noAccess = document.getElementById('reports-no-access');
+    const grid     = document.getElementById('reports-grid');
+    if (noAccess) noAccess.style.display = '';
+    if (grid)     grid.style.display     = 'none';
   }
 
-  // Show cost KPI for ops/vinay
-  if (currentRole !== 'reann') {
-    document.getElementById('kpi-cost-card').style.display = '';
+  // ── Landing page — go to first accessible tab ─────────────
+  if (P.dashboard) {
+    // stay on dashboard (default)
+  } else if (P.line_flush_create && !P.stock) {
+    showView('lineflush'); return;
+  } else if (P.procurement_view && !P.dashboard) {
+    showView('procurement'); return;
   }
 
   // Init dates
   const today = new Date().toISOString().split('T')[0];
   ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date','lf-date'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = today;
+    const el = document.getElementById(id); if (el) el.value = today;
   });
 
   // Populate product dropdowns
@@ -3098,18 +3151,11 @@ function launchApp() {
       const sel = document.getElementById(id);
       if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
     });
-    // Stock filter
     const sf = document.getElementById('stock-product-filter');
     if (sf) sf.innerHTML += `<option value="${p}">${p}</option>`;
   });
 
-  // Reports access
-  if (currentRole === 'reann') {
-    document.getElementById('reports-no-access').style.display = '';
-    document.getElementById('reports-grid').style.display = 'none';
-  }
-
-  // Add initial GRN/issue lines
+  // Add initial lines
   addGRNLine();
   setGRNMode('bulk');
 
@@ -3121,23 +3167,19 @@ function launchApp() {
   loadIssueHistory();
   loadReturnsHistory();
 
-  // Fallback: clear any stuck loading spinners after 25s
+  // Fallback spinner clear after 25s
   setTimeout(() => {
     document.querySelectorAll('.loading').forEach(el => {
       const td = el.closest('td');
       if (td) {
         const cols = td.getAttribute('colspan') || '6';
         td.parentElement.innerHTML = `<td colspan="${cols}"><div class="empty">No data yet</div></td>`;
-      } else {
-        el.innerHTML = '<div class="empty">No data yet</div>';
-      }
+      } else { el.innerHTML = '<div class="empty">No data yet</div>'; }
     });
   }, 25000);
 
   // Auto-refresh every 60s
-  setInterval(() => {
-    if (currentView === 'dashboard') loadDashboard();
-  }, 60000);
+  setInterval(() => { if (currentView === 'dashboard') loadDashboard(); }, 60000);
 }
 
 
@@ -3218,7 +3260,7 @@ function showView(name) {
       fromEl.value = d30.toISOString().split('T')[0];
     }
   }
-  if (name === 'users')       { loadUsers(); }
+  if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
   if (name === 'procurement') { initProcurement(); }
 }
 
@@ -6717,9 +6759,249 @@ async function loadQuarantine() {
     }).join('') : '<tr><td colspan="9" class="empty">No quarantined items</td></tr>';
   } catch(e) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error</td></tr>'; }
 }
-// ══ USERS ════════════════════════════════════════════════════
+// ══ ROLES & PERMISSIONS ══════════════════════════════════════
+
+// Permission matrix definition — label, key, type (bool|level)
+const PERM_DEFS = [
+  { group: 'Core Tabs', items: [
+    { key: 'dashboard',       label: 'Dashboard',            type: 'bool'  },
+    { key: 'stock',           label: 'Stock Ledger',         type: 'level' },
+    { key: 'grn',             label: 'GRN Entry',            type: 'level' },
+    { key: 'receiving',       label: 'Receiving',            type: 'level' },
+    { key: 'work_order',      label: 'Work Orders',          type: 'level' },
+    { key: 'stock_issue',     label: 'Stock Issue',          type: 'level' },
+    { key: 'returns',         label: 'Returns',              type: 'level' },
+  ]},
+  { group: 'Line Flush', items: [
+    { key: 'line_flush_create', label: 'Create Flushes (Production)', type: 'bool' },
+    { key: 'line_flush_verify', label: 'Verify Flushes (Store)',      type: 'bool' },
+  ]},
+  { group: 'Procurement', items: [
+    { key: 'procurement_view',    label: 'View Procurement Tab',  type: 'bool' },
+    { key: 'procurement_raise',   label: 'Raise POs',             type: 'bool' },
+    { key: 'procurement_approve', label: 'Approve POs',           type: 'bool' },
+  ]},
+  { group: 'Reports', items: [
+    { key: 'reports',         label: 'View & Download Reports', type: 'bool' },
+    { key: 'reports_finance', label: 'Finance / Cost Reports',  type: 'bool' },
+  ]},
+  { group: 'Users', items: [
+    { key: 'users_view',   label: 'View Users Tab',          type: 'bool' },
+    { key: 'users_manage', label: 'Manage Users & Roles',    type: 'bool' },
+  ]},
+];
+
+const LEVEL_OPTIONS = ['none', 'view', 'write'];
+const LEVEL_COLORS  = { none: 'var(--text3)', view: 'var(--blue)', write: 'var(--green)' };
+
+function switchUsersTab(tab) {
+  document.getElementById('users-users-section').style.display = tab === 'users' ? '' : 'none';
+  document.getElementById('users-roles-section').style.display = tab === 'roles' ? '' : 'none';
+  document.getElementById('users-tab-users').className = 'nav-btn' + (tab === 'users' ? ' active' : '');
+  document.getElementById('users-tab-roles').className = 'nav-btn' + (tab === 'roles' ? ' active' : '');
+  if (tab === 'roles') loadRoles();
+}
+
+// ── Role List ─────────────────────────────────────────────────
+async function loadRoles() {
+  const tbody = document.getElementById('roles-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const [rolesRes, usersRes] = await Promise.all([
+      api('getRoles'),
+      api('getUsers'),
+    ]);
+    if (!rolesRes.ok) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; return; }
+    const roles = rolesRes.data || [];
+    const users = usersRes.ok ? (usersRes.data || []) : [];
+    // Count users per role
+    const userCount = {};
+    users.forEach(u => { userCount[u.role] = (userCount[u.role]||0) + 1; });
+    tbody.innerHTML = roles.length ? roles.map(r => `<tr>
+      <td class="mono" style="font-size:11px;color:var(--yellow)">${r.role_id}</td>
+      <td style="font-weight:600">${r.role_name}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.description||'—'}</td>
+      <td>${r.is_system ? '<span class="badge badge-gray" style="font-size:9px">System</span>' : '<span class="badge badge-blue" style="font-size:9px">Custom</span>'}</td>
+      <td class="mono" style="text-align:center">${userCount[r.role_id]||0}</td>
+      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="editRole('${r.role_id}')">EDIT</button></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty">No roles</td></tr>';
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Error</td></tr>'; }
+}
+
+function showRolesList() {
+  document.getElementById('roles-list-view').style.display = '';
+  document.getElementById('roles-form-view').style.display = 'none';
+  loadRoles();
+}
+
+// ── Role Form ─────────────────────────────────────────────────
+function buildPermMatrix(currentPerms = {}) {
+  const container = document.getElementById('perm-matrix');
+  container.innerHTML = '';
+  PERM_DEFS.forEach(group => {
+    // Group header spans both columns
+    const groupHdr = document.createElement('div');
+    groupHdr.style.cssText = 'grid-column:1/-1;font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;padding:10px 0 4px;border-top:1px solid var(--border);margin-top:4px';
+    groupHdr.textContent = group.group.toUpperCase();
+    container.appendChild(groupHdr);
+
+    group.items.forEach(perm => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:3px;border:1px solid var(--border)';
+
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:12px';
+      label.textContent = perm.label;
+
+      const control = document.createElement('div');
+      control.style.cssText = 'display:flex;gap:4px';
+
+      if (perm.type === 'bool') {
+        const val = !!currentPerms[perm.key];
+        const toggle = document.createElement('button');
+        toggle.dataset.key  = perm.key;
+        toggle.dataset.type = 'bool';
+        toggle.dataset.val  = val ? '1' : '0';
+        toggle.style.cssText = `padding:3px 12px;font-size:11px;font-family:var(--mono);border-radius:2px;cursor:pointer;border:1px solid;transition:all .15s;background:${val?'var(--green)':'var(--bg2)'};border-color:${val?'var(--green)':'var(--border)'};color:${val?'#000':'var(--text3)'}`;
+        toggle.textContent = val ? 'ON' : 'OFF';
+        toggle.onclick = function() {
+          const on = this.dataset.val === '0';
+          this.dataset.val = on ? '1' : '0';
+          this.style.background    = on ? 'var(--green)' : 'var(--bg2)';
+          this.style.borderColor   = on ? 'var(--green)' : 'var(--border)';
+          this.style.color         = on ? '#000' : 'var(--text3)';
+          this.textContent = on ? 'ON' : 'OFF';
+        };
+        control.appendChild(toggle);
+      } else {
+        // Level: none / view / write
+        const cur = currentPerms[perm.key] || 'none';
+        LEVEL_OPTIONS.forEach(level => {
+          const btn = document.createElement('button');
+          btn.dataset.key   = perm.key;
+          btn.dataset.type  = 'level';
+          btn.dataset.level = level;
+          const active = cur === level;
+          btn.style.cssText = `padding:3px 10px;font-size:10px;font-family:var(--mono);border-radius:2px;cursor:pointer;border:1px solid;transition:all .15s;background:${active?LEVEL_COLORS[level]:'var(--bg2)'};border-color:${active?LEVEL_COLORS[level]:'var(--border)'};color:${active?'#000':'var(--text3)'}`;
+          btn.textContent = level.toUpperCase();
+          btn.onclick = function() {
+            // Deactivate siblings
+            const siblings = this.parentElement.querySelectorAll('[data-key="'+this.dataset.key+'"]');
+            siblings.forEach(s => {
+              s.style.background  = 'var(--bg2)';
+              s.style.borderColor = 'var(--border)';
+              s.style.color       = 'var(--text3)';
+            });
+            // Activate self
+            const c = LEVEL_COLORS[this.dataset.level];
+            this.style.background  = c;
+            this.style.borderColor = c;
+            this.style.color       = '#000';
+          };
+          control.appendChild(btn);
+        });
+      }
+
+      row.appendChild(label);
+      row.appendChild(control);
+      container.appendChild(row);
+    });
+  });
+}
+
+function readPermMatrix() {
+  const perms = {};
+  // Bool toggles
+  document.querySelectorAll('#perm-matrix [data-type="bool"]').forEach(el => {
+    perms[el.dataset.key] = el.dataset.val === '1';
+  });
+  // Level buttons — find active one per key
+  const levelKeys = new Set([...document.querySelectorAll('#perm-matrix [data-type="level"]')].map(el => el.dataset.key));
+  levelKeys.forEach(key => {
+    // Find the active button (has non-bg2 background — check color != var(--text3))
+    const btns = document.querySelectorAll(`#perm-matrix [data-key="${key}"][data-type="level"]`);
+    let chosen = 'none';
+    btns.forEach(btn => {
+      if (btn.style.color === 'rgb(0, 0, 0)' || btn.style.color === '#000') chosen = btn.dataset.level;
+    });
+    perms[key] = chosen;
+  });
+  return perms;
+}
+
+function showNewRoleForm() {
+  document.getElementById('roles-list-view').style.display = 'none';
+  document.getElementById('roles-form-view').style.display = '';
+  document.getElementById('roles-form-title').textContent  = 'NEW ROLE';
+  document.getElementById('role-id-input').value    = '';
+  document.getElementById('role-name-input').value  = '';
+  document.getElementById('role-desc-input').value  = '';
+  document.getElementById('role-editing-id').value  = '';
+  document.getElementById('role-id-input').readOnly = false;
+  document.getElementById('role-delete-btn').style.display = 'none';
+  buildPermMatrix({});
+}
+
+async function editRole(roleId) {
+  document.getElementById('roles-list-view').style.display = 'none';
+  document.getElementById('roles-form-view').style.display = '';
+  try {
+    const res = await api('getRoles');
+    const role = (res.data||[]).find(r => r.role_id === roleId);
+    if (!role) { toast('Role not found', 'error'); return; }
+    document.getElementById('roles-form-title').textContent  = 'EDIT ROLE — ' + role.role_name;
+    document.getElementById('role-id-input').value    = role.role_id;
+    document.getElementById('role-name-input').value  = role.role_name;
+    document.getElementById('role-desc-input').value  = role.description||'';
+    document.getElementById('role-editing-id').value  = role.role_id;
+    document.getElementById('role-id-input').readOnly = true; // can't change slug
+    document.getElementById('role-delete-btn').style.display = role.is_system ? 'none' : '';
+    buildPermMatrix(role.permissions || {});
+  } catch(e) { toast('Error loading role', 'error'); }
+}
+
+async function submitRole() {
+  const editingId = document.getElementById('role-editing-id').value;
+  const roleId    = document.getElementById('role-id-input').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const roleName  = document.getElementById('role-name-input').value.trim();
+  const roleDesc  = document.getElementById('role-desc-input').value.trim();
+  if (!roleId || !roleName) { toast('Role ID and name required', 'error'); return; }
+  const permissions = readPermMatrix();
+  try {
+    const res = editingId
+      ? await apiPost('updateRole', { data: { role_id: editingId, role_name: roleName, description: roleDesc, permissions } })
+      : await apiPost('createRole', { data: { role_id: roleId, role_name: roleName, description: roleDesc, permissions } });
+    if (res.ok) { toast(editingId ? 'Role updated' : 'Role created', 'success'); showRolesList(); }
+    else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+async function deleteRole() {
+  const id = document.getElementById('role-editing-id').value;
+  if (!id) return;
+  if (!confirm(`Delete role "${id}"? This cannot be undone.`)) return;
+  try {
+    const res = await apiPost('deleteRole', { data: { role_id: id } });
+    if (res.ok) { toast('Role deleted', 'success'); showRolesList(); }
+    else toast(res.error || 'Cannot delete', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+// ── Override loadUsers to show tab func ───────────────────────
+const _origShowUsersList = showUsersList;
+function showUsersList() {
+  _origShowUsersList();
+  document.getElementById('users-users-section').style.display = '';
+  document.getElementById('users-roles-section').style.display = 'none';
+}
+
 const ROLE_LABELS = {
-  store:'Store', store_manager:'Store Manager', ops:'Ops', vinay:'Vinay (Admin)',
+  super_admin:'Super Admin', admin:'Admin',
+  production_manager:'Production Manager', production_team:'Production Team',
+  store_head:'Store Head', store_staff:'Store Staff',
+  // legacy fallbacks
+  store:'Store', store_manager:'Store Manager', ops:'Ops', vinay:'Vinay',
   brand:'Brand', founders:"Founder's Office", production:'Production',
 };
 
@@ -6746,7 +7028,7 @@ async function loadUsers() {
   } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading users</td></tr>'; }
 }
 
-function showNewUserForm() {
+async function showNewUserForm() {
   editingUserId = null;
   document.getElementById('users-list-view').style.display = 'none';
   document.getElementById('users-form-view').style.display = '';
@@ -6754,20 +7036,32 @@ function showNewUserForm() {
   ['usr-fullname','usr-email','usr-password','usr-team','usr-phone'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('usr-role').value = '';
   document.getElementById('usr-pwd-group').style.display  = '';
   document.getElementById('usr-reset-btn').style.display  = 'none';
   document.getElementById('usr-editing-id').value         = '';
+  await populateRoleDropdown('usr-role', '');
 }
 
-function editUser(id, fullName, email, role, team, phone, active) {
+async function populateRoleDropdown(selectId, selectedValue) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  try {
+    const res = await api('getRoles');
+    sel.innerHTML = '<option value="">Select role...</option>';
+    (res.data||[]).forEach(r => {
+      sel.innerHTML += '<option value="' + r.role_id + '"' + (r.role_id === selectedValue ? ' selected' : '') + '>' + r.role_name + '</option>';
+    });
+  } catch(e) { sel.innerHTML = '<option value="">Error loading roles</option>'; }
+}
+
+async function editUser(id, fullName, email, role, team, phone, active) {
   editingUserId = id;
   document.getElementById('users-list-view').style.display = 'none';
   document.getElementById('users-form-view').style.display = '';
   document.getElementById('users-form-title').textContent  = 'EDIT USER — ' + fullName;
   document.getElementById('usr-fullname').value = fullName;
   document.getElementById('usr-email').value    = email;
-  document.getElementById('usr-role').value     = role;
+  await populateRoleDropdown("usr-role", role);
   document.getElementById('usr-team').value     = team;
   document.getElementById('usr-phone').value    = phone;
   document.getElementById('usr-editing-id').value = id;
