@@ -180,8 +180,76 @@ body::before {
 
 .topbar-sep { width:1px; height:20px; background:var(--border); }
 
-.topbar-nav {
-  display:flex; gap:2px; flex:1;
+.topbar-nav { display:flex; gap:2px; flex:1; }
+
+/* ── Dropdown nav ── */
+.nav-group { position:relative; }
+
+.nav-group-btn {
+  padding:6px 12px;
+  background:transparent;
+  border:none;
+  border-radius:3px;
+  color:var(--text2);
+  font-family:var(--cond);
+  font-weight:600;
+  font-size:13px;
+  letter-spacing:.04em;
+  cursor:pointer;
+  transition:all .15s;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+.nav-group-btn:hover { color:var(--text); background:var(--bg3); }
+.nav-group-btn.active { color:var(--yellow); background:rgba(242,205,26,.08); }
+.nav-group-btn::after {
+  content:'▾';
+  font-size:9px;
+  opacity:.5;
+  margin-left:1px;
+}
+.nav-group-btn.no-arrow::after { display:none; }
+
+.nav-dropdown {
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:4px;
+  min-width:180px;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  z-index:200;
+  overflow:hidden;
+}
+.nav-group:hover .nav-dropdown,
+.nav-group:focus-within .nav-dropdown { display:block; }
+
+.nav-dropdown-item {
+  display:block;
+  width:100%;
+  padding:9px 16px;
+  background:transparent;
+  border:none;
+  color:var(--text2);
+  font-family:var(--cond);
+  font-weight:500;
+  font-size:12px;
+  letter-spacing:.03em;
+  cursor:pointer;
+  text-align:left;
+  white-space:nowrap;
+  transition:all .1s;
+}
+.nav-dropdown-item:hover { color:var(--text); background:var(--bg3); }
+.nav-dropdown-item.active { color:var(--yellow); background:rgba(242,205,26,.06); }
+.nav-dropdown-sep {
+  height:1px;
+  background:var(--border);
+  margin:3px 0;
 }
 
 .nav-btn {
@@ -779,19 +847,57 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <div class="topbar-logo">LOT OPS</div>
     <div class="topbar-sep"></div>
     <nav class="topbar-nav">
-      <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard">DASHBOARD</button>
-      <button class="nav-btn" onclick="showView('stock')"     id="nav-stock">STOCK</button>
-      <button class="nav-btn" onclick="showView('grn')"       id="nav-grn"  id="nav-grn">GRN</button>
-        <button class="nav-btn" onclick="showView('receiving')" id="nav-receiving">RECEIVING</button>
-      <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
-      <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">STOCK ISSUE</button>
-      <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
-      <button class="nav-btn" onclick="showView('manpower')"  id="nav-manpower" style="display:none">MANPOWER</button>
-      <button class="nav-btn" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">LINE FLUSH</button>
-      <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
-      <button class="nav-btn" onclick="showView('activity')"  id="nav-activity" style="display:none">ACTIVITY</button>
-      <button class="nav-btn" onclick="showView('users')"     id="nav-users" style="display:none">USERS</button>
-      <button class="nav-btn" onclick="showView('procurement')" id="nav-procurement" style="display:none">PROCUREMENT</button>
+
+      <!-- Overview ▾ -->
+      <div class="nav-group" id="navg-overview">
+        <button class="nav-group-btn" id="navg-btn-overview">OVERVIEW</button>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('dashboard')" id="nav-dashboard">Dashboard</button>
+          <button class="nav-dropdown-item" onclick="showView('activity')"  id="nav-activity"  style="display:none">Activity Log</button>
+          <button class="nav-dropdown-item" onclick="showView('reports')"   id="nav-reports">Reports</button>
+        </div>
+      </div>
+
+      <!-- Inventory ▾ -->
+      <div class="nav-group" id="navg-inventory">
+        <button class="nav-group-btn" id="navg-btn-inventory">INVENTORY</button>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('stock')"     id="nav-stock">Stock Ledger</button>
+          <button class="nav-dropdown-item" onclick="showView('grn')"       id="nav-grn">GRN Entry</button>
+          <button class="nav-dropdown-item" onclick="showView('receiving')" id="nav-receiving">Receiving</button>
+        </div>
+      </div>
+
+      <!-- Production ▾ -->
+      <div class="nav-group" id="navg-production">
+        <button class="nav-group-btn" id="navg-btn-production">PRODUCTION</button>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('workorder')" id="nav-workorder">Work Orders</button>
+          <button class="nav-dropdown-item" onclick="showView('issue')"     id="nav-issue">Stock Issue</button>
+          <button class="nav-dropdown-item" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">Line Flush</button>
+        </div>
+      </div>
+
+      <!-- Outbound — direct link -->
+      <div class="nav-group" id="navg-outbound">
+        <button class="nav-group-btn no-arrow" onclick="showView('returns')" id="nav-returns">RETURNS</button>
+      </div>
+
+      <!-- People — direct link -->
+      <div class="nav-group" id="navg-people">
+        <button class="nav-group-btn no-arrow" onclick="showView('manpower')" id="nav-manpower" style="display:none">MANPOWER</button>
+      </div>
+
+      <!-- Procurement — direct link -->
+      <div class="nav-group" id="navg-procurement">
+        <button class="nav-group-btn no-arrow" onclick="showView('procurement')" id="nav-procurement" style="display:none">PROCUREMENT</button>
+      </div>
+
+      <!-- Admin — direct link -->
+      <div class="nav-group" id="navg-admin">
+        <button class="nav-group-btn no-arrow" onclick="showView('users')" id="nav-users" style="display:none">USERS</button>
+      </div>
+
     </nav>
     <div class="topbar-right">
       <span class="as-of" id="as-of-time"></span>
@@ -3347,10 +3453,21 @@ async function apiPost(action, data = {}) {
 // ══ NAVIGATION ═══════════════════════════════════════════════
 function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-'+name).classList.add('active');
-  document.getElementById('nav-'+name).classList.add('active');
-  currentView = name;
+  document.querySelectorAll('.nav-group-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-dropdown-item').forEach(b => b.classList.remove('active'));
+  const itemBtn = document.getElementById('nav-'+name);
+  if (itemBtn) itemBtn.classList.add('active');
+  const VIEW_TO_GROUP = {
+    dashboard:'overview', activity:'overview', reports:'overview',
+    stock:'inventory', grn:'inventory', receiving:'inventory',
+    workorder:'production', issue:'production', lineflush:'production',
+    returns:'outbound', manpower:'people', procurement:'procurement', users:'admin',
+  };
+  const groupId = VIEW_TO_GROUP[name];
+  if (groupId) {
+    const groupBtn = document.getElementById('navg-btn-'+groupId);
+    if (groupBtn) groupBtn.classList.add('active');
+  }
   if (name === 'issue') {
     ensureMaterialCache();
     refreshWODropdown();
