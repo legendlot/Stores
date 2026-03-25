@@ -788,6 +788,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
       <button class="nav-btn" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">LINE FLUSH</button>
       <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
+      <button class="nav-btn" onclick="showView('activity')"  id="nav-activity" style="display:none">ACTIVITY</button>
       <button class="nav-btn" onclick="showView('users')"     id="nav-users" style="display:none">USERS</button>
       <button class="nav-btn" onclick="showView('procurement')" id="nav-procurement" style="display:none">PROCUREMENT</button>
     </nav>
@@ -921,6 +922,16 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-body" id="dash-returns-channels">
             <div class="empty">Loading...</div>
           </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title">Recent Activity</div>
+          <button class="btn btn-secondary" onclick="showView('activity')" style="padding:2px 8px;font-size:10px">VIEW ALL →</button>
+        </div>
+        <div id="dash-activity-feed" style="padding:8px 0">
+          <div class="empty">Loading...</div>
         </div>
       </div>
 
@@ -2953,6 +2964,71 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div><!-- /view-users -->
 
+    <!-- ── ACTIVITY LOG ── -->
+    <div class="view" id="view-activity">
+      <div class="page-header">
+        <div class="page-title">ACTIVITY LOG</div>
+        <div class="page-subtitle">All system actions — who did what and when</div>
+      </div>
+
+      <!-- Filters -->
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-body" style="padding:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="flex:0 0 200px;margin-bottom:0">
+              <input class="form-input" id="act-search" placeholder="Search summary..." oninput="filterActivityLog()">
+            </div>
+            <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
+              <select class="form-select" id="act-entity-filter" onchange="loadActivityLog()">
+                <option value="">All Actions</option>
+                <option value="GRN">GRN</option>
+                <option value="WO">Work Orders</option>
+                <option value="Issue">Stock Issues</option>
+                <option value="Return">Returns</option>
+                <option value="Shipment">Shipments</option>
+                <option value="Flush">Line Flush</option>
+                <option value="PO">Purchase Orders</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
+              <input class="form-input" id="act-actor-filter" placeholder="Filter by person..." oninput="filterActivityLog()">
+            </div>
+            <div class="form-group" style="flex:0 0 130px;margin-bottom:0">
+              <select class="form-select" id="act-limit" onchange="loadActivityLog()">
+                <option value="50">Last 50</option>
+                <option value="100">Last 100</option>
+                <option value="250">Last 250</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadActivityLog()" style="padding:9px 12px;font-size:11px;margin-bottom:0">↻ Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:160px">Time</th>
+                <th style="width:140px">Who</th>
+                <th style="width:80px">Type</th>
+                <th style="width:110px">Reference</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody id="activity-log-body">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:11px;color:var(--text3)" id="activity-log-count">—</span>
+          <button class="btn btn-secondary" onclick="loadMoreActivity()" id="act-load-more" style="padding:4px 12px;font-size:11px;display:none">Load more</button>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /app -->
 
@@ -3111,6 +3187,7 @@ function launchApp() {
     'nav-lineflush':   () => P.line_flush_create || P.line_flush_verify,
     'nav-procurement': () => P.procurement_view,
     'nav-reports':     () => P.reports,
+    'nav-activity':    () => P.reports || P.users_view,  // admins + anyone with reports access
     'nav-users':       () => P.users_view || P.users_manage,
   };
   Object.entries(navMap).forEach(([id, check]) => {
@@ -3252,14 +3329,14 @@ function showView(name) {
     ensureMaterialCache();
     loadShipments();
   }
-  if (name === 'reports') {
-    // Init date range to last 30 days by default if empty
+  if (name === 'reports')    {
     const fromEl = document.getElementById('rpt-from');
     if (fromEl && !fromEl.value) {
       const d30 = new Date(); d30.setDate(d30.getDate()-30);
       fromEl.value = d30.toISOString().split('T')[0];
     }
   }
+  if (name === 'activity')   { loadActivityLog(); }
   if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
   if (name === 'procurement') { initProcurement(); }
 }
@@ -3337,6 +3414,7 @@ async function loadDashboard() {
 
     // Producible units
     loadProducibleUnits();
+    loadDashboardActivity();
 
     // Recent Shipments — last 7 days
     const cutoff7 = new Date(); cutoff7.setDate(cutoff7.getDate() - 7);
@@ -7115,6 +7193,112 @@ async function confirmResetPassword() {
       document.getElementById('reset-pwd-modal').style.display = 'none';
     } else toast(res.error || 'Failed', 'error');
   } catch(e) { toast('Error', 'error'); }
+}
+// ══ ACTIVITY LOG ═════════════════════════════════════════════
+
+let activityLogData = [];
+
+const ACT_ICONS = {
+  GRN_CREATED:        '📥', GRN_FROM_RECEIVING: '📦',
+  WO_CREATED:         '🏭', STOCK_ISSUED:       '📤',
+  RETURN_LOGGED:      '🔄', SHIPMENT_CREATED:   '🚢',
+  FLUSH_CREATED:      '🔁', FLUSH_VERIFIED:     '✅',
+  PO_CREATED:         '📋', PO_APPROVED:        '✔',
+  PO_STATUS_UPDATED:  '🔀', PO_CANCELLED:       '✖',
+};
+
+const ACT_COLORS = {
+  GRN:      'var(--green)',  WO:       'var(--blue)',
+  Issue:    'var(--yellow)', Return:   'var(--red)',
+  Shipment: 'var(--blue)',   Flush:    'var(--yellow)',
+  PO:       'var(--text2)',
+};
+
+function formatActivityTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' }) + ' ' +
+         d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+function renderActivityRow(r) {
+  const icon  = ACT_ICONS[r.action] || '·';
+  const color = ACT_COLORS[r.entity_type] || 'var(--text3)';
+  return `<tr>
+    <td style="font-size:11px;color:var(--text3);white-space:nowrap">${formatActivityTime(r.logged_at)}</td>
+    <td style="font-size:11px;font-weight:600;white-space:nowrap">${r.actor||'—'}</td>
+    <td><span style="font-family:var(--mono);font-size:9px;color:${color};background:${color}22;padding:2px 6px;border-radius:2px">${r.entity_type||'—'}</span></td>
+    <td class="mono" style="font-size:10px;color:var(--yellow)">${r.entity_id||'—'}</td>
+    <td style="font-size:11px">${icon} ${r.summary||'—'}</td>
+  </tr>`;
+}
+
+async function loadActivityLog() {
+  const tbody  = document.getElementById('activity-log-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  const entity = document.getElementById('act-entity-filter')?.value || '';
+  const limit  = parseInt(document.getElementById('act-limit')?.value) || 50;
+  try {
+    const res = await api('getActivityLog', { entity_type: entity, limit });
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Error</td></tr>'; return; }
+    activityLogData = res.data || [];
+    renderFilteredActivity();
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Error</td></tr>'; }
+}
+
+function filterActivityLog() {
+  renderFilteredActivity();
+}
+
+function renderFilteredActivity() {
+  const tbody  = document.getElementById('activity-log-body');
+  const search = document.getElementById('act-search')?.value.toLowerCase() || '';
+  const actor  = document.getElementById('act-actor-filter')?.value.toLowerCase() || '';
+  const filtered = activityLogData.filter(r => {
+    const matchSearch = !search || (r.summary||'').toLowerCase().includes(search);
+    const matchActor  = !actor  || (r.actor||'').toLowerCase().includes(actor);
+    return matchSearch && matchActor;
+  });
+  const countEl = document.getElementById('activity-log-count');
+  if (countEl) countEl.textContent = `${filtered.length} action${filtered.length !== 1 ? 's' : ''}`;
+  tbody.innerHTML = filtered.length
+    ? filtered.map(renderActivityRow).join('')
+    : '<tr><td colspan="5" class="empty">No activity found</td></tr>';
+}
+
+// Dashboard activity feed — last 10 entries compact
+async function loadDashboardActivity() {
+  const feed = document.getElementById('dash-activity-feed');
+  if (!feed) return;
+  try {
+    const res = await api('getActivityLog', { limit: 10 });
+    if (!res.ok || !res.data?.length) {
+      feed.innerHTML = '<div class="empty" style="padding:12px">No activity yet</div>';
+      return;
+    }
+    feed.innerHTML = res.data.map(r => {
+      const icon  = ACT_ICONS[r.action] || '·';
+      const color = ACT_COLORS[r.entity_type] || 'var(--text3)';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <span style="font-family:var(--mono);font-size:9px;color:${color};background:${color}22;padding:2px 6px;border-radius:2px;flex-shrink:0">${r.entity_type}</span>
+          <span style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon} ${r.summary}</span>
+        </div>
+        <div style="flex-shrink:0;margin-left:12px;text-align:right">
+          <div style="font-size:10px;font-weight:600">${r.actor||'—'}</div>
+          <div style="font-size:10px;color:var(--text3)">${formatActivityTime(r.logged_at)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    feed.innerHTML = '<div class="empty" style="padding:12px">—</div>';
+  }
 }
 
 </script>
