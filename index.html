@@ -786,6 +786,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <button class="nav-btn" onclick="showView('workorder')" id="nav-workorder">WORK ORDER</button>
       <button class="nav-btn" onclick="showView('issue')"     id="nav-issue">STOCK ISSUE</button>
       <button class="nav-btn" onclick="showView('returns')"   id="nav-returns">RETURNS</button>
+      <button class="nav-btn" onclick="showView('manpower')"  id="nav-manpower" style="display:none">MANPOWER</button>
       <button class="nav-btn" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">LINE FLUSH</button>
       <button class="nav-btn" onclick="showView('reports')"   id="nav-reports">REPORTS</button>
       <button class="nav-btn" onclick="showView('activity')"  id="nav-activity" style="display:none">ACTIVITY</button>
@@ -812,8 +813,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
       <!-- Sub-nav -->
       <div style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border)">
-        <button class="nav-btn active" id="dash-tab-overview"  onclick="switchDashTab('overview')"  style="border-radius:3px 3px 0 0">OVERVIEW</button>
-        <button class="nav-btn"        id="dash-tab-manpower"  onclick="switchDashTab('manpower')"  style="border-radius:3px 3px 0 0">MANPOWER</button>
+        <button class="nav-btn active" id="dash-tab-overview" style="border-radius:3px 3px 0 0">OVERVIEW</button>
       </div>
 
       <!-- Overview section -->
@@ -936,37 +936,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
       </div>
 
       </div><!-- /dash-overview-section -->
-
-      <!-- Manpower section -->
-      <div id="dash-manpower-section" style="display:none">
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">Store Manpower — Last 3 Days</div>
-          <span class="badge badge-yellow" style="font-size:9px">MANUAL ENTRY</span>
-        </div>
-        <div class="panel-body">
-          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-            <div class="form-group" style="flex:0 0 140px">
-              <label class="form-label">Date</label>
-              <input class="form-input" type="date" id="mp-date" style="font-size:12px">
-            </div>
-            <div class="form-group" style="flex:0 0 120px">
-              <label class="form-label">Headcount</label>
-              <input class="form-input" type="number" id="mp-count" placeholder="0" min="0" style="font-size:12px">
-            </div>
-            <div class="form-group" style="flex:1;min-width:160px">
-              <label class="form-label">Notes (optional)</label>
-              <input class="form-input" id="mp-notes" placeholder="e.g. 2 on leave" style="font-size:12px">
-            </div>
-            <button class="btn btn-secondary" onclick="logManpower()" style="padding:9px 16px;font-size:12px;flex-shrink:0">LOG</button>
-          </div>
-          <table>
-            <thead><tr><th>Date</th><th>Headcount</th><th>Notes</th><th style="color:var(--text3);font-style:italic;font-size:9px">Backend pending</th></tr></thead>
-            <tbody id="mp-table"><tr><td colspan="4" class="empty" style="padding:16px">No entries yet — backend to be wired up</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-      </div><!-- /dash-manpower-section -->
 
     </div>
 
@@ -1564,7 +1533,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>WO No.</th><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Line</th><th>Status</th></tr></thead>
+              <thead><tr><th>WO No.</th><th>Date</th><th>Product</th><th>Variant</th><th>Qty</th><th>Line</th><th>Status</th><th></th></tr></thead>
               <tbody id="wo-list">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -3029,6 +2998,69 @@ tr:hover td { background:rgba(255,255,255,.02); }
       </div>
     </div>
 
+    <!-- ── MANPOWER ── -->
+    <div class="view" id="view-manpower">
+      <div class="page-header">
+        <div class="page-title">MANPOWER</div>
+        <div class="page-subtitle">Daily store headcount by activity</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px;align-items:start">
+
+        <!-- Entry form -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">LOG MANPOWER</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="form-input" type="date" id="mp-date" style="padding:4px 8px;font-size:12px;width:140px">
+              <select class="form-select" id="mp-shift" style="font-size:11px;padding:4px 8px;width:120px">
+                <option>Morning</option><option>Afternoon</option><option>Night</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-body">
+
+            <!-- Activity rows -->
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px">ACTIVITY BREAKDOWN</div>
+            <div id="mp-activities-container"></div>
+            <button class="btn btn-secondary" onclick="addMPActivity()" style="padding:4px 12px;font-size:11px;margin-bottom:14px">+ ADD ACTIVITY</button>
+
+            <!-- Total auto-sum -->
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;margin-bottom:14px">
+              <span style="font-size:12px;color:var(--text2)">Total headcount</span>
+              <span style="font-family:var(--mono);font-size:22px;font-weight:900;color:var(--yellow)" id="mp-total-display">0</span>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label">Notes (optional)</label>
+              <input class="form-input" id="mp-notes" placeholder="e.g. 2 people on leave, short-staffed">
+            </div>
+
+            <button class="btn btn-primary" onclick="submitManpower()" style="width:100%;padding:10px">SAVE LOG</button>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">HISTORY</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="form-select" id="mp-days-filter" style="font-size:11px;padding:3px 8px" onchange="loadManpower()">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+              <button class="btn btn-secondary" onclick="loadManpower()" style="padding:3px 10px;font-size:10px">↻</button>
+            </div>
+          </div>
+          <div id="mp-log-list" style="padding:0">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /app -->
 
@@ -3184,6 +3216,7 @@ function launchApp() {
     'nav-workorder':   () => P.work_order && P.work_order !== 'none',
     'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
     'nav-returns':     () => P.returns && P.returns !== 'none',
+    'nav-manpower':    () => !!P.dashboard,  // anyone with dashboard access
     'nav-lineflush':   () => P.line_flush_create || P.line_flush_verify,
     'nav-procurement': () => P.procurement_view,
     'nav-reports':     () => P.reports,
@@ -3337,6 +3370,7 @@ function showView(name) {
     }
   }
   if (name === 'activity')   { loadActivityLog(); }
+  if (name === 'manpower')   { initManpower(); }
   if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
   if (name === 'procurement') { initProcurement(); }
 }
@@ -3358,12 +3392,8 @@ function refreshCurrent() {
 
 // ══ DASHBOARD ════════════════════════════════════════════════
 function switchDashTab(tab) {
-  document.getElementById('dash-overview-section').style.display  = tab === 'overview'  ? '' : 'none';
-  document.getElementById('dash-manpower-section').style.display  = tab === 'manpower'  ? '' : 'none';
-  document.getElementById('dash-tab-overview').className  = 'nav-btn' + (tab === 'overview'  ? ' active' : '');
-  document.getElementById('dash-tab-manpower').className  = 'nav-btn' + (tab === 'manpower'  ? ' active' : '');
+  // Only overview tab exists now — manpower is its own tab
 }
-
 
 
 async function loadDashboard() {
@@ -3600,42 +3630,207 @@ function toggleProdExpand(i) {
   if (el) el.classList.toggle('open');
 }
 
-function logManpower() {
-  const date  = document.getElementById('mp-date').value;
-  const count = parseInt(document.getElementById('mp-count').value) || 0;
-  const notes = document.getElementById('mp-notes').value.trim();
-  if (!date) { toast('Select a date', 'error'); return; }
-  if (!count) { toast('Enter headcount', 'error'); return; }
-  const idx = manpowerLog.findIndex(e => e.date === date);
-  if (idx >= 0) manpowerLog[idx] = { date, count, notes };
-  else manpowerLog.push({ date, count, notes });
-  document.getElementById('mp-count').value = '';
-  document.getElementById('mp-notes').value = '';
-  renderManpower();
-  toast('Manpower logged (session only — backend pending)', 'info');
+// ══ MANPOWER ═════════════════════════════════════════════════
+// ══ MANPOWER ═════════════════════════════════════════════════
+
+// Predefined activity categories
+const MP_ACTIVITIES = [
+  { key: 'inwarding',   label: 'Inwarding / Receiving / GRN',  color: 'var(--green)'  },
+  { key: 'issuance',    label: 'Issuance / Picking',           color: 'var(--yellow)' },
+  { key: 'counting',    label: 'Counting / Audit',             color: 'var(--blue)'   },
+  { key: 'bagging',     label: 'Bagging & Tagging',            color: 'var(--blue)'   },
+  { key: 'rearranging', label: 'Rearranging / Organising',     color: 'var(--text2)'  },
+  { key: 'cleanup',     label: 'Clean-up',                     color: 'var(--text3)'  },
+  { key: 'qa',          label: 'QA / Inspection',              color: '#a78bfa'       },
+  { key: 'dispatch',    label: 'Dispatch / Packing',           color: 'var(--text2)'  },
+  { key: 'other',       label: 'Other',                        color: 'var(--text3)'  },
+];
+
+function initManpower() {
+  const today = new Date().toISOString().split('T')[0];
+  const dateEl = document.getElementById('mp-date');
+  if (dateEl && !dateEl.value) dateEl.value = today;
+  // Pre-populate with default activity rows
+  const container = document.getElementById('mp-activities-container');
+  if (container && !container.children.length) {
+    MP_ACTIVITIES.forEach(act => addMPActivity(act.key, act.label, 0));
+  }
+  loadManpower();
 }
 
-function renderManpower() {
-  const tbody = document.getElementById('mp-table');
-  const cutoff3 = new Date(); cutoff3.setDate(cutoff3.getDate() - 3);
-  const recent = manpowerLog.filter(e => new Date(e.date) >= cutoff3).sort((a,b) => b.date.localeCompare(a.date)).slice(0,3);
-  if (!recent.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty" style="padding:16px">No entries yet — backend to be wired up</td></tr>';
-    return;
-  }
-  const maxCount = Math.max(...recent.map(e => e.count), 1);
-  tbody.innerHTML = recent.map(e => `<tr>
-    <td style="font-size:12px">${formatDisplayDate(e.date)}</td>
-    <td><div style="display:flex;align-items:center;gap:8px">
-      <span style="font-family:var(--mono);font-size:14px;font-weight:700">${e.count}</span>
-      <div style="flex:1;background:var(--bg3);border-radius:3px;height:6px;min-width:60px;overflow:hidden">
-        <div class="mp-bar" style="width:${Math.round((e.count/maxCount)*100)}%"></div>
-      </div>
-    </div></td>
-    <td style="font-size:11px;color:var(--text3)">${e.notes||'—'}</td>
-    <td></td>
-  </tr>`).join('');
+function recalcMPTotal() {
+  const inputs = document.querySelectorAll('.mp-act-count');
+  let total = 0;
+  inputs.forEach(inp => { total += parseInt(inp.value) || 0; });
+  const el = document.getElementById('mp-total-display');
+  if (el) el.textContent = total;
 }
+
+function addMPActivity(key = '', label = '', count = 0) {
+  const container = document.getElementById('mp-activities-container');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 24px;gap:8px;margin-bottom:8px;align-items:center';
+
+  // Activity label — dropdown of presets OR custom text
+  const actSel = document.createElement('select');
+  actSel.className = 'form-select';
+  actSel.style.cssText = 'font-size:11px';
+  actSel.innerHTML = '<option value="">Custom activity...</option>' +
+    MP_ACTIVITIES.map(a => `<option value="${a.key}" ${a.key === key ? 'selected' : ''}>${a.label}</option>`).join('') +
+    (key && !MP_ACTIVITIES.find(a => a.key === key) ? `<option value="${key}" selected>${label}</option>` : '');
+
+  // Custom label input (shown when "Custom" selected)
+  const customInput = document.createElement('input');
+  customInput.className = 'form-input';
+  customInput.placeholder = 'Activity name...';
+  customInput.style.cssText = 'font-size:11px;display:' + (!key ? '' : 'none');
+  customInput.value = (!key ? label : '');
+
+  actSel.onchange = function() {
+    customInput.style.display = this.value === '' ? '' : 'none';
+  };
+
+  const countInput = document.createElement('input');
+  countInput.className = 'form-input mp-act-count';
+  countInput.type = 'number';
+  countInput.min = '0';
+  countInput.value = count > 0 ? String(count) : '';
+  countInput.placeholder = '0';
+  countInput.style.cssText = 'font-size:13px;text-align:center;font-weight:700';
+  countInput.oninput = recalcMPTotal;
+
+  const rmBtn = document.createElement('button');
+  rmBtn.style.cssText = 'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px';
+  rmBtn.innerHTML = '×';
+  rmBtn.onclick = function() { div.remove(); recalcMPTotal(); };
+
+  // Wrap label + custom input
+  const labelWrap = document.createElement('div');
+  labelWrap.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+  labelWrap.appendChild(actSel);
+  labelWrap.appendChild(customInput);
+
+  div.appendChild(labelWrap);
+  div.appendChild(countInput);
+  div.appendChild(rmBtn);
+  container.appendChild(div);
+}
+
+async function submitManpower() {
+  const date  = document.getElementById('mp-date').value;
+  const shift = document.getElementById('mp-shift').value;
+  const notes = document.getElementById('mp-notes').value.trim();
+  if (!date) { toast('Select a date', 'error'); return; }
+
+  const activities = [];
+  document.querySelectorAll('#mp-activities-container > div').forEach(row => {
+    const sel      = row.querySelector('select');
+    const custom   = row.querySelector('input[type=text], input:not([type])');
+    const countInp = row.querySelector('.mp-act-count');
+    const count    = parseInt(countInp?.value) || 0;
+    if (count === 0) return; // skip zero-count rows
+    const actKey   = sel?.value || '';
+    const actLabel = actKey
+      ? (MP_ACTIVITIES.find(a => a.key === actKey)?.label || actKey)
+      : (custom?.value?.trim() || 'Other');
+    activities.push({ person_name: actLabel, activity: actLabel, station: actKey || null });
+  });
+
+  const headcount = activities.reduce((s, a) => {
+    const row = [...document.querySelectorAll('#mp-activities-container > div')]
+      .find(d => {
+        const sel = d.querySelector('select');
+        return sel?.value === (a.station||'')||false;
+      });
+    return s;
+  }, 0);
+  // Sum from displayed total
+  const total = parseInt(document.getElementById('mp-total-display')?.textContent) || 0;
+  if (total === 0) { toast('Enter at least one activity with headcount > 0', 'error'); return; }
+
+  // Rebuild activities with counts from DOM
+  const finalActivities = [];
+  document.querySelectorAll('#mp-activities-container > div').forEach(row => {
+    const sel      = row.querySelector('select');
+    const custom   = row.querySelectorAll('input')[0];
+    const countInp = row.querySelector('.mp-act-count');
+    const count    = parseInt(countInp?.value) || 0;
+    if (count === 0) return;
+    const actKey   = sel?.value || '';
+    const actLabel = actKey
+      ? (MP_ACTIVITIES.find(a => a.key === actKey)?.label || actKey)
+      : (custom?.value?.trim() || 'Other');
+    // Store count as person_name so DB can show it
+    finalActivities.push({ person_name: String(count) + 'x', activity: actLabel, station: actKey || null });
+  });
+
+  try {
+    const res = await apiPost('postManpower', { data: {
+      log_date: date, shift, headcount: total,
+      notes: notes||null, activities: finalActivities
+    }});
+    if (res.ok) {
+      toast(`Manpower logged — ${total} staff on ${shift} shift`, 'success');
+      document.getElementById('mp-notes').value = '';
+      // Reset all counts to 0
+      document.querySelectorAll('.mp-act-count').forEach(inp => inp.value = '');
+      recalcMPTotal();
+      loadManpower();
+    } else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
+}
+
+async function loadManpower() {
+  const container = document.getElementById('mp-log-list');
+  if (!container) return;
+  container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const days = parseInt(document.getElementById('mp-days-filter')?.value) || 7;
+  try {
+    const res = await api('getManpower', { days });
+    if (!res.ok || !res.data?.length) {
+      container.innerHTML = '<div class="empty" style="padding:16px">No entries yet</div>';
+      return;
+    }
+    const logs = res.data;
+    const maxCount = Math.max(...logs.map(l => l.headcount), 1);
+    const shiftColors = { Morning: 'var(--yellow)', Afternoon: 'var(--blue)', Night: 'var(--text3)' };
+    container.innerHTML = logs.map(l => {
+      const activities = (l.activities||[]);
+      // Build activity bars
+      const actHtml = activities.length ? `
+        <div style="padding:8px 16px 12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+          ${activities.map(a => {
+            const def   = MP_ACTIVITIES.find(x => x.key === a.station) || {};
+            const color = def.color || 'var(--text2)';
+            const cnt   = parseInt(a.person_name) || 1;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:3px;border-left:3px solid ${color}">
+              <span style="font-size:11px;color:var(--text2)">${a.activity}</span>
+              <span style="font-family:var(--mono);font-size:16px;font-weight:900;color:${color}">${cnt}</span>
+            </div>`;
+          }).join('')}
+        </div>` : '';
+      return `<div style="border-bottom:1px solid var(--border);margin-bottom:0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700;font-family:var(--mono)">${formatDisplayDate(l.log_date)}</span>
+            <span style="font-family:var(--mono);font-size:10px;color:${shiftColors[l.shift]||'var(--text3)'}">${l.shift}</span>
+            ${l.notes ? `<span style="font-size:11px;color:var(--text3);font-style:italic">${l.notes}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:80px;background:var(--bg3);border-radius:3px;height:4px;overflow:hidden">
+              <div style="width:${Math.round((l.headcount/maxCount)*100)}%;height:4px;background:var(--yellow);border-radius:3px"></div>
+            </div>
+            <span style="font-family:var(--mono);font-size:18px;font-weight:900">${l.headcount}</span>
+            <span style="font-size:10px;color:var(--text3)">staff</span>
+          </div>
+        </div>
+        ${actHtml}
+      </div>`;
+    }).join('');
+  } catch(e) { container.innerHTML = '<div class="empty" style="padding:16px">Error loading</div>'; }
+}
+
+
 
 function clearDashboardLoadingStates() {
   const reorderList = document.getElementById('reorder-list');
@@ -4239,24 +4434,60 @@ async function loadWorkOrders() {
     const res = await api('getWorkOrders');
     if (!res.ok) return;
     const tbody = document.getElementById('wo-list');
-    const rows = res.data || [];
+    const rows  = res.data || [];
+    const statusColor = {
+      'Open':           'badge-yellow',
+      'Pending Rework': 'badge-blue',
+      'Cancelled':      'badge-red',
+      'Rejected':       'badge-red',
+      'Complete':       'badge-green',
+    };
     tbody.innerHTML = rows.length
-      ? rows.map(r => `<tr>
-          <td class="mono">${r.wo_no||r.wo_no||''}</td>
-          <td>${r.product||''}</td>
-          <td>${r.variant||'—'}</td>
-          <td class="mono">${r.qty||''}</td>
-          <td>${r.line_no||r.line_no||''}</td>
-          <td><span class="badge badge-yellow">${r.status||'Open'}</span></td>
-        </tr>`).join('')
-      : '<tr><td colspan="7" class="empty">No open work orders</td></tr>';
-  // Update badge
-  const woBadge = document.getElementById('wo-open-count');
-  if (woBadge) woBadge.textContent = (rows||[]).length + ' open';
+      ? rows.map(r => {
+          const st    = r.status || 'Open';
+          const sc    = statusColor[st] || 'badge-gray';
+          const canAct = ['Open','Pending Rework'].includes(st);
+          const actBtns = canAct ? `
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px"
+                onclick="cancelWO('${r.wo_no}','Cancelled')">Cancel</button>
+              <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px;color:var(--red);border-color:var(--red)"
+                onclick="cancelWO('${r.wo_no}','Rejected')">Reject</button>
+            </div>` : '—';
+          return `<tr>
+            <td class="mono" style="color:var(--yellow)">${r.wo_no||''}</td>
+            <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.date||r.created_at)}</td>
+            <td>${r.product||''}</td>
+            <td>${r.variant||'—'}</td>
+            <td class="mono">${r.qty||''}</td>
+            <td class="mono">${r.line_no||'—'}</td>
+            <td><span class="badge ${sc}" style="font-size:9px">${st}</span></td>
+            <td>${actBtns}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="8" class="empty">No open work orders</td></tr>';
+    const woBadge = document.getElementById('wo-open-count');
+    const openCount = rows.filter(r => ['Open','Pending Rework'].includes(r.status||'Open')).length;
+    if (woBadge) woBadge.textContent = openCount + ' open';
   } catch(e) {
-    document.getElementById('wo-list').innerHTML = '<tr><td colspan="7" class="empty">No work orders yet</td></tr>';
+    document.getElementById('wo-list').innerHTML = '<tr><td colspan="8" class="empty">No work orders yet</td></tr>';
     const b = document.getElementById('wo-open-count'); if(b) b.textContent='0 open';
   }
+}
+
+
+async function cancelWO(woNo, status) {
+  const verb   = status === 'Cancelled' ? 'cancel' : 'reject';
+  const reason = prompt('Reason for ' + verb + 'ing ' + woNo + '? (optional)');
+  if (reason === null) return;
+  try {
+    const res = await apiPost('updateWorkOrder', { data: { wo_no: woNo, status, reason: reason||null } });
+    if (res.ok) {
+      toast(woNo + ' ' + status.toLowerCase(), 'success');
+      loadWorkOrders();
+      loadDashboard();
+    } else toast(res.error || 'Failed', 'error');
+  } catch(e) { toast('Error', 'error'); }
 }
 
 // ══ ISSUE ════════════════════════════════════════════════════
