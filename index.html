@@ -1761,7 +1761,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
             <div style="max-height:320px;overflow-y:auto;margin-bottom:12px">
               <table>
-                <thead><tr><th>Part Code</th><th>Part Name</th><th>Required</th><th>In Stock</th><th>Actual Issue Qty</th></tr></thead>
+                <thead><tr><th>Part Code</th><th>Part Name</th><th>Product</th><th>Required</th><th>In Stock</th><th>Actual Issue Qty</th></tr></thead>
                 <tbody id="iss-detail-lines"></tbody>
               </table>
             </div>
@@ -1778,7 +1778,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="iss-queue-submit-btn" onclick="submitQueueIssue()" disabled>CONFIRM ISSUE</button>
-              <button class="btn btn-danger" id="iss-queue-reject-btn" onclick="showIssueQueueRejectModal()" style="display:none">REJECT RUN</button>
+              <button class="btn btn-danger" id="iss-queue-reject-btn" onclick="showIssueQueueRejectModal()" style="display:none">REJECT</button>
               <button class="btn btn-secondary" onclick="document.getElementById('iss-detail-panel').style.display='none'">CANCEL</button>
             </div>
           </div>
@@ -5548,7 +5548,7 @@ async function openIssueQueueItem(type, ref) {
   document.getElementById('iss-confirm-ref').textContent = ref;
   // Show reject only for runs, hide for WOs
   const rejectBtn = document.getElementById('iss-queue-reject-btn');
-  if (rejectBtn) rejectBtn.style.display = type === 'run' ? '' : 'none';
+  if (rejectBtn) rejectBtn.style.display = '';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   if (type === 'run') {
@@ -5575,6 +5575,7 @@ async function openIssueQueueItem(type, ref) {
       <tr>
         <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
         <td style="font-size:11px">${p.part_name}</td>
+        <td style="font-size:10px;color:var(--text3)">${materialCache[p.part_code]?.product||'—'}</td>
         <td style="font-family:var(--mono)">${p.total_qty}</td>
         <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.available}</td>
         <td><input class="form-input iss-actual-qty" type="number" min="0"
@@ -5613,6 +5614,7 @@ async function openIssueQueueItem(type, ref) {
         return `<tr>
           <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
           <td style="font-size:11px">${p.part_name}</td>
+          <td style="font-size:10px;color:var(--text3)">${materialCache[p.part_code]?.product||'—'}</td>
           <td style="font-family:var(--mono)">${p.qty_requested}</td>
           <td style="font-family:var(--mono);color:${avail<p.qty_requested?'#ff5252':'var(--green)'}">${avail}</td>
           <td><input class="form-input iss-actual-qty" type="number" min="0"
@@ -5630,12 +5632,21 @@ async function openIssueQueueItem(type, ref) {
       });
       const kit = kitRes.ok ? kitRes.data.kit : [];
       issueQueueData = { type: 'wo', ref, wo, lines: kit };
-      title.textContent = `${ref} — ${wo.product||''} ${wo.variant||''} ${wo.colour?'('+wo.colour+')':''} — ${wo.status==='Pending Rework'?'Rework':'Ad Hoc'}`;
+        // Derive product from parts if WO has no product
+      const partProducts = [...new Set((issueQueueData.lines||[]).map(p => {
+        const code = p.part_code || '';
+        // Extract product from part code prefix (e.g. FL-XX → Flare, KN-XX → Knox)
+        const m = materialCache[code];
+        return m?.product || null;
+      }).filter(p => p && p !== 'Universal'))];
+      const derivedProduct = partProducts.length === 1 ? partProducts[0] : partProducts.length > 1 ? 'Multiple' : (wo.product || '—');
+
+      title.textContent = `${ref} — ${derivedProduct} — ${wo.status==='Pending Rework'?'Rework':'Ad Hoc Request'}`;
       document.getElementById('iss-detail-summary').innerHTML =
-        `<div style="font-size:11px"><span style="color:var(--text3)">Product: </span>${wo.product||'—'}</div>
-         <div style="font-size:11px"><span style="color:var(--text3)">Variant: </span>${wo.variant||'Common'}</div>
+        `<div style="font-size:11px"><span style="color:var(--text3)">Product: </span><strong>${derivedProduct}</strong></div>
+         <div style="font-size:11px"><span style="color:var(--text3)">Variant: </span>${wo.variant||'—'}</div>
          <div style="font-size:11px"><span style="color:var(--text3)">Colour: </span>${wo.colour||'—'}</div>
-         <div style="font-size:11px"><span style="color:var(--text3)">Units: </span>${wo.qty}</div>`;
+         <div style="font-size:11px"><span style="color:var(--text3)">Parts: </span>${(issueQueueData.lines||[]).length}</div>`;
 
       tbody.innerHTML = kit.map(p => `
         <tr>
@@ -5677,17 +5688,26 @@ async function submitIssueQueueReject() {
   const reason = document.getElementById('iss-reject-reason').value.trim();
   if (!reason) { toast('Please provide a rejection reason', 'error'); return; }
   if (!issueQueueData) return;
-  const res = await apiPost('rejectProductionRun', {
-    data: { run_no: issueQueueData.ref, reason }
-  });
+
+  let res;
+  if (issueQueueData.type === 'run') {
+    res = await apiPost('rejectProductionRun', {
+      data: { run_no: issueQueueData.ref, reason }
+    });
+  } else {
+    res = await apiPost('updateWorkOrder', {
+      data: { wo_no: issueQueueData.ref, status: 'Rejected', reason }
+    });
+  }
+
   document.getElementById('iss-reject-modal').style.display = 'none';
   if (res.ok) {
-    toast(`Run ${issueQueueData.ref} rejected — production has been notified`, 'success');
+    toast(`${issueQueueData.ref} rejected`, 'success');
     document.getElementById('iss-detail-panel').style.display = 'none';
     issueQueueData = null;
     loadIssueQueue();
   } else {
-    toast(res.error || 'Failed to reject run', 'error');
+    toast(res.error || 'Failed to reject', 'error');
   }
 }
 
@@ -7445,6 +7465,7 @@ async function printIssueQueuePickList() {
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
+        <td style="color:#555;font-size:9pt">${bagMap[p.part_code] ? (Object.values(materialCache).find(m=>m.part_code===p.part_code)?.product||'—') : '—'}</td>
         <td style="color:#666;font-size:9pt">${p.category||'—'}</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty}</td>
         <td style="text-align:right;font-family:monospace">${p.available}</td>
@@ -7470,6 +7491,7 @@ async function printIssueQueuePickList() {
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
+        <td style="color:#555;font-size:9pt">${bagMap[p.part_code] ? (Object.values(materialCache).find(m=>m.part_code===p.part_code)?.product||'—') : '—'}</td>
         <td style="color:#666;font-size:9pt">—</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${qty}</td>
         <td style="text-align:right;font-family:monospace">${avail||'—'}</td>
@@ -7508,7 +7530,7 @@ async function printIssueQueuePickList() {
   <table>
     <thead><tr>
       <th style="width:28px">✓</th>
-      <th>Part Code</th><th>Part Name</th><th>Category</th>
+      <th>Part Code</th><th>Part Name</th><th>Product</th><th>Category</th>
       <th style="text-align:right">Qty Required</th>
       <th style="text-align:right">In Stock</th>
       <th style="text-align:right">Bag Size</th>
