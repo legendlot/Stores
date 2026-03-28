@@ -882,8 +882,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <div class="nav-group" id="navg-store">
         <button class="nav-group-btn" id="navg-btn-store">STORE</button>
         <div class="nav-dropdown">
-          <button class="nav-dropdown-item" onclick="showView('issue')"       id="nav-issue">Issue Queue</button>
-          <button class="nav-dropdown-item" onclick="showView('flushverify')" id="nav-flushverify">Flush Verify</button>
+          <button class="nav-dropdown-item" onclick="showView('issue')"        id="nav-issue">Issue Queue</button>
+          <button class="nav-dropdown-item" onclick="showView('flushverify')"  id="nav-flushverify">Flush Verify</button>
+          <button class="nav-dropdown-item" onclick="showView('storehistory')" id="nav-storehistory">Store History</button>
         </div>
       </div>
 
@@ -1831,6 +1832,96 @@ tr:hover td { background:rgba(255,255,255,.02); }
     </div>
     <!-- /view-flushverify -->
 
+    <!-- ── STORE HISTORY ── -->
+    <div class="view" id="view-storehistory">
+      <div class="page-header">
+        <div class="page-title">STORE HISTORY</div>
+        <div class="page-subtitle">Complete record of all issues and line flushes</div>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="sh-tab-issues"   onclick="shSwitchTab('issues')"   style="border-radius:3px 3px 0 0;margin-right:4px">ISSUES</button>
+        <button class="nav-btn"        id="sh-tab-flushes"  onclick="shSwitchTab('flushes')"  style="border-radius:3px 3px 0 0">LINE FLUSHES</button>
+      </div>
+
+      <!-- Issues tab -->
+      <div id="sh-issues-section">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Product</label>
+            <select class="form-select" id="sh-iss-product" onchange="shLoadIssues()" style="font-size:11px">
+              <option value="">All Products</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:120px">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="sh-iss-type" onchange="shLoadIssues()" style="font-size:11px">
+              <option value="">All Types</option>
+              <option>Planned</option>
+              <option>Ad Hoc</option>
+              <option>Rework</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">From</label>
+            <input class="form-input" type="date" id="sh-iss-from" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">To</label>
+            <input class="form-input" type="date" id="sh-iss-to" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
+          </div>
+          <button class="btn btn-secondary" onclick="shClearIssueFilters()" style="padding:5px 12px;font-size:11px;align-self:flex-end">CLEAR</button>
+          <button class="btn btn-secondary" onclick="shLoadIssues()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">ISSUES</div>
+            <span class="badge badge-yellow" id="sh-iss-count">—</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th>Part Code</th><th>Part Name</th><th>Qty Issued</th><th>Issued By</th></tr></thead>
+              <tbody id="sh-iss-body">
+                <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flushes tab -->
+      <div id="sh-flushes-section" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="sh-fl-status" onchange="shLoadFlushes()" style="font-size:11px">
+              <option value="">All</option>
+              <option>Pending Verification</option>
+              <option>Verified</option>
+              <option>Disputed</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="shLoadFlushes()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">LINE FLUSHES</div>
+            <span class="badge badge-yellow" id="sh-fl-count">—</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Flush ID</th><th>Date</th><th>Run / WO</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th>Verified By</th><th>Status</th></tr></thead>
+              <tbody id="sh-fl-body">
+                <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-storehistory -->
+
     <!-- ── RETURNS ── -->
     <div class="view" id="view-returns">
       <div class="page-header">
@@ -2127,6 +2218,96 @@ tr:hover td { background:rgba(255,255,255,.02); }
     
 
     
+
+    <!-- ── STORE HISTORY ── -->
+    <div class="view" id="view-storehistory">
+      <div class="page-header">
+        <div class="page-title">STORE HISTORY</div>
+        <div class="page-subtitle">Complete record of all issues and line flushes</div>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <button class="nav-btn active" id="sh-tab-issues"   onclick="shSwitchTab('issues')"   style="border-radius:3px 3px 0 0;margin-right:4px">ISSUES</button>
+        <button class="nav-btn"        id="sh-tab-flushes"  onclick="shSwitchTab('flushes')"  style="border-radius:3px 3px 0 0">LINE FLUSHES</button>
+      </div>
+
+      <!-- Issues tab -->
+      <div id="sh-issues-section">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Product</label>
+            <select class="form-select" id="sh-iss-product" onchange="shLoadIssues()" style="font-size:11px">
+              <option value="">All Products</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:120px">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="sh-iss-type" onchange="shLoadIssues()" style="font-size:11px">
+              <option value="">All Types</option>
+              <option>Planned</option>
+              <option>Ad Hoc</option>
+              <option>Rework</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">From</label>
+            <input class="form-input" type="date" id="sh-iss-from" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">To</label>
+            <input class="form-input" type="date" id="sh-iss-to" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
+          </div>
+          <button class="btn btn-secondary" onclick="shClearIssueFilters()" style="padding:5px 12px;font-size:11px;align-self:flex-end">CLEAR</button>
+          <button class="btn btn-secondary" onclick="shLoadIssues()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">ISSUES</div>
+            <span class="badge badge-yellow" id="sh-iss-count">—</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th>Part Code</th><th>Part Name</th><th>Qty Issued</th><th>Issued By</th></tr></thead>
+              <tbody id="sh-iss-body">
+                <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flushes tab -->
+      <div id="sh-flushes-section" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="sh-fl-status" onchange="shLoadFlushes()" style="font-size:11px">
+              <option value="">All</option>
+              <option>Pending Verification</option>
+              <option>Verified</option>
+              <option>Disputed</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="shLoadFlushes()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">LINE FLUSHES</div>
+            <span class="badge badge-yellow" id="sh-fl-count">—</span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Flush ID</th><th>Date</th><th>Run / WO</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th>Verified By</th><th>Status</th></tr></thead>
+              <tbody id="sh-fl-body">
+                <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-storehistory -->
 
     <!-- ── RETURNS ── -->
         <div id="rpt-returns" class="rpt-section" style="display:none">
@@ -3627,7 +3808,8 @@ function launchApp() {
     'nav-grn':         () => P.grn && P.grn !== 'none',
     'nav-receiving':   () => P.receiving && P.receiving !== 'none',
     'nav-prodruns':    () => true,
-    'nav-flushverify': () => true,
+    'nav-flushverify':   () => true,
+    'nav-storehistory':  () => true,
     'nav-workorder':   () => P.work_order && P.work_order !== 'none',
     'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
     'nav-returns':     () => P.returns && P.returns !== 'none',
@@ -3772,7 +3954,7 @@ function showView(name) {
     dashboard:'overview', activity:'overview', reports:'overview',
     stock:'inventory', grn:'inventory', receiving:'inventory',
     prodruns:'production', workorder:'production', lineflush:'production',
-    issue:'store', flushverify:'store',
+    issue:'store', flushverify:'store', storehistory:'store',
     returns:'outbound', manpower:'people', procurement:'procurement', users:'admin',
   };
   const groupId = VIEW_TO_GROUP[name];
@@ -3784,7 +3966,8 @@ function showView(name) {
     setTimeout(() => { loadIssueQueue(); loadIssueHistory(); }, 0);
   }
   if (name === 'lineflush')   { setTimeout(() => initLineFlush(), 0); }
-  if (name === 'flushverify') { setTimeout(() => loadFlushVerifyQueue(), 50); }
+  if (name === 'flushverify')  { setTimeout(() => loadFlushVerifyQueue(), 50); }
+  if (name === 'storehistory') { setTimeout(() => initStoreHistory(), 50); }
   if (name === 'receiving') {
     ensureMaterialCache();
     loadShipments();
@@ -5350,6 +5533,114 @@ async function submitAdhocIssue() {
 }
 
 
+
+
+// ══ STORE HISTORY ══════════════════════════════════════════════
+
+function initStoreHistory() {
+  // Populate product filter
+  const sel = document.getElementById('sh-iss-product');
+  if (sel && sel.options.length <= 1) {
+    PRODUCTS.forEach(p => {
+      sel.innerHTML += `<option value="${p}">${PRODUCTS_DISPLAY[p]||p}</option>`;
+    });
+  }
+  shSwitchTab('issues');
+}
+
+function shSwitchTab(tab) {
+  document.getElementById('sh-issues-section').style.display  = tab === 'issues'  ? '' : 'none';
+  document.getElementById('sh-flushes-section').style.display = tab === 'flushes' ? '' : 'none';
+  document.getElementById('sh-tab-issues').className  = 'nav-btn' + (tab === 'issues'  ? ' active' : '');
+  document.getElementById('sh-tab-flushes').className = 'nav-btn' + (tab === 'flushes' ? ' active' : '');
+  if (tab === 'issues')  shLoadIssues();
+  if (tab === 'flushes') shLoadFlushes();
+}
+
+async function shLoadIssues() {
+  const tbody   = document.getElementById('sh-iss-body');
+  const countEl = document.getElementById('sh-iss-count');
+  tbody.innerHTML = '<tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>';
+
+  const res = await api('getIssues');
+  if (!res.ok) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Error loading issues</td></tr>'; return; }
+
+  let rows = res.data || [];
+
+  // Apply filters
+  const product = document.getElementById('sh-iss-product')?.value;
+  const type    = document.getElementById('sh-iss-type')?.value;
+  const from    = document.getElementById('sh-iss-from')?.value;
+  const to      = document.getElementById('sh-iss-to')?.value;
+
+  if (product) rows = rows.filter(r => r.product === product);
+  if (type)    rows = rows.filter(r => r.issue_type === type);
+  if (from)    rows = rows.filter(r => r.issue_date >= from);
+  if (to)      rows = rows.filter(r => r.issue_date <= to);
+
+  countEl.textContent = rows.length + ' rows';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">No issues found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);color:var(--yellow);font-size:11px">${r.issue_no||'—'}</td>
+      <td style="font-size:11px">${r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+      <td><span class="badge ${r.issue_type==='Planned'?'badge-blue':r.issue_type==='Rework'?'badge-red':'badge-yellow'}" style="font-size:9px">${r.issue_type||'—'}</span></td>
+      <td style="font-family:var(--mono);font-size:10px">${r.wo_no||'—'}</td>
+      <td style="font-size:11px">${r.product||'—'}</td>
+      <td style="font-size:11px">${r.variant||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.colour||'—'}</td>
+      <td style="font-family:var(--mono);font-size:10px">${r.part_code||'—'}</td>
+      <td style="font-size:11px">${r.part_name||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700">${r.actual_issued||0}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.issued_by||'—'}</td>
+    </tr>`).join('');
+}
+
+function shClearIssueFilters() {
+  document.getElementById('sh-iss-product').value = '';
+  document.getElementById('sh-iss-type').value    = '';
+  document.getElementById('sh-iss-from').value    = '';
+  document.getElementById('sh-iss-to').value      = '';
+  shLoadIssues();
+}
+
+async function shLoadFlushes() {
+  const tbody   = document.getElementById('sh-fl-body');
+  const countEl = document.getElementById('sh-fl-count');
+  tbody.innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>';
+
+  const status = document.getElementById('sh-fl-status')?.value || '';
+  const res    = await api('getFlushes', status ? { status } : {});
+  if (!res.ok) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error loading flushes</td></tr>'; return; }
+
+  const rows = res.data || [];
+  countEl.textContent = rows.length + ' rows';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No flushes found</td></tr>';
+    return;
+  }
+
+  const statusColors = { 'Pending Verification':'badge-yellow', 'Verified':'badge-green', 'Disputed':'badge-red' };
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);color:var(--yellow);font-size:11px">${r.flush_id}</td>
+      <td style="font-size:11px">${r.flush_date ? new Date(r.flush_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.wo_no || (r.run_id ? 'Run' : 'Standalone')}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.line_no||'—'}</td>
+      <td style="font-size:11px">${r.shift||'—'}</td>
+      <td style="font-family:var(--mono)">${r.total_lines||0}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.raised_by||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.verified_by||'—'}</td>
+      <td><span class="badge ${statusColors[r.status]||'badge-gray'}" style="font-size:9px">${r.status}</span></td>
+    </tr>`).join('');
+}
 
 // ══ FLUSH VERIFY VIEW ══════════════════════════════════════════
 
