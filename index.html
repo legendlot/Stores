@@ -3776,7 +3776,8 @@ function showView(name) {
   if (name === 'issue') {
     setTimeout(() => { loadIssueQueue(); loadIssueHistory(); }, 0);
   }
-  if (name === 'flushverify') { setTimeout(() => loadFlushVerifyQueue(), 0); }
+  if (name === 'lineflush')   { setTimeout(() => initLineFlush(), 0); }
+  if (name === 'flushverify') { setTimeout(() => loadFlushVerifyQueue(), 50); }
   if (name === 'receiving') {
     ensureMaterialCache();
     loadShipments();
