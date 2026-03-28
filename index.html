@@ -6985,13 +6985,18 @@ function toggleIssueBtn() {
 }
 
 
-function printIssueQueuePickList() {
+async function printIssueQueuePickList() {
   if (!issueQueueData) { toast('Load a request first', 'error'); return; }
 
   const isRun   = issueQueueData.type === 'run';
   const ref     = issueQueueData.ref;
   const lines   = issueQueueData.lines || [];
   const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+  // Fetch bag sizes from material master
+  const mmRes = await api('getMaterials');
+  const bagMap = {};
+  if (mmRes.ok) mmRes.data.forEach(m => { bagMap[m.part_code] = m.bag_size || 25; });
 
   let metaHtml = '';
   let tableRows = '';
@@ -7006,15 +7011,19 @@ function printIssueQueuePickList() {
       <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>
       <div class="meta-item" style="grid-column:1/-1"><label>Variants</label><span>${wos.map(w=>(w.variant||'Common')+(w.colour?' '+w.colour:'')+' ×'+w.qty).join(' | ')}</span></div>`;
     tableRows = lines.map(p => {
-      const isShort = (p.shortfall||0) > 0;
-      return `<tr style="${isShort?'background:#fff8f0':''}">
+      const isShort  = (p.shortfall||0) > 0;
+      const bagSize  = bagMap[p.part_code] || 25;
+      const bags     = Math.ceil((p.total_qty||0) / bagSize);
+      return `<tr style="${isShort?'background:#fff5f5':''}">
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
         <td style="color:#666;font-size:9pt">${p.category||'—'}</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty}</td>
         <td style="text-align:right;font-family:monospace">${p.available}</td>
-        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60'}">${isShort?'SHORT −'+p.shortfall:'OK'}</td>
+        <td style="text-align:right;font-family:monospace">${bagSize} pcs</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700">${bags}</td>
+        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600'}">${isShort?'SHORT −'+p.shortfall:'OK'}</td>
       </tr>`;
     }).join('');
   } else {
@@ -7024,15 +7033,24 @@ function printIssueQueuePickList() {
       <div class="meta-item"><label>Type</label><span>Ad Hoc Request</span></div>
       <div class="meta-item"><label>Line / Shift</label><span>${wo.line_no||'—'} / ${wo.shift||'—'}</span></div>
       <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>`;
-    tableRows = lines.map(p => `<tr>
+    tableRows = lines.map(p => {
+      const qty     = p.total_qty || p.qty_requested || 0;
+      const avail   = p.available || 0;
+      const isShort = avail < qty && avail >= 0;
+      const bagSize = bagMap[p.part_code] || 25;
+      const bags    = Math.ceil(qty / bagSize);
+      return `<tr style="${isShort?'background:#fff5f5':''}">
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
         <td style="color:#666;font-size:9pt">—</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty||p.qty_requested||0}</td>
-        <td style="text-align:right;font-family:monospace">${p.available||'—'}</td>
-        <td style="color:#27ae60">—</td>
-      </tr>`).join('');
+        <td style="text-align:right;font-family:monospace;font-weight:700">${qty}</td>
+        <td style="text-align:right;font-family:monospace">${avail||'—'}</td>
+        <td style="text-align:right;font-family:monospace">${bagSize} pcs</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700">${bags}</td>
+        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600'}">${isShort?'SHORT':'OK'}</td>
+      </tr>`;
+    }).join('');
   }
 
   const html_doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -7066,6 +7084,8 @@ function printIssueQueuePickList() {
       <th>Part Code</th><th>Part Name</th><th>Category</th>
       <th style="text-align:right">Qty Required</th>
       <th style="text-align:right">In Stock</th>
+      <th style="text-align:right">Bag Size</th>
+      <th style="text-align:right">Bags</th>
       <th>Status</th>
     </tr></thead>
     <tbody>${tableRows}</tbody>
