@@ -222,7 +222,7 @@ body::before {
   border-radius:4px;
   min-width:180px;
   box-shadow:0 8px 24px rgba(0,0,0,.4);
-  z-index:200;
+  z-index:1000;
   overflow:hidden;
 }
 .nav-group:hover .nav-dropdown,
@@ -1881,7 +1881,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th>Part Code</th><th>Part Name</th><th>Qty Issued</th><th>Issued By</th></tr></thead>
+              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th style="text-align:right">Parts</th><th style="text-align:right">Total Qty</th><th>Issued By</th></tr></thead>
               <tbody id="sh-iss-body">
                 <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -2268,7 +2268,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th>Part Code</th><th>Part Name</th><th>Qty Issued</th><th>Issued By</th></tr></thead>
+              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th style="text-align:right">Parts</th><th style="text-align:right">Total Qty</th><th>Issued By</th></tr></thead>
               <tbody id="sh-iss-body">
                 <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -5578,14 +5578,36 @@ async function shLoadIssues() {
   if (from)    rows = rows.filter(r => r.issue_date >= from);
   if (to)      rows = rows.filter(r => r.issue_date <= to);
 
-  countEl.textContent = rows.length + ' rows';
-
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="11" class="empty">No issues found</td></tr>';
     return;
   }
 
-  tbody.innerHTML = rows.map(r => `
+  // Aggregate to issue level — group by issue_no
+  const issueMap = {};
+  rows.forEach(r => {
+    const key = r.issue_no;
+    if (!issueMap[key]) {
+      issueMap[key] = {
+        issue_no:   r.issue_no,
+        issue_date: r.issue_date,
+        issue_type: r.issue_type,
+        wo_no:      r.wo_no,
+        product:    r.product,
+        variant:    r.variant,
+        colour:     r.colour,
+        issued_by:  r.issued_by,
+        part_count: 0,
+        total_qty:  0,
+      };
+    }
+    issueMap[key].part_count++;
+    issueMap[key].total_qty += (r.actual_issued || 0);
+  });
+  const issues = Object.values(issueMap).sort((a,b) => (b.issue_date||'').localeCompare(a.issue_date||''));
+  countEl.textContent = issues.length + ' issues';
+
+  tbody.innerHTML = issues.map(r => `
     <tr>
       <td style="font-family:var(--mono);color:var(--yellow);font-size:11px">${r.issue_no||'—'}</td>
       <td style="font-size:11px">${r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
@@ -5594,9 +5616,8 @@ async function shLoadIssues() {
       <td style="font-size:11px">${r.product||'—'}</td>
       <td style="font-size:11px">${r.variant||'—'}</td>
       <td style="font-size:11px;color:var(--text3)">${r.colour||'—'}</td>
-      <td style="font-family:var(--mono);font-size:10px">${r.part_code||'—'}</td>
-      <td style="font-size:11px">${r.part_name||'—'}</td>
-      <td style="font-family:var(--mono);font-weight:700">${r.actual_issued||0}</td>
+      <td style="font-family:var(--mono);text-align:right">${r.part_count}</td>
+      <td style="font-family:var(--mono);font-weight:700;text-align:right">${r.total_qty}</td>
       <td style="font-size:11px;color:var(--text3)">${r.issued_by||'—'}</td>
     </tr>`).join('');
 }
@@ -5619,8 +5640,6 @@ async function shLoadFlushes() {
   if (!res.ok) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Error loading flushes</td></tr>'; return; }
 
   const rows = res.data || [];
-  countEl.textContent = rows.length + ' rows';
-
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="empty">No flushes found</td></tr>';
     return;
