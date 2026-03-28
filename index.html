@@ -1786,6 +1786,51 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
 
 
+    
+
+    <!-- ── FLUSH VERIFY ── -->
+    <div class="view" id="view-flushverify">
+      <div class="page-header">
+        <div class="page-title">FLUSH VERIFY</div>
+        <div class="page-subtitle">Store verifies line flushes raised by production — assign dispositions and confirm return to stock</div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title">PENDING FLUSHES</div>
+          <button class="btn btn-secondary" onclick="loadFlushVerifyQueue()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Flush ID</th><th>Date</th><th>Run / Type</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th></th></tr></thead>
+            <tbody id="fv-queue-body">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="fv-detail-panel" style="display:none">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title" id="fv-detail-title">Verify Flush</div>
+            <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px"
+              onclick="document.getElementById('fv-detail-panel').style.display='none'">✕ Close</button>
+          </div>
+          <div class="panel-body">
+            <div id="fv-detail-summary" style="padding:8px 12px;background:var(--bg3);border-radius:3px;margin-bottom:12px;font-size:11px;color:var(--text3)"></div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">ASSIGN DISPOSITIONS PER PART</div>
+            <div id="fv-detail-lines"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn btn-primary" onclick="submitFVVerification()">CONFIRM VERIFICATION</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('fv-detail-panel').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-flushverify -->
+
     <!-- ── RETURNS ── -->
     <div class="view" id="view-returns">
       <div class="page-header">
@@ -2077,49 +2122,11 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
 
     
-    <!-- ── FLUSH VERIFY ── -->
-    <div class="view" id="view-flushverify">
-      <div class="page-header">
-        <div class="page-title">FLUSH VERIFY</div>
-        <div class="page-subtitle">Store verifies line flushes raised by production — assign dispositions and confirm return to stock</div>
-      </div>
 
-      <div class="panel" style="margin-bottom:16px">
-        <div class="panel-header">
-          <div class="panel-title">PENDING FLUSHES</div>
-          <button class="btn btn-secondary" onclick="loadFlushVerifyQueue()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
-        </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Flush ID</th><th>Date</th><th>Run / Type</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th></th></tr></thead>
-            <tbody id="fv-queue-body">
-              <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Verify panel -->
-      <div id="fv-detail-panel" style="display:none">
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title" id="fv-detail-title">Verify Flush</div>
-            <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px"
-              onclick="document.getElementById('fv-detail-panel').style.display='none'">✕ Close</button>
-          </div>
-          <div class="panel-body">
-            <div id="fv-detail-summary" style="padding:8px 12px;background:var(--bg3);border-radius:3px;margin-bottom:12px;font-size:11px;color:var(--text3)"></div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">ASSIGN DISPOSITIONS PER PART</div>
-            <div id="fv-detail-lines"></div>
-            <div class="btn-row" style="margin-top:12px">
-              <button class="btn btn-primary" onclick="submitFVVerification()">CONFIRM VERIFICATION</button>
-              <button class="btn btn-secondary" onclick="document.getElementById('fv-detail-panel').style.display='none'">CANCEL</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- /view-flushverify -->
+    
+
+    
 
     <!-- ── RETURNS ── -->
         <div id="rpt-returns" class="rpt-section" style="display:none">
