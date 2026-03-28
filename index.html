@@ -7420,10 +7420,10 @@ async function openProductionRun(runNo) {
   btnReject.style.display = 'none';
   btnIssue.style.display  = 'none';
 
-  if (['Draft','Submitted'].includes(run.status) && ['production','ops','vinay'].includes(currentRole)) {
+  if (['Draft','Submitted'].includes(run.status) && ['production','ops','vinay','super_admin'].includes(currentRole)) {
     btnCancel.style.display = '';
   }
-  if (run.status === 'Submitted' && ['store','store_manager','ops','vinay'].includes(currentRole)) {
+  if (run.status === 'Submitted' && ['store','store_manager','ops','vinay','super_admin'].includes(currentRole)) {
     btnReject.style.display = '';
     btnIssue.style.display  = '';
   }
