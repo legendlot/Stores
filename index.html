@@ -6189,10 +6189,15 @@ async function submitIssueQueueReject() {
 
   document.getElementById('iss-reject-modal').style.display = 'none';
   if (res.ok) {
-    toast(`${issueQueueData.ref} rejected`, 'success');
+    const rejectedRef = issueQueueData.ref;
+    toast(`${rejectedRef} rejected`, 'success');
     document.getElementById('iss-detail-panel').style.display = 'none';
     issueQueueData = null;
-    loadIssueQueue();
+    // Remove row from DOM immediately, then reload after brief delay for DB propagation
+    document.querySelectorAll('#issue-queue-body tr').forEach(row => {
+      if (row.textContent.includes(rejectedRef)) row.remove();
+    });
+    setTimeout(() => loadIssueQueue(), 500);
   } else {
     toast(res.error || 'Failed to reject', 'error');
   }
