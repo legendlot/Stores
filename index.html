@@ -874,8 +874,16 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="nav-dropdown">
           <button class="nav-dropdown-item" onclick="showView('prodruns')"  id="nav-prodruns">Production Runs</button>
           <button class="nav-dropdown-item" onclick="showView('workorder')" id="nav-workorder">Ad Hoc Requests</button>
-          <button class="nav-dropdown-item" onclick="showView('issue')"     id="nav-issue">Issue Queue</button>
-          <button class="nav-dropdown-item" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">Line Flush</button>
+          <button class="nav-dropdown-item" onclick="showView('lineflush')" id="nav-lineflush">Line Flush</button>
+        </div>
+      </div>
+
+      <!-- Store ▾ -->
+      <div class="nav-group" id="navg-store">
+        <button class="nav-group-btn" id="navg-btn-store">STORE</button>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('issue')"       id="nav-issue">Issue Queue</button>
+          <button class="nav-dropdown-item" onclick="showView('flushverify')" id="nav-flushverify">Flush Verify</button>
         </div>
       </div>
 
@@ -1703,21 +1711,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
-      <!-- Pending Flushes section -->
-      <div class="panel" style="margin-bottom:16px;margin-top:16px">
-        <div class="panel-header">
-          <div class="panel-title">⟳ PENDING FLUSHES</div>
-          <button class="btn btn-secondary" onclick="loadPendingFlushes()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
-        </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Flush ID</th><th>Date</th><th>Run / Type</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th></th></tr></thead>
-            <tbody id="iss-flush-queue-body">
-              <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+
 
       <!-- Flush verification panel -->
       <div id="iss-flush-verify-panel" style="display:none;margin-bottom:16px">
@@ -1826,6 +1820,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
 
     </div>
+
+
 
     <!-- ── RETURNS ── -->
     <div class="view" id="view-returns">
@@ -2117,7 +2113,52 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
-        <!-- ── RETURNS ── -->
+    
+    <!-- ── FLUSH VERIFY ── -->
+    <div class="view" id="view-flushverify">
+      <div class="page-header">
+        <div class="page-title">FLUSH VERIFY</div>
+        <div class="page-subtitle">Store verifies line flushes raised by production — assign dispositions and confirm return to stock</div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title">PENDING FLUSHES</div>
+          <button class="btn btn-secondary" onclick="loadFlushVerifyQueue()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Flush ID</th><th>Date</th><th>Run / Type</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th></th></tr></thead>
+            <tbody id="fv-queue-body">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Verify panel -->
+      <div id="fv-detail-panel" style="display:none">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title" id="fv-detail-title">Verify Flush</div>
+            <button class="btn btn-secondary" style="padding:3px 10px;font-size:11px"
+              onclick="document.getElementById('fv-detail-panel').style.display='none'">✕ Close</button>
+          </div>
+          <div class="panel-body">
+            <div id="fv-detail-summary" style="padding:8px 12px;background:var(--bg3);border-radius:3px;margin-bottom:12px;font-size:11px;color:var(--text3)"></div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">ASSIGN DISPOSITIONS PER PART</div>
+            <div id="fv-detail-lines"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn btn-primary" onclick="submitFVVerification()">CONFIRM VERIFICATION</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('fv-detail-panel').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-flushverify -->
+
+    <!-- ── RETURNS ── -->
         <div id="rpt-returns" class="rpt-section" style="display:none">
           <div class="download-grid" style="margin-bottom:16px">
             <div class="download-card" onclick="downloadReport('returns')">
@@ -3615,7 +3656,8 @@ function launchApp() {
     'nav-stock':       () => P.stock && P.stock !== 'none',
     'nav-grn':         () => P.grn && P.grn !== 'none',
     'nav-receiving':   () => P.receiving && P.receiving !== 'none',
-    'nav-prodruns':    () => true,  // all roles can see production runs
+    'nav-prodruns':    () => true,
+    'nav-flushverify': () => true,
     'nav-workorder':   () => P.work_order && P.work_order !== 'none',
     'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
     'nav-returns':     () => P.returns && P.returns !== 'none',
@@ -3759,7 +3801,8 @@ function showView(name) {
   const VIEW_TO_GROUP = {
     dashboard:'overview', activity:'overview', reports:'overview',
     stock:'inventory', grn:'inventory', receiving:'inventory',
-    prodruns:'production', workorder:'production', issue:'production', lineflush:'production',
+    prodruns:'production', workorder:'production', lineflush:'production',
+    issue:'store', flushverify:'store',
     returns:'outbound', manpower:'people', procurement:'procurement', users:'admin',
   };
   const groupId = VIEW_TO_GROUP[name];
@@ -3768,8 +3811,9 @@ function showView(name) {
     if (groupBtn) groupBtn.classList.add('active');
   }
   if (name === 'issue') {
-    setTimeout(() => { loadIssueQueue(); loadIssueHistory(); loadPendingFlushes(); }, 0);
+    setTimeout(() => { loadIssueQueue(); loadIssueHistory(); }, 0);
   }
+  if (name === 'flushverify') { loadFlushVerifyQueue(); }
   if (name === 'receiving') {
     ensureMaterialCache();
     loadShipments();
@@ -5336,6 +5380,118 @@ async function submitAdhocIssue() {
 }
 
 
+
+// ══ FLUSH VERIFY VIEW ══════════════════════════════════════════
+
+let currentFVData = null;
+
+async function loadFlushVerifyQueue() {
+  const tbody = document.getElementById('fv-queue-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getFlushes', { status: 'Pending Verification' });
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; return; }
+    const rows = res.data || [];
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">No pending flushes — all clear ✓</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td style="font-family:var(--mono);color:var(--yellow);font-size:11px">${r.flush_id}</td>
+        <td style="font-size:11px">${r.flush_date ? new Date(r.flush_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—'}</td>
+        <td style="font-size:11px">${r.wo_no || (r.run_id ? 'Production Run' : 'Standalone')}</td>
+        <td style="font-family:var(--mono);font-size:11px">${r.line_no||'—'}</td>
+        <td style="font-size:11px">${r.shift||'—'}</td>
+        <td style="font-family:var(--mono)">${r.total_lines||0}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.raised_by||'—'}</td>
+        <td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px"
+          onclick="openFVDetail('${r.flush_id}')">VERIFY →</button></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; }
+}
+
+async function openFVDetail(flushId) {
+  const panel    = document.getElementById('fv-detail-panel');
+  const title    = document.getElementById('fv-detail-title');
+  const linesDiv = document.getElementById('fv-detail-lines');
+  panel.style.display = '';
+  title.textContent   = `Verify ${flushId} — Loading...`;
+  linesDiv.innerHTML  = '<div class="loading"><div class="spinner"></div></div>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const res = await api('getFlush', { flush_id: flushId });
+  if (!res.ok) { toast('Failed to load flush', 'error'); return; }
+  currentFVData = res.data;
+  const { flush, lines } = res.data;
+
+  title.textContent = `Verify ${flushId} — ${lines.length} parts`;
+  document.getElementById('fv-detail-summary').innerHTML =
+    `<span style="color:var(--text3)">Date: </span><strong>${flush.flush_date||'—'}</strong>
+     <span style="color:var(--text3);margin-left:16px">Line: </span><strong>${flush.line_no||'—'}</strong>
+     <span style="color:var(--text3);margin-left:16px">Shift: </span><strong>${flush.shift||'—'}</strong>
+     <span style="color:var(--text3);margin-left:16px">Raised by: </span><strong>${flush.raised_by||'—'}</strong>`;
+
+  const dispOpts = ['Return to Stock','Quarantine','Rework Queue','Write Off'].map(d => `<option>${d}</option>`).join('');
+  linesDiv.innerHTML = '';
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:grid;grid-template-columns:130px 1fr 80px 160px 80px 28px;gap:8px;margin-bottom:6px;padding:0 4px';
+  hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Type</div><div class="form-label">Disposition</div><div class="form-label">Qty Verified</div><div></div>';
+  linesDiv.appendChild(hdr);
+
+  lines.forEach(l => {
+    const block = document.createElement('div');
+    block.className = 'fv-line-block';
+    block.dataset.lineId    = l.line_id;
+    block.dataset.partCode  = l.part_code;
+    block.dataset.partName  = (l.part_name||'').replace(/"/g,'&quot;');
+    block.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:8px;margin-bottom:8px';
+    const infoRow = document.createElement('div');
+    infoRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+    infoRow.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--yellow)">${l.part_code}</span>
+        <span style="font-size:11px">${l.part_name||'—'}</span>
+        <span style="font-size:10px;color:var(--text3)">${l.return_type||'—'}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:10px;color:var(--text3)">Qty raised: <strong style="color:var(--text);font-family:var(--mono)">${l.qty_raised||0}</strong></span>
+        <button onclick="fvAddSplit(this)" style="background:none;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:10px;padding:2px 8px;border-radius:3px">+ Split</button>
+      </div>`;
+    block.appendChild(infoRow);
+    block.appendChild(fvMakeSplitRow(dispOpts, l.qty_raised || 0));
+    linesDiv.appendChild(block);
+  });
+}
+
+async function submitFVVerification() {
+  if (!currentFVData) return;
+  const { flush } = currentFVData;
+  const dispositions = [];
+  document.querySelectorAll('#fv-detail-lines .fv-line-block').forEach(block => {
+    const lineId   = block.dataset.lineId;
+    const partCode = block.dataset.partCode;
+    const partName = block.dataset.partName;
+    block.querySelectorAll('.fv-split-row').forEach(row => {
+      const disp = row.querySelector('.fv-disposition')?.value;
+      const qty  = parseFloat(row.querySelector('.fv-qty')?.value) || 0;
+      if (qty > 0) dispositions.push({ line_id: lineId, part_code: partCode, part_name: partName, disposition: disp, qty });
+    });
+  });
+  if (!dispositions.length) { toast('Enter at least one verified quantity', 'error'); return; }
+  const btn = document.querySelector('#fv-detail-panel .btn-primary');
+  btn.textContent = 'VERIFYING...';
+  btn.disabled = true;
+  try {
+    const res = await apiPost('verifyFlush', { data: { flush_id: flush.flush_id, dispositions } });
+    if (res.ok) {
+      toast(`Flush ${flush.flush_id} verified`, 'success');
+      document.getElementById('fv-detail-panel').style.display = 'none';
+      currentFVData = null;
+      loadFlushVerifyQueue();
+    } else { toast(res.error || 'Failed', 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+  finally { btn.textContent = 'CONFIRM VERIFICATION'; btn.disabled = false; }
+}
+
 // ══ ISSUE QUEUE — FLUSH VERIFICATION ══════════════════════════
 
 let currentFlushVerifyData = null;
@@ -5369,6 +5525,29 @@ async function loadPendingFlushes() {
   }
 }
 
+
+function fvMakeSplitRow(dispOpts, defaultQty) {
+  const row = document.createElement('div');
+  row.className = 'fv-split-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 80px 24px;gap:6px;margin-bottom:4px;align-items:center';
+  row.innerHTML = `
+    <select class="form-select fv-disposition" style="font-size:11px">${dispOpts}</select>
+    <input class="form-input fv-qty" type="number" min="0" value="${defaultQty}"
+      style="font-size:11px;text-align:right;padding:3px 6px">
+    <button onclick="this.closest('.fv-split-row').remove()"
+      style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0">×</button>`;
+  return row;
+}
+
+function fvAddSplit(btn) {
+  const block    = btn.closest('.fv-line-block');
+  const dispOpts = ['Return to Stock','Quarantine','Rework Queue','Write Off']
+    .map(d => `<option>${d}</option>`).join('');
+  const newRow = fvMakeSplitRow(dispOpts, 0);
+  // Insert before the Add Split button's parent row
+  btn.closest('div').parentElement.appendChild(newRow);
+}
+
 async function openFlushVerify(flushId) {
   const panel = document.getElementById('iss-flush-verify-panel');
   const title = document.getElementById('iss-flush-verify-title');
@@ -5394,26 +5573,45 @@ async function openFlushVerify(flushId) {
   const dispOpts = ['Return to Stock','Quarantine','Rework Queue','Write Off']
     .map(d => `<option>${d}</option>`).join('');
 
-  linesDiv.innerHTML = `
-    <div style="display:grid;grid-template-columns:130px 1fr 80px 160px 80px 80px;gap:8px;margin-bottom:6px;padding:0 4px">
-      <div class="form-label">Part Code</div>
-      <div class="form-label">Part Name</div>
-      <div class="form-label">Type</div>
-      <div class="form-label">Disposition</div>
-      <div class="form-label">Qty Raised</div>
-      <div class="form-label">Qty Verified</div>
-    </div>` +
-    lines.map(l => `
-    <div class="flush-verify-line" data-line-id="${l.line_id}" data-part-code="${l.part_code}" data-part-name="${(l.part_name||'').replace(/"/g,'&quot;')}"
-      style="display:grid;grid-template-columns:130px 1fr 80px 160px 80px 80px;gap:8px;margin-bottom:6px;align-items:center">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--yellow)">${l.part_code}</div>
-      <div style="font-size:11px">${l.part_name||'—'}</div>
-      <div style="font-size:10px;color:var(--text3)">${l.return_type||'—'}</div>
-      <select class="form-select fv-disposition" style="font-size:11px">${dispOpts}</select>
-      <div style="font-family:var(--mono);text-align:right">${l.qty_raised||0}</div>
-      <input class="form-input fv-qty" type="number" min="0" value="${l.qty_raised||0}"
-        style="font-size:11px;text-align:right;padding:3px 6px">
-    </div>`).join('');
+  linesDiv.innerHTML = '';
+
+  // Header
+  const hdrDiv = document.createElement('div');
+  hdrDiv.style.cssText = 'display:grid;grid-template-columns:130px 1fr 80px 160px 80px 28px;gap:8px;margin-bottom:6px;padding:0 4px';
+  hdrDiv.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Type</div><div class="form-label">Disposition</div><div class="form-label">Qty Verified</div><div></div>';
+  linesDiv.appendChild(hdrDiv);
+
+  lines.forEach(l => {
+    // Container per line — holds one or more disposition split rows
+    const lineBlock = document.createElement('div');
+    lineBlock.className = 'fv-line-block';
+    lineBlock.dataset.lineId   = l.line_id;
+    lineBlock.dataset.partCode = l.part_code;
+    lineBlock.dataset.partName = (l.part_name||'').replace(/"/g,'&quot;');
+    lineBlock.dataset.qtyRaised = l.qty_raised || 0;
+    lineBlock.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:8px;margin-bottom:8px';
+
+    // Part info header row
+    const infoRow = document.createElement('div');
+    infoRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:6px';
+    infoRow.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--yellow)">${l.part_code}</span>
+        <span style="font-size:11px">${l.part_name||'—'}</span>
+        <span style="font-size:10px;color:var(--text3)">${l.return_type||'—'}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:10px;color:var(--text3)">Qty raised: <strong style="color:var(--text);font-family:var(--mono)">${l.qty_raised||0}</strong></span>
+        <button onclick="fvAddSplit(this)" style="background:none;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:10px;padding:2px 8px;border-radius:3px">+ Split</button>
+      </div>`;
+    lineBlock.appendChild(infoRow);
+
+    // First disposition row (pre-filled)
+    const splitDiv = fvMakeSplitRow(dispOpts, l.qty_raised || 0);
+    lineBlock.appendChild(splitDiv);
+
+    linesDiv.appendChild(lineBlock);
+  });
 }
 
 async function submitFlushVerification() {
@@ -5421,15 +5619,17 @@ async function submitFlushVerification() {
   const { flush } = currentFlushVerifyData;
 
   const dispositions = [];
-  document.querySelectorAll('.flush-verify-line').forEach(row => {
-    const lineId     = row.dataset.lineId;
-    const partCode   = row.dataset.partCode;
-    const partName   = row.dataset.partName;
-    const disp       = row.querySelector('.fv-disposition')?.value;
-    const qty        = parseFloat(row.querySelector('.fv-qty')?.value) || 0;
-    if (qty > 0) {
-      dispositions.push({ line_id: lineId, part_code: partCode, part_name: partName, disposition: disp, qty });
-    }
+  document.querySelectorAll('.fv-line-block').forEach(block => {
+    const lineId   = block.dataset.lineId;
+    const partCode = block.dataset.partCode;
+    const partName = block.dataset.partName;
+    block.querySelectorAll('.fv-split-row').forEach(row => {
+      const disp = row.querySelector('.fv-disposition')?.value;
+      const qty  = parseFloat(row.querySelector('.fv-qty')?.value) || 0;
+      if (qty > 0) {
+        dispositions.push({ line_id: lineId, part_code: partCode, part_name: partName, disposition: disp, qty });
+      }
+    });
   });
 
   if (!dispositions.length) { toast('Enter at least one verified quantity', 'error'); return; }
