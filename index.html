@@ -4815,7 +4815,7 @@ let currentWOType = 'Parts Request';
 
 function setWOType(type) {
   currentWOType = 'Parts Request';
-  if (!document.querySelector('#wo-pr-lines > div')) addWOPRLine();
+  // Don't add manual row on init — BOM mode is default
 }
 
 function addWOPRLine() {
@@ -4859,7 +4859,7 @@ function woSetMode(mode) {
   document.getElementById('wo-mode-bom').className    = 'btn ' + (mode === 'bom'    ? 'btn-primary' : 'btn-secondary');
   document.getElementById('wo-mode-manual').className = 'btn ' + (mode === 'manual' ? 'btn-primary' : 'btn-secondary');
   document.getElementById('wo-pr-lines').innerHTML = '';
-  if (mode === 'manual') addWOPRLine();
+  if (mode === 'manual' && !document.querySelector('#wo-pr-lines > div')) addWOPRLine();
 }
 
 async function woLoadCategories() {
@@ -5017,8 +5017,6 @@ async function loadWorkOrders() {
             <div style="display:flex;gap:4px">
               <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px"
                 onclick="cancelWO('${r.wo_no}','Cancelled')">Cancel</button>
-              <button class="btn btn-secondary" style="padding:2px 8px;font-size:10px;color:var(--red);border-color:var(--red)"
-                onclick="cancelWO('${r.wo_no}','Rejected')">Reject</button>
             </div>` : '—';
           return `<tr>
             <td class="mono" style="color:var(--yellow)">${r.wo_no||''}</td>
