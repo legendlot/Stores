@@ -1779,44 +1779,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
-      <!-- Ad Hoc direct issue (urgent, no WO) -->
-      <div class="panel" style="margin-top:16px">
-        <div class="panel-header">
-          <div class="panel-title">⚡ URGENT AD HOC ISSUE</div>
-          <span class="badge badge-red" style="font-size:9px">NO WO — DIRECT ISSUE</span>
-        </div>
-        <div class="panel-body">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">For urgent line requests with no advance notice. Use sparingly — production should use Ad Hoc Requests for traceability.</div>
-          <div class="form-grid" style="grid-template-columns:1fr 1fr">
-            <div class="form-group">
-              <label class="form-label">Reason</label>
-              <select class="form-select" id="adhoc-reason">
-                <option>Line Shortage</option><option>Damage Replacement</option>
-                <option>QC Rejection</option><option>Rework</option><option>Other</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Line</label>
-              <select class="form-select" id="adhoc-line">
-                <option>L1</option><option>L2</option><option>L3</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Shift</label>
-              <select class="form-select" id="adhoc-shift">
-                <option>Morning</option><option>Afternoon</option><option>Night</option>
-              </select>
-            </div>
-          </div>
-          <div class="section-label">Parts</div>
-          <div class="line-items" id="adhoc-lines"></div>
-          <button class="btn btn-secondary" onclick="addAdhocLine()" style="width:100%;margin-bottom:16px">+ ADD PART</button>
-          <div class="btn-row">
-            <button class="btn btn-danger" id="adhoc-submit-btn" onclick="submitAdhocIssue()">ISSUE PARTS</button>
-            <button class="btn btn-secondary" onclick="clearAdhocIssue()">CLEAR</button>
-          </div>
-        </div>
-      </div>
+
 
 
     </div>
