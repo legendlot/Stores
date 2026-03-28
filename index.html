@@ -1687,6 +1687,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
               <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em">PICK LIST — confirm actual quantities</div>
               <div style="display:flex;gap:6px">
+                <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="printIssueQueuePickList()">🖨 PRINT</button>
                 <button class="btn btn-secondary" style="padding:2px 10px;font-size:10px" onclick="issMarkAllPlanned()">ALL AS PLANNED</button>
               </div>
             </div>
@@ -5071,10 +5072,16 @@ async function loadIssueQueue() {
   tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
 
   // Fetch submitted runs + open ad hoc/rework WOs in parallel
-  const [runsRes, wosRes] = await Promise.all([
-    api('getProductionRuns', { status: 'Submitted' }),
-    api('getWorkOrders'),
-  ]);
+  let runsRes, wosRes;
+  try {
+    [runsRes, wosRes] = await Promise.all([
+      api('getProductionRuns', { status: 'Submitted' }),
+      api('getWorkOrders'),
+    ]);
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Error loading queue — ' + e.message + '</td></tr>';
+    return;
+  }
 
   const rows = [];
 
@@ -6975,6 +6982,105 @@ function toggleIssueBtn() {
   const checked = document.getElementById('pick-confirm-check')?.checked;
   const btn = document.getElementById('planned-submit-btn');
   if (btn) btn.disabled = !checked;
+}
+
+
+function printIssueQueuePickList() {
+  if (!issueQueueData) { toast('Load a request first', 'error'); return; }
+
+  const isRun   = issueQueueData.type === 'run';
+  const ref     = issueQueueData.ref;
+  const lines   = issueQueueData.lines || [];
+  const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+  let metaHtml = '';
+  let tableRows = '';
+
+  if (isRun) {
+    const { run, wos } = issueQueueData;
+    const totalUnits = wos.reduce((s,w) => s+(w.qty||0), 0);
+    metaHtml = `
+      <div class="meta-item"><label>Run No.</label><span>${ref}</span></div>
+      <div class="meta-item"><label>Product</label><span>${run.product}</span></div>
+      <div class="meta-item"><label>Total Units</label><span>${totalUnits}</span></div>
+      <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>
+      <div class="meta-item" style="grid-column:1/-1"><label>Variants</label><span>${wos.map(w=>(w.variant||'Common')+(w.colour?' '+w.colour:'')+' ×'+w.qty).join(' | ')}</span></div>`;
+    tableRows = lines.map(p => {
+      const isShort = (p.shortfall||0) > 0;
+      return `<tr style="${isShort?'background:#fff8f0':''}">
+        <td style="text-align:center;font-size:14pt">☐</td>
+        <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
+        <td>${p.part_name}</td>
+        <td style="color:#666;font-size:9pt">${p.category||'—'}</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty}</td>
+        <td style="text-align:right;font-family:monospace">${p.available}</td>
+        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60'}">${isShort?'SHORT −'+p.shortfall:'OK'}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    const wo = issueQueueData.wo;
+    metaHtml = `
+      <div class="meta-item"><label>WO No.</label><span>${ref}</span></div>
+      <div class="meta-item"><label>Type</label><span>Ad Hoc Request</span></div>
+      <div class="meta-item"><label>Line / Shift</label><span>${wo.line_no||'—'} / ${wo.shift||'—'}</span></div>
+      <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>`;
+    tableRows = lines.map(p => `<tr>
+        <td style="text-align:center;font-size:14pt">☐</td>
+        <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
+        <td>${p.part_name}</td>
+        <td style="color:#666;font-size:9pt">—</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty||p.qty_requested||0}</td>
+        <td style="text-align:right;font-family:monospace">${p.available||'—'}</td>
+        <td style="color:#27ae60">—</td>
+      </tr>`).join('');
+  }
+
+  const html_doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Pick List — ${ref}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;padding:12mm;color:#111;font-size:10pt}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #111}
+    .logo{font-size:18pt;font-weight:900;letter-spacing:-.5px}
+    .logo span{color:#f2cd1a}
+    .doc-type{font-size:13pt;font-weight:700;text-align:right;line-height:1.3}
+    .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 16px;margin-bottom:12px;padding:8px 10px;background:#f8f8f8;border-radius:3px}
+    .meta-item label{display:block;font-size:7.5pt;color:#666;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+    .meta-item span{font-size:11pt;font-weight:700}
+    table{width:100%;border-collapse:collapse;font-size:10pt}
+    th{background:#111;color:#fff;padding:6px 8px;text-align:left;font-size:8pt;letter-spacing:.5px;text-transform:uppercase}
+    td{padding:7px 8px;border-bottom:1px solid #ddd}
+    tr:last-child td{border-bottom:none}
+    .footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+    .sig-line{border-top:1px solid #111;padding-top:4px;font-size:8pt;color:#666;text-align:center;margin-top:30px}
+    @media print{@page{size:A4;margin:10mm}body{padding:0}}
+  </style></head><body>
+  <div class="header">
+    <div class="logo">LEGEND<span>OF</span>TOYS</div>
+    <div class="doc-type">PICK LIST<br><span style="font-size:9pt;color:#666;font-weight:400">Store → Production</span></div>
+  </div>
+  <div class="meta">${metaHtml}</div>
+  <table>
+    <thead><tr>
+      <th style="width:28px">✓</th>
+      <th>Part Code</th><th>Part Name</th><th>Category</th>
+      <th style="text-align:right">Qty Required</th>
+      <th style="text-align:right">In Stock</th>
+      <th>Status</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <div class="footer">
+    <div class="sig-line">Picked by (name + sign)</div>
+    <div class="sig-line">Checked by (name + sign)</div>
+    <div class="sig-line">Time issued</div>
+  </div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html_doc);
+  win.document.close();
 }
 
 function printPickList() {
