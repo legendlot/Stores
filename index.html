@@ -1579,43 +1579,15 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <div class="grid-2">
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">New Work Order</div>
-            <div style="display:flex;gap:4px">
-<button class="btn btn-primary" id="wo-type-pr" onclick="setWOType('Parts Request')" style="padding:3px 10px;font-size:10px">NEW AD HOC REQUEST</button>
-            </div>
+            <div class="panel-title">New Ad Hoc Request</div>
           </div>
           <div class="panel-body">
-
-                <div class="form-group">
-                  <label class="form-label">Variant</label>
-                  <select class="form-select" id="wo-variant" onchange="loadSubVariants('wo')">
-                    <option value="">Common only</option>
-                  </select>
-                </div>
-                <div class="form-group" id="wo-subvariant-group" style="display:none">
-                  <label class="form-label">Colour</label>
-                  <select class="form-select" id="wo-subvariant">
-                    <option value="">All colours</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Units to Build</label>
-                  <input class="form-input" type="number" id="wo-qty" placeholder="0" min="1">
-                </div>
-              </div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PARTS REQUESTED</div>
+            <div id="wo-pr-lines"></div>
+            <button class="btn btn-secondary" onclick="addWOPRLine()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD PART</button>
+            <div style="padding:8px 10px;background:rgba(33,60,226,.08);border:1px solid rgba(33,60,226,.2);border-radius:3px;font-size:11px;color:var(--blue);margin-bottom:12px">
+              ℹ Store will issue these parts from the Issue Queue
             </div>
-
-            <!-- Parts Request fields -->
-            <div id="wo-pr-fields">
-              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PARTS REQUESTED</div>
-              <div id="wo-pr-lines"></div>
-              <button class="btn btn-secondary" onclick="addWOPRLine()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD PART</button>
-              <div style="padding:8px 10px;background:rgba(33,60,226,.08);border:1px solid rgba(33,60,226,.2);border-radius:3px;font-size:11px;color:var(--blue);margin-bottom:12px">
-                ℹ Store will issue these parts from the Issue Queue
-              </div>
-            </div>
-
-            <!-- Common fields -->
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">Line</label>
@@ -1638,7 +1610,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <button class="btn btn-primary" onclick="createWO()">CREATE REQUEST</button>
             </div>
             <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
-              ℹ  Once created, this request appears in the store's <strong style="color:var(--text)">Issue Queue</strong>.
+              ℹ Once created, this request appears in the store's <strong style="color:var(--text)">Issue Queue</strong>.
             </div>
           </div>
         </div>
@@ -4748,9 +4720,7 @@ let createWOSubmitting = false;
 let currentWOType = 'Parts Request';
 
 function setWOType(type) {
-  currentWOType = type;
-  const prFields = document.getElementById('wo-pr-fields');
-  if (prFields) prFields.style.display = '';
+  currentWOType = 'Parts Request';
   if (!document.querySelector('#wo-pr-lines > div')) addWOPRLine();
 }
 
@@ -4784,32 +4754,21 @@ function addWOPRLine() {
 
 async function createWO() {
   if (createWOSubmitting) { toast('Already creating — please wait', 'info'); return; }
-  const isPR    = currentWOType === 'Parts Request';
   const line_no = document.getElementById('wo-line').value;
   const shift   = document.getElementById('wo-shift').value;
   const date    = formatDateForAPI(document.getElementById('wo-date').value);
 
-  let data = { wo_type: currentWOType, line_no, shift, date };
+  const parts = [];
+  document.querySelectorAll('#wo-pr-lines > div').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const pc  = inputs[0]?.value?.trim();
+    const pn  = inputs[1]?.value?.trim();
+    const qty = parseFloat(inputs[2]?.value) || 0;
+    if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
+  });
+  if (!parts.length) { toast('Add at least one part with a quantity', 'error'); return; }
 
-  if (isPR) {
-    const parts = [];
-    document.querySelectorAll('#wo-pr-lines > div').forEach(row => {
-      const inputs = row.querySelectorAll('input');
-      const pc = inputs[0]?.value?.trim();
-      const pn = inputs[1]?.value?.trim();
-      const qty = parseFloat(inputs[2]?.value) || 0;
-      if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
-    });
-    if (!parts.length) { toast('Add at least one part with a quantity', 'error'); return; }
-    data.parts = parts;
-  } else {
-    const product = document.getElementById('wo-product').value;
-    const variant = document.getElementById('wo-variant').value;
-    const colour  = document.getElementById('wo-subvariant')?.value || '';
-    const qty     = parseInt(document.getElementById('wo-qty').value) || 0;
-    if (!product || !qty) { toast('Select product and enter quantity', 'error'); return; }
-    Object.assign(data, { product, variant, colour, qty });
-  }
+  const data = { wo_type: 'Parts Request', line_no, shift, date, parts };
 
   const btn = document.querySelector('#view-workorder .btn-primary');
   try {
@@ -4817,24 +4776,12 @@ async function createWO() {
     if (btn) { btn.textContent = 'CREATING...'; btn.disabled = true; }
     const res = await apiPost('postWorkOrder', { data });
     if (res.ok) {
-      const desc = isPR
-        ? `✅ ${res.data.wo_no} created — Parts Request`
-        : `✅ ${res.data.wo_no} created — ${data.product} ${data.variant||''} ${data.colour||''} · ${data.qty} units`;
-      toast(desc, 'success');
-      // Reset form
-      if (!isPR) {
-        document.getElementById('wo-product').value = '';
-        document.getElementById('wo-variant').innerHTML = '<option value="">Common only</option>';
-        document.getElementById('wo-qty').value = '';
-        document.getElementById('wo-subvariant-group').style.display = 'none';
-      } else {
-        document.getElementById('wo-pr-lines').innerHTML = '';
-        addWOPRLine();
-      }
+      toast(`✅ ${res.data.wo_no} created — Ad Hoc Request`, 'success');
+      document.getElementById('wo-pr-lines').innerHTML = '';
+      addWOPRLine();
       loadWorkOrders();
-      refreshWODropdown();
-    } else { toast(res.error || 'Failed to create WO', 'error'); }
-  } catch(e) { toast('Error creating work order', 'error'); }
+    } else { toast(res.error || 'Failed to create request', 'error'); }
+  } catch(e) { toast('Error creating request', 'error'); }
   finally {
     createWOSubmitting = false;
     if (btn) { btn.textContent = 'CREATE REQUEST'; btn.disabled = false; }
