@@ -2688,12 +2688,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div id="pr-variant-rows"></div>
             <button class="btn btn-secondary" onclick="addPRVariantRow()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD VARIANT</button>
 
-            <div class="form-group">
+            <div class="form-group" style="margin-top:8px">
               <label class="form-label">Notes</label>
               <input class="form-input" type="text" id="pr-notes" placeholder="Optional">
             </div>
 
-            <div class="btn-row">
+            <div class="btn-row" style="margin-top:12px">
               <button class="btn btn-primary" onclick="createProductionRun()">CREATE &amp; SUBMIT RUN</button>
             </div>
             <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
@@ -2739,7 +2739,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div style="display:flex;gap:6px">
               <button class="btn btn-secondary" id="pr-btn-cancel" onclick="cancelProductionRun()" style="display:none">CANCEL RUN</button>
               <button class="btn btn-danger"    id="pr-btn-reject" onclick="showRejectRunModal()" style="display:none">REJECT RUN</button>
-              <button class="btn btn-primary"   id="pr-btn-issue"  onclick="showIssueRunPanel()" style="display:none">ISSUE THIS RUN →</button>
+              
               <button class="btn btn-secondary" onclick="document.getElementById('pr-detail-panel').style.display='none'">✕ Close</button>
             </div>
           </div>
@@ -5302,10 +5302,11 @@ async function openIssueQueueItem(type, ref) {
       });
       const kit = kitRes.ok ? kitRes.data.kit : [];
       issueQueueData = { type: 'wo', ref, wo, lines: kit };
-      title.textContent = `${ref} — ${wo.product||''} ${wo.variant||''} — ${wo.status==='Pending Rework'?'Rework':'Ad Hoc'}`;
+      title.textContent = `${ref} — ${wo.product||''} ${wo.variant||''} ${wo.colour?'('+wo.colour+')':''} — ${wo.status==='Pending Rework'?'Rework':'Ad Hoc'}`;
       document.getElementById('iss-detail-summary').innerHTML =
         `<div style="font-size:11px"><span style="color:var(--text3)">Product: </span>${wo.product||'—'}</div>
          <div style="font-size:11px"><span style="color:var(--text3)">Variant: </span>${wo.variant||'Common'}</div>
+         <div style="font-size:11px"><span style="color:var(--text3)">Colour: </span>${wo.colour||'—'}</div>
          <div style="font-size:11px"><span style="color:var(--text3)">Units: </span>${wo.qty}</div>`;
 
       tbody.innerHTML = kit.map(p => `
@@ -7484,17 +7485,17 @@ async function openProductionRun(runNo) {
   // Show/hide action buttons based on status and role
   const btnCancel = document.getElementById('pr-btn-cancel');
   const btnReject = document.getElementById('pr-btn-reject');
-  const btnIssue  = document.getElementById('pr-btn-issue');
+  const btnIssue  = null;
   btnCancel.style.display = 'none';
   btnReject.style.display = 'none';
-  btnIssue.style.display  = 'none';
+  if (btnIssue) btnIssue.style.display = 'none';
 
   if (['Draft','Submitted'].includes(run.status) && ['production','ops','vinay','super_admin'].includes(currentRole)) {
     btnCancel.style.display = '';
   }
   if (run.status === 'Submitted' && ['store','store_manager','ops','vinay','super_admin'].includes(currentRole)) {
     btnReject.style.display = '';
-    btnIssue.style.display  = '';
+    if (btnIssue) btnIssue.style.display = '';
   }
 
   // Show rejection reason if rejected
