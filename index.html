@@ -6165,7 +6165,7 @@ function toggleIssueQueueBtn() {
 
 
 function showIssueQueueRejectModal() {
-  if (!issueQueueData || issueQueueData.type !== 'run') return;
+  if (!issueQueueData) return;
   document.getElementById('iss-reject-reason').value = '';
   const modal = document.getElementById('iss-reject-modal');
   modal.style.display = 'flex';
