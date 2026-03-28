@@ -872,6 +872,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <div class="nav-group" id="navg-production">
         <button class="nav-group-btn" id="navg-btn-production">PRODUCTION</button>
         <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('prodruns')"  id="nav-prodruns">Production Runs</button>
           <button class="nav-dropdown-item" onclick="showView('workorder')" id="nav-workorder">Work Orders</button>
           <button class="nav-dropdown-item" onclick="showView('issue')"     id="nav-issue">Stock Issue</button>
           <button class="nav-dropdown-item" onclick="showView('lineflush')" id="nav-lineflush" style="display:none">Line Flush</button>
@@ -2720,6 +2721,164 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div> <!-- /view-procurement -->
 
+
+    <!-- ── PRODUCTION RUNS ── -->
+    <div class="view" id="view-prodruns">
+      <div class="page-header">
+        <div class="page-title">PRODUCTION RUNS</div>
+        <div class="page-subtitle">Plan and submit multi-variant production runs — store issues against the consolidated pick list</div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Left: Create Run -->
+        <div class="panel" id="prodrun-form-panel">
+          <div class="panel-header">
+            <div class="panel-title" id="prodrun-form-title">New Production Run</div>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="pr-product" onchange="prProductChanged()">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Run Date</label>
+                <input class="form-input" type="date" id="pr-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Line</label>
+                <select class="form-select" id="pr-line">
+                  <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shift</label>
+                <select class="form-select" id="pr-shift">
+                  <option>Morning</option><option>Afternoon</option><option>Night</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Variant rows -->
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin:12px 0 6px">VARIANTS TO BUILD</div>
+            <div id="pr-variant-rows"></div>
+            <button class="btn btn-secondary" onclick="addPRVariantRow()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD VARIANT</button>
+
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <input class="form-input" type="text" id="pr-notes" placeholder="Optional">
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="createProductionRun()">CREATE &amp; SUBMIT RUN</button>
+            </div>
+            <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
+              ℹ Run is created and immediately submitted to store. Store will see it in their issue queue.
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Run list -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Recent Runs</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <select class="form-select" id="pr-filter-status" onchange="loadProductionRuns()" style="padding:3px 8px;font-size:11px;width:130px">
+                <option value="">All Statuses</option>
+                <option value="Draft">Draft</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Issued">Issued</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+              <button class="btn btn-secondary" onclick="loadProductionRuns()" style="padding:3px 10px;font-size:11px">↻</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Run</th><th>Date</th><th>Product</th><th>Variants</th><th>Units</th><th>Status</th><th></th></tr></thead>
+              <tbody id="pr-list">
+                <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Run detail panel (hidden until a run is selected) -->
+      <div id="pr-detail-panel" style="display:none;margin-top:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title" id="pr-detail-title">Run Detail</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-secondary" id="pr-btn-cancel" onclick="cancelProductionRun()" style="display:none">CANCEL RUN</button>
+              <button class="btn btn-danger"    id="pr-btn-reject" onclick="showRejectRunModal()" style="display:none">REJECT RUN</button>
+              <button class="btn btn-primary"   id="pr-btn-issue"  onclick="showIssueRunPanel()" style="display:none">ISSUE THIS RUN →</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('pr-detail-panel').style.display='none'">✕ Close</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <!-- WOs summary -->
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">WORK ORDERS IN THIS RUN</div>
+            <div id="pr-detail-wos" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+
+            <!-- Pick list -->
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">CONSOLIDATED PICK LIST</div>
+            <div id="pr-picklist-summary" style="display:flex;gap:12px;margin-bottom:10px"></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Part Code</th><th>Part Name</th><th>Category</th><th>Required</th><th>In Stock</th><th>Shortfall</th><th>Status</th></tr></thead>
+                <tbody id="pr-picklist-body"></tbody>
+              </table>
+            </div>
+
+            <!-- Notes (shows rejection reason if rejected) -->
+            <div id="pr-detail-notes" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.2);border-radius:3px;font-size:12px;color:#ff5252"></div>
+          </div>
+        </div>
+
+        <!-- Issue panel (hidden until Issue button clicked) -->
+        <div id="pr-issue-panel" style="display:none;margin-top:16px">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Issue Against Run</div>
+              <button class="btn btn-secondary" onclick="document.getElementById('pr-issue-panel').style.display='none'" style="padding:3px 10px;font-size:11px">✕</button>
+            </div>
+            <div class="panel-body">
+              <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Review quantities below. You can adjust actual issued qty per part before submitting.</div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>Part Code</th><th>Part Name</th><th>BOM Required</th><th>In Stock</th><th>Actual Issue Qty</th></tr></thead>
+                  <tbody id="pr-issue-lines-body"></tbody>
+                </table>
+              </div>
+              <div class="btn-row" style="margin-top:12px">
+                <button class="btn btn-primary" onclick="submitRunIssue()">CONFIRM ISSUE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reject modal -->
+      <div id="pr-reject-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:24px;width:420px">
+          <div style="font-family:var(--mono);font-size:14px;color:var(--yellow);margin-bottom:16px">REJECT RUN</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px">This run will be rejected and production will need to create a new one. Provide a reason.</div>
+          <textarea class="form-input" id="pr-reject-reason" rows="3" placeholder="Reason for rejection..." style="width:100%;resize:vertical"></textarea>
+          <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+            <button class="btn btn-secondary" onclick="document.getElementById('pr-reject-modal').style.display='none'">CANCEL</button>
+            <button class="btn btn-danger" onclick="submitRejectRun()">REJECT RUN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /view-prodruns -->
+
     <!-- ── LINE FLUSH ── -->
     <div class="view" id="view-lineflush">
       <div class="page-header">
@@ -3441,6 +3600,7 @@ function launchApp() {
     'nav-stock':       () => P.stock && P.stock !== 'none',
     'nav-grn':         () => P.grn && P.grn !== 'none',
     'nav-receiving':   () => P.receiving && P.receiving !== 'none',
+    'nav-prodruns':    () => true,  // all roles can see production runs
     'nav-workorder':   () => P.work_order && P.work_order !== 'none',
     'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
     'nav-returns':     () => P.returns && P.returns !== 'none',
@@ -3624,6 +3784,7 @@ function refreshCurrent() {
     case 'dashboard': loadDashboard().then(done); break;
     case 'stock':     loadStock().then(done); break;
     case 'grn':       loadGRNHistory().then(done); break;
+    case 'prodruns':  initProdRuns(); done(); break;
     case 'workorder': loadWorkOrders().then(done); break;
     case 'issue':     loadIssueHistory().then(done); break;
     case 'returns':   loadReturnsHistory().then(done); break;
@@ -7032,6 +7193,341 @@ async function generateBagsForLineBtn(btn) {
   const row = btn.closest('tr');
   const lineId = row.dataset.lineId || row.dataset.line_id;
   await generateBagsForLine(lineId);
+}
+
+
+// ══ PRODUCTION RUNS ════════════════════════════════════════════
+
+let currentRunData = null; // { run, wos, pick_list }
+
+function initProdRuns() {
+  // Populate product dropdown
+  const sel = document.getElementById('pr-product');
+  sel.innerHTML = '<option value="">Select...</option>';
+  PRODUCTS.filter(p => !['Atlas','DASH','Nitro'].includes(p)).forEach(p => {
+    sel.innerHTML += `<option value="${p}">${PRODUCTS_DISPLAY[p]||p}</option>`;
+  });
+  // Default date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('pr-date').value = tomorrow.toISOString().split('T')[0];
+  loadProductionRuns();
+}
+
+function prProductChanged() {
+  document.getElementById('pr-variant-rows').innerHTML = '';
+  addPRVariantRow();
+}
+
+function addPRVariantRow() {
+  const product = document.getElementById('pr-product').value;
+  const container = document.getElementById('pr-variant-rows');
+  const idx = container.children.length;
+  const variants = product ? (PRODUCT_VARIANTS[product] || []) : [];
+  const subvariants = product ? (PRODUCT_SUBVARIANTS[product] || {}) : {};
+
+  const row = document.createElement('div');
+  row.className = 'pr-variant-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 80px 28px;gap:6px;margin-bottom:6px;align-items:end';
+  row.dataset.idx = idx;
+
+  const variantOpts = variants.map(v => `<option value="${v}">${v}</option>`).join('');
+  const variantSel  = variants.length
+    ? `<select class="form-select" onchange="prVariantRowChanged(this)" style="font-size:11px"><option value="">Common</option>${variantOpts}</select>`
+    : `<select class="form-select" disabled style="font-size:11px;opacity:.5"><option>Common</option></select>`;
+
+  row.innerHTML = `
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:9px">VARIANT</label>
+      ${variantSel}
+    </div>
+    <div class="form-group pr-colour-group" style="margin:0;display:none">
+      <label class="form-label" style="font-size:9px">COLOUR</label>
+      <select class="form-select pr-colour-sel" style="font-size:11px"><option value="">All</option></select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:9px">QTY</label>
+      <input class="form-input pr-qty" type="number" placeholder="0" min="1" style="font-size:11px">
+    </div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 0 2px;align-self:flex-end">×</button>
+  `;
+  container.appendChild(row);
+}
+
+function prVariantRowChanged(sel) {
+  const row        = sel.closest('.pr-variant-row');
+  const colourGroup= row.querySelector('.pr-colour-group');
+  const colourSel  = row.querySelector('.pr-colour-sel');
+  const product    = document.getElementById('pr-product').value;
+  const variant    = sel.value;
+  const colours    = (PRODUCT_SUBVARIANTS[product]||{})[variant] || [];
+  if (colours.length && variant) {
+    colourSel.innerHTML = '<option value="">All</option>' + colours.map(c => `<option value="${c}">${c}</option>`).join('');
+    colourGroup.style.display = '';
+  } else {
+    colourGroup.style.display = 'none';
+  }
+}
+
+async function createProductionRun() {
+  const product = document.getElementById('pr-product').value;
+  const date    = document.getElementById('pr-date').value;
+  const line    = document.getElementById('pr-line').value;
+  const shift   = document.getElementById('pr-shift').value;
+  const notes   = document.getElementById('pr-notes').value;
+  if (!product) return toast('Select a product', 'error');
+  if (!date)    return toast('Select a run date', 'error');
+
+  const rows = document.querySelectorAll('.pr-variant-row');
+  const variants = [];
+  for (const row of rows) {
+    const variantSel = row.querySelector('select');
+    const colourSel  = row.querySelector('.pr-colour-sel');
+    const qty        = parseInt(row.querySelector('.pr-qty').value) || 0;
+    if (!qty) continue;
+    variants.push({
+      variant: variantSel?.value || '',
+      colour:  colourSel?.value  || '',
+      qty,
+    });
+  }
+  if (!variants.length) return toast('Add at least one variant with a quantity', 'error');
+
+  const btn = document.querySelector('#prodrun-form-panel .btn-primary');
+  btn.textContent = 'CREATING...';
+  btn.disabled = true;
+  try {
+    // Step 1: create run
+    const res = await apiPost('createProductionRun', {
+      data: { product, run_date: date, line_no: line, shift, notes, variants }
+    });
+    if (!res.ok) { toast(res.error || 'Failed to create run', 'error'); return; }
+    const runNo = res.data.run_no;
+
+    // Step 2: immediately submit to store
+    const subRes = await apiPost('submitProductionRun', { data: { run_no: runNo } });
+    if (!subRes.ok) {
+      toast(`Run ${runNo} created but submit failed: ${subRes.error}`, 'error');
+    } else {
+      toast(`✅ Run ${runNo} created and submitted to store`, 'success');
+    }
+
+    // Reset form
+    document.getElementById('pr-product').value = '';
+    document.getElementById('pr-variant-rows').innerHTML = '';
+    document.getElementById('pr-notes').value = '';
+    loadProductionRuns();
+  } catch(e) {
+    toast('Error creating run', 'error');
+  } finally {
+    btn.textContent = 'CREATE & SUBMIT RUN';
+    btn.disabled = false;
+  }
+}
+
+async function loadProductionRuns() {
+  const status = document.getElementById('pr-filter-status')?.value || '';
+  const tbody  = document.getElementById('pr-list');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  const res = await api('getProductionRuns', status ? `&status=${encodeURIComponent(status)}` : '');
+  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading runs</td></tr>`; return; }
+  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No production runs yet</td></tr>`; return; }
+
+  const statusColour = {
+    'Draft':'var(--text3)', 'Submitted':'var(--blue)', 'Issued':'var(--yellow)',
+    'In Progress':'var(--yellow)', 'Completed':'var(--green)',
+    'Rejected':'#ff5252', 'Cancelled':'var(--text3)',
+  };
+
+  tbody.innerHTML = res.data.map(r => {
+    const variantStr = (r.variants||[]).map(v => `${v.variant||'Common'}${v.colour?' '+v.colour:''} ×${v.qty}`).join(', ');
+    const colour = statusColour[r.status] || 'var(--text)';
+    return `<tr>
+      <td style="font-family:var(--mono);color:var(--yellow)">${r.run_no}</td>
+      <td>${r.run_date||''}</td>
+      <td>${r.product||''}</td>
+      <td style="font-size:10px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${variantStr}">${variantStr||'—'}</td>
+      <td>${r.total_units||0}</td>
+      <td style="color:${colour};font-family:var(--mono);font-size:10px">${r.status}</td>
+      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun('${r.run_no}')">VIEW</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openProductionRun(runNo) {
+  const panel = document.getElementById('pr-detail-panel');
+  panel.style.display = 'block';
+  document.getElementById('pr-detail-title').textContent = `Run ${runNo} — Loading...`;
+  document.getElementById('pr-picklist-body').innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  document.getElementById('pr-detail-wos').innerHTML = '';
+  document.getElementById('pr-issue-panel').style.display = 'none';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const res = await api('getProductionRun', `&run_no=${encodeURIComponent(runNo)}`);
+  if (!res.ok) { toast('Failed to load run', 'error'); return; }
+
+  currentRunData = res.data;
+  const { run, wos, pick_list } = res.data;
+
+  document.getElementById('pr-detail-title').textContent = `${run.run_no} — ${run.product} — ${run.status}`;
+
+  // WO chips
+  document.getElementById('pr-detail-wos').innerHTML = wos.map(wo =>
+    `<div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px">
+      <span style="font-family:var(--mono);color:var(--yellow)">${wo.wo_no}</span>
+      <span style="color:var(--text3);margin:0 6px">·</span>
+      <span>${wo.variant||'Common'}${wo.colour?' '+wo.colour:''}</span>
+      <span style="color:var(--text3);margin:0 6px">·</span>
+      <span style="color:var(--blue)">${wo.qty} units</span>
+    </div>`
+  ).join('');
+
+  // Pick list summary
+  const shorts = pick_list.filter(p => p.status === 'SHORT').length;
+  document.getElementById('pr-picklist-summary').innerHTML = `
+    <div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px">
+      <span style="color:var(--text3)">Parts: </span><strong>${pick_list.length}</strong>
+    </div>
+    <div style="padding:6px 12px;background:${shorts?'rgba(255,82,82,.08)':'rgba(39,174,96,.08)'};border:1px solid ${shorts?'rgba(255,82,82,.3)':'rgba(39,174,96,.3)'};border-radius:3px;font-size:11px">
+      <span style="color:var(--text3)">Short: </span><strong style="color:${shorts?'#ff5252':'var(--green)'}">${shorts}</strong>
+    </div>
+    <div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px">
+      <span style="color:var(--text3)">Total units: </span><strong>${wos.reduce((s,w)=>s+(w.qty||0),0)}</strong>
+    </div>
+  `;
+
+  // Pick list table
+  document.getElementById('pr-picklist-body').innerHTML = pick_list.map(p => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
+      <td>${p.part_name}</td>
+      <td style="color:var(--text3);font-size:11px">${p.category||''}</td>
+      <td style="font-family:var(--mono)">${p.total_qty}</td>
+      <td style="font-family:var(--mono)">${p.available}</td>
+      <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.shortfall>0?'-'+p.shortfall:'—'}</td>
+      <td><span style="font-size:10px;font-family:var(--mono);color:${p.status==='SHORT'?'#ff5252':'var(--green)'}">${p.status}</span></td>
+    </tr>
+  `).join('');
+
+  // Show/hide action buttons based on status and role
+  const btnCancel = document.getElementById('pr-btn-cancel');
+  const btnReject = document.getElementById('pr-btn-reject');
+  const btnIssue  = document.getElementById('pr-btn-issue');
+  btnCancel.style.display = 'none';
+  btnReject.style.display = 'none';
+  btnIssue.style.display  = 'none';
+
+  if (['Draft','Submitted'].includes(run.status) && ['production','ops','vinay'].includes(currentRole)) {
+    btnCancel.style.display = '';
+  }
+  if (run.status === 'Submitted' && ['store','store_manager','ops','vinay'].includes(currentRole)) {
+    btnReject.style.display = '';
+    btnIssue.style.display  = '';
+  }
+
+  // Show rejection reason if rejected
+  const notesDiv = document.getElementById('pr-detail-notes');
+  if (run.notes && run.notes.includes('[REJECTED')) {
+    notesDiv.textContent = run.notes;
+    notesDiv.style.display = '';
+  } else {
+    notesDiv.style.display = 'none';
+  }
+}
+
+async function cancelProductionRun() {
+  if (!currentRunData) return;
+  const reason = prompt('Reason for cancellation (optional):') || '';
+  const res = await apiPost('cancelProductionRun', {
+    data: { run_no: currentRunData.run.run_no, reason }
+  });
+  if (res.ok) {
+    toast(`Run ${currentRunData.run.run_no} cancelled`, 'success');
+    document.getElementById('pr-detail-panel').style.display = 'none';
+    loadProductionRuns();
+  } else {
+    toast(res.error || 'Failed to cancel run', 'error');
+  }
+}
+
+function showRejectRunModal() {
+  document.getElementById('pr-reject-reason').value = '';
+  document.getElementById('pr-reject-modal').style.display = 'flex';
+}
+
+async function submitRejectRun() {
+  const reason = document.getElementById('pr-reject-reason').value.trim();
+  if (!reason) return toast('Please provide a rejection reason', 'error');
+  if (!currentRunData) return;
+  const res = await apiPost('rejectProductionRun', {
+    data: { run_no: currentRunData.run.run_no, reason }
+  });
+  document.getElementById('pr-reject-modal').style.display = 'none';
+  if (res.ok) {
+    toast(`Run ${currentRunData.run.run_no} rejected`, 'success');
+    document.getElementById('pr-detail-panel').style.display = 'none';
+    loadProductionRuns();
+  } else {
+    toast(res.error || 'Failed to reject run', 'error');
+  }
+}
+
+function showIssueRunPanel() {
+  if (!currentRunData) return;
+  const { pick_list } = currentRunData;
+  const panel = document.getElementById('pr-issue-panel');
+  const tbody  = document.getElementById('pr-issue-lines-body');
+
+  tbody.innerHTML = pick_list.map((p, i) => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
+      <td style="font-size:11px">${p.part_name}</td>
+      <td style="font-family:var(--mono)">${p.total_qty}</td>
+      <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.available}</td>
+      <td><input class="form-input issue-actual-qty" type="number" min="0" value="${p.total_qty}"
+        data-part-code="${p.part_code}" data-part-name="${p.part_name.replace(/"/g,'&quot;')}"
+        style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>
+    </tr>
+  `).join('');
+
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function submitRunIssue() {
+  if (!currentRunData) return;
+  const inputs = document.querySelectorAll('.issue-actual-qty');
+  const lines  = [];
+  for (const inp of inputs) {
+    const qty = parseFloat(inp.value) || 0;
+    lines.push({
+      part_code:      inp.dataset.partCode,
+      part_name:      inp.dataset.partName,
+      actual_issued:  qty,
+    });
+  }
+
+  const btn = document.querySelector('#pr-issue-panel .btn-primary');
+  btn.textContent = 'ISSUING...';
+  btn.disabled = true;
+  try {
+    const res = await apiPost('issueAgainstRun', {
+      data: { run_no: currentRunData.run.run_no, lines }
+    });
+    if (res.ok) {
+      toast(`✅ Run issued — ${res.data.issue_no} · ${res.data.wos_completed} WOs completed · ${res.data.stock_updated} parts updated`, 'success');
+      document.getElementById('pr-issue-panel').style.display = 'none';
+      document.getElementById('pr-detail-panel').style.display = 'none';
+      loadProductionRuns();
+    } else {
+      toast(res.error || 'Issue failed', 'error');
+    }
+  } catch(e) {
+    toast('Error submitting issue', 'error');
+  } finally {
+    btn.textContent = 'CONFIRM ISSUE';
+    btn.disabled = false;
+  }
 }
 
 // ══ LINE FLUSH ════════════════════════════════════════════════
