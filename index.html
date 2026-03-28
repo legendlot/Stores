@@ -5940,6 +5940,7 @@ async function submitFlushVerification() {
 
 // ══ ISSUE QUEUE ══════════════════════════════════════════════
 let issueQueueData  = null; // current selected item { type: 'run'|'wo', data, lines }
+const rejectedRefs  = new Set(); // client-side filter to prevent flash-back after reject
 let issueQueueSubmitting = false;
 
 async function loadIssueQueue() {
@@ -5961,7 +5962,7 @@ async function loadIssueQueue() {
     return;
   }
 
-  const rows = [];
+  let rows = [];
 
   // 1. Production Runs first
   if (runsRes.ok) {
@@ -6193,11 +6194,11 @@ async function submitIssueQueueReject() {
     toast(`${rejectedRef} rejected`, 'success');
     document.getElementById('iss-detail-panel').style.display = 'none';
     issueQueueData = null;
-    // Remove row from DOM immediately, then reload after brief delay for DB propagation
+    rejectedRefs.add(rejectedRef);
     document.querySelectorAll('#issue-queue-body tr').forEach(row => {
       if (row.textContent.includes(rejectedRef)) row.remove();
     });
-    setTimeout(() => loadIssueQueue(), 500);
+    setTimeout(() => loadIssueQueue(), 800);
   } else {
     toast(res.error || 'Failed to reject', 'error');
   }
@@ -6659,7 +6660,9 @@ async function loadShipments() {
     const res = await api('getShipments');
     if (!res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; return; }
     const rows = res.data || [];
-    tbody.innerHTML = rows.length ? rows.map(r => {
+    // Filter out any client-side rejected refs (prevents flash-back after reject)
+  rows = rows.filter(r => !rejectedRefs.has(r.ref));
+  tbody.innerHTML = rows.length ? rows.map(r => {
       const progress = r.parts_total > 0
         ? (r.parts_grn_raised||0)+'/'+r.parts_total+' GRN-d'
         : (r.marks_received||0)+'/'+(r.marks_total||0)+' boxes';
@@ -6989,7 +6992,9 @@ async function loadPOs() {
     const res = await api('getPOs', params);
     if (!res.ok) { tbody.innerHTML = '<tr><td colspan="11" class="empty">Error loading POs</td></tr>'; return; }
     const rows = res.data || [];
-    tbody.innerHTML = rows.length ? rows.map(r => {
+    // Filter out any client-side rejected refs (prevents flash-back after reject)
+  rows = rows.filter(r => !rejectedRefs.has(r.ref));
+  tbody.innerHTML = rows.length ? rows.map(r => {
       const sc  = PO_STATUS_COLORS[r.status] || 'badge-gray';
       const val = r.currency + ' ' + (r.po_value ? Number(r.po_value).toLocaleString('en-IN') : '—');
       const srcBadge = r.source === 'China' ? 'badge-blue' : r.source === 'India' ? 'badge-green' : 'badge-gray';
@@ -8607,7 +8612,9 @@ async function loadFlushes() {
     if (strip) { strip.style.display = pending > 0 ? 'flex' : 'none'; }
     const countEl = document.getElementById('lf-pending-count');
     if (countEl) countEl.textContent = pending;
-    tbody.innerHTML = rows.length ? rows.map(r => {
+    // Filter out any client-side rejected refs (prevents flash-back after reject)
+  rows = rows.filter(r => !rejectedRefs.has(r.ref));
+  tbody.innerHTML = rows.length ? rows.map(r => {
       const sc = LF_STATUS_COLORS[r.status] || 'badge-gray';
       const dmg = (r.damaged_lines||0) + (r.rejected_lines||0);
       return `<tr style="cursor:pointer" onclick="openFlush('${r.flush_id}')">
@@ -9050,7 +9057,9 @@ async function loadQuarantine() {
     const rows = res.data || [];
     const badge = document.getElementById('quarantine-count-badge');
     if (badge) badge.textContent = rows.length + ' items';
-    tbody.innerHTML = rows.length ? rows.map(r => {
+    // Filter out any client-side rejected refs (prevents flash-back after reject)
+  rows = rows.filter(r => !rejectedRefs.has(r.ref));
+  tbody.innerHTML = rows.length ? rows.map(r => {
       const rtColor = r.return_type === 'Damaged' || r.return_type === 'QC Rejected' ? 'badge-red' : 'badge-yellow';
       return `<tr>
         <td class="mono" style="font-size:10px;color:var(--text3)">${r.disp_id}</td>
