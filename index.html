@@ -1662,7 +1662,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue No.</th><th>Type</th><th>WO</th><th>Product</th><th>Variant</th><th>Units</th><th>Date</th></tr></thead>
+              <thead><tr><th>Issue No.</th><th>Type</th><th>WO</th><th>Product</th><th>Variant</th><th>Colour</th><th>Units</th><th>Date</th></tr></thead>
               <tbody id="issue-history">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -5630,6 +5630,7 @@ async function loadIssueHistory() {
       <td style="font-family:var(--mono);font-size:10px">${r.wo_no||'—'}</td>
       <td>${r.product||''}</td>
       <td>${r.variant||''}</td>
+      <td style="color:var(--text3);font-size:11px">${r.colour||'—'}</td>
       <td style="font-family:var(--mono)">${r.units_planned||''}</td>
       <td>${r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : ''}</td>
     </tr>`).join('');
