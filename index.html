@@ -1580,11 +1580,43 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="panel">
           <div class="panel-header">
             <div class="panel-title">New Ad Hoc Request</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary" id="wo-mode-bom" onclick="woSetMode('bom')" style="padding:3px 10px;font-size:10px">BOM-BASED</button>
+              <button class="btn btn-secondary" id="wo-mode-manual" onclick="woSetMode('manual')" style="padding:3px 10px;font-size:10px">MANUAL</button>
+            </div>
           </div>
           <div class="panel-body">
-            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PARTS REQUESTED</div>
-            <div id="wo-pr-lines"></div>
-            <button class="btn btn-secondary" onclick="addWOPRLine()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD PART</button>
+
+            <!-- BOM-based mode -->
+            <div id="wo-bom-mode">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+                <div class="form-group">
+                  <label class="form-label">Product</label>
+                  <select class="form-select" id="wo-bom-product" onchange="woLoadCategories()">
+                    <option value="">Select product...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Category</label>
+                  <select class="form-select" id="wo-bom-category">
+                    <option value="">Select product first...</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="woAddCategory()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD CATEGORY TO REQUEST</button>
+            </div>
+
+            <!-- Manual mode -->
+            <div id="wo-manual-mode" style="display:none">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PARTS REQUESTED</div>
+            </div>
+
+            <!-- Shared parts list -->
+            <div id="wo-pr-lines" style="max-height:400px;overflow-y:auto;margin-bottom:8px"></div>
+            <div id="wo-manual-add-btn" style="display:none">
+              <button class="btn btn-secondary" onclick="addWOPRLine()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD PART</button>
+            </div>
+
             <div style="padding:8px 10px;background:rgba(33,60,226,.08);border:1px solid rgba(33,60,226,.2);border-radius:3px;font-size:11px;color:var(--blue);margin-bottom:12px">
               ℹ Store will issue these parts from the Issue Queue
             </div>
@@ -3750,7 +3782,7 @@ function showView(name) {
     }
   }
   if (name === 'prodruns')   { initProdRuns(); }
-  if (name === 'workorder')  { setWOType('Parts Request'); }
+  if (name === 'workorder')  { setWOType('Parts Request'); woInitBOMProducts(); }
   if (name === 'activity')   { loadActivityLog(); }
   if (name === 'manpower')   { initManpower(); }
   if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
@@ -4814,6 +4846,104 @@ function addWOPRLine() {
   container.appendChild(div);
 }
 
+
+// ── AD HOC REQUEST — BOM MODE ─────────────────────────────────
+let woMode = 'bom';
+let woBOMCache = {}; // product → bom rows
+
+function woSetMode(mode) {
+  woMode = mode;
+  document.getElementById('wo-bom-mode').style.display    = mode === 'bom'    ? '' : 'none';
+  document.getElementById('wo-manual-mode').style.display = mode === 'manual' ? '' : 'none';
+  document.getElementById('wo-manual-add-btn').style.display = mode === 'manual' ? '' : 'none';
+  document.getElementById('wo-mode-bom').className    = 'btn ' + (mode === 'bom'    ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('wo-mode-manual').className = 'btn ' + (mode === 'manual' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('wo-pr-lines').innerHTML = '';
+  if (mode === 'manual') addWOPRLine();
+}
+
+async function woLoadCategories() {
+  const product = document.getElementById('wo-bom-product').value;
+  const catSel  = document.getElementById('wo-bom-category');
+  catSel.innerHTML = '<option value="">Loading...</option>';
+  if (!product) { catSel.innerHTML = '<option value="">Select product first...</option>'; return; }
+
+  // Fetch BOM if not cached
+  if (!woBOMCache[product]) {
+    const res = await api('getBOM', { product });
+    if (!res.ok) { catSel.innerHTML = '<option value="">Error</option>'; return; }
+    woBOMCache[product] = res.data;
+  }
+
+  const cats = [...new Set(woBOMCache[product].map(r => r.part_category).filter(Boolean))].sort();
+  catSel.innerHTML = '<option value="">Select category...</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function woAddCategory() {
+  const product  = document.getElementById('wo-bom-product').value;
+  const category = document.getElementById('wo-bom-category').value;
+  if (!product)  { toast('Select a product first', 'error'); return; }
+  if (!category) { toast('Select a category', 'error'); return; }
+
+  const bom     = woBOMCache[product] || [];
+  const parts   = bom.filter(r => r.part_category === category);
+  if (!parts.length) { toast('No parts in this category', 'error'); return; }
+
+  const container = document.getElementById('wo-pr-lines');
+
+  // Check for duplicates — get already-added part codes
+  const existing = new Set();
+  container.querySelectorAll('.wo-bom-row').forEach(r => existing.add(r.dataset.partCode));
+
+  const newParts = parts.filter(p => !existing.has(p.part_code));
+  if (!newParts.length) { toast('All parts from this category are already added', 'info'); return; }
+
+  // Category header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;padding:8px 4px 4px;border-top:1px solid var(--border);margin-top:4px';
+  hdr.textContent = category.toUpperCase() + ` (${newParts.length} parts)`;
+  container.appendChild(hdr);
+
+  // Part rows
+  newParts.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'wo-bom-row';
+    row.dataset.partCode = p.part_code;
+    row.dataset.partName = p.part_name;
+    row.style.cssText = 'display:grid;grid-template-columns:130px 1fr 90px;gap:8px;margin-bottom:4px;align-items:center;padding:2px 4px';
+
+    const codeSpan = document.createElement('div');
+    codeSpan.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--yellow)';
+    codeSpan.textContent = p.part_code;
+
+    const nameSpan = document.createElement('div');
+    nameSpan.style.cssText = 'font-size:11px';
+    nameSpan.textContent = p.part_name;
+
+    const qtyInput = Object.assign(document.createElement('input'), {
+      className: 'form-input', type: 'number', placeholder: '0', min: '0',
+      style: 'font-size:11px;text-align:right;padding:3px 6px'
+    });
+
+    [codeSpan, nameSpan, qtyInput].forEach(el => row.appendChild(el));
+    container.appendChild(row);
+  });
+
+  // Reset category select
+  document.getElementById('wo-bom-category').value = '';
+  toast(`${newParts.length} parts added from ${category}`, 'success');
+}
+
+function woInitBOMProducts() {
+  const sel = document.getElementById('wo-bom-product');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product...</option>';
+  PRODUCTS.forEach(p => {
+    sel.innerHTML += `<option value="${p}">${PRODUCTS_DISPLAY[p]||p}</option>`;
+  });
+}
+
 async function createWO() {
   if (createWOSubmitting) { toast('Already creating — please wait', 'info'); return; }
   const line_no = document.getElementById('wo-line').value;
@@ -4821,13 +4951,24 @@ async function createWO() {
   const date    = formatDateForAPI(document.getElementById('wo-date').value);
 
   const parts = [];
-  document.querySelectorAll('#wo-pr-lines > div').forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    const pc  = inputs[0]?.value?.trim();
-    const pn  = inputs[1]?.value?.trim();
-    const qty = parseFloat(inputs[2]?.value) || 0;
-    if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
-  });
+  if (woMode === 'bom') {
+    // Collect BOM rows — only non-zero qtys
+    document.querySelectorAll('#wo-pr-lines .wo-bom-row').forEach(row => {
+      const pc  = row.dataset.partCode;
+      const pn  = row.dataset.partName;
+      const qty = parseFloat(row.querySelector('input')?.value) || 0;
+      if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
+    });
+  } else {
+    // Manual rows
+    document.querySelectorAll('#wo-pr-lines > div').forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const pc  = inputs[0]?.value?.trim();
+      const pn  = inputs[1]?.value?.trim();
+      const qty = parseFloat(inputs[2]?.value) || 0;
+      if (pc && qty > 0) parts.push({ part_code: pc, part_name: pn||'', qty_requested: qty });
+    });
+  }
   if (!parts.length) { toast('Add at least one part with a quantity', 'error'); return; }
 
   const data = { wo_type: 'Parts Request', line_no, shift, date, parts };
@@ -4838,9 +4979,11 @@ async function createWO() {
     if (btn) { btn.textContent = 'CREATING...'; btn.disabled = true; }
     const res = await apiPost('postWorkOrder', { data });
     if (res.ok) {
-      toast(`✅ ${res.data.wo_no} created — Ad Hoc Request`, 'success');
+      toast(`✅ ${res.data.wo_no} created — Ad Hoc Request · ${parts.length} parts`, 'success');
       document.getElementById('wo-pr-lines').innerHTML = '';
-      addWOPRLine();
+      document.getElementById('wo-bom-product').value = '';
+      document.getElementById('wo-bom-category').value = '';
+      if (woMode === 'manual') addWOPRLine();
       loadWorkOrders();
     } else { toast(res.error || 'Failed to create request', 'error'); }
   } catch(e) { toast('Error creating request', 'error'); }
