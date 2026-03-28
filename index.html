@@ -5467,6 +5467,8 @@ async function loadIssueQueue() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
 
+  // Ensure material cache is loaded for product lookup
+  await ensureMaterialCache();
   // Fetch submitted runs + open ad hoc/rework WOs in parallel
   let runsRes, wosRes;
   try {
@@ -7465,7 +7467,7 @@ async function printIssueQueuePickList() {
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
-        <td style="color:#555;font-size:9pt">${bagMap[p.part_code] ? (Object.values(materialCache).find(m=>m.part_code===p.part_code)?.product||'—') : '—'}</td>
+        <td style="color:#555;font-size:9pt">${(materialCache[p.part_code]||{}).product||'—'}</td>
         <td style="color:#666;font-size:9pt">${p.category||'—'}</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty}</td>
         <td style="text-align:right;font-family:monospace">${p.available}</td>
@@ -7491,7 +7493,7 @@ async function printIssueQueuePickList() {
         <td style="text-align:center;font-size:14pt">☐</td>
         <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
         <td>${p.part_name}</td>
-        <td style="color:#555;font-size:9pt">${bagMap[p.part_code] ? (Object.values(materialCache).find(m=>m.part_code===p.part_code)?.product||'—') : '—'}</td>
+        <td style="color:#555;font-size:9pt">${(materialCache[p.part_code]||{}).product||'—'}</td>
         <td style="color:#666;font-size:9pt">—</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${qty}</td>
         <td style="text-align:right;font-family:monospace">${avail||'—'}</td>
