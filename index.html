@@ -7516,12 +7516,20 @@ async function printPastIssue(issueNo, woNo, product, variant, units) {
     <div class="sig-line">Checked by (name + sign)</div>
     <div class="sig-line">Time issued</div>
   </div>
-  <script>window.onload=function(){window.print();}<\/script>
   </body></html>`;
 
-  const win = window.open('', '_blank');
-  win.document.write(html_doc);
-  win.document.close();
+  // Use iframe to avoid blocking main tab
+  let iframe = document.getElementById('_print_iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = '_print_iframe';
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px';
+    document.body.appendChild(iframe);
+  }
+  iframe.srcdoc = html_doc;
+  iframe.onload = function() {
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) {}
+  };
 }
 
 async function printIssueQueuePickList() {
@@ -7636,12 +7644,20 @@ async function printIssueQueuePickList() {
     <div class="sig-line">Checked by (name + sign)</div>
     <div class="sig-line">Time issued</div>
   </div>
-  <script>window.onload=function(){window.print();}<\/script>
   </body></html>`;
 
-  const win = window.open('', '_blank');
-  win.document.write(html_doc);
-  win.document.close();
+  // Use iframe to avoid blocking main tab
+  let iframe = document.getElementById('_print_iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = '_print_iframe';
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:-9999px';
+    document.body.appendChild(iframe);
+  }
+  iframe.srcdoc = html_doc;
+  iframe.onload = function() {
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) {}
+  };
 }
 
 function printPickList() {
@@ -7717,7 +7733,6 @@ function printPickList() {
     <div class="sig-line">Checked by (name)</div>
     <div class="sig-line">Time issued</div>
   </div>
-  <script>window.onload=function(){window.print();}<\/script>
   </body></html>`;
 
   const win = window.open('', '_blank');
