@@ -6179,6 +6179,7 @@ async function submitIssueQueueReject() {
   if (!reason) { toast('Please provide a rejection reason', 'error'); return; }
   if (!issueQueueData) return;
 
+  if (!issueQueueData) { toast('No item selected', 'error'); return; }
   let res;
   if (issueQueueData.type === 'run') {
     res = await apiPost('rejectProductionRun', {
@@ -6200,6 +6201,8 @@ async function submitIssueQueueReject() {
     document.querySelectorAll('#issue-queue-body tr').forEach(row => {
       if (row.textContent.includes(rejectedRef)) row.remove();
     });
+    // Also reload production WO list if it's currently visible
+    if (document.getElementById('view-workorder')?.classList.contains('active')) loadWOList();
     setTimeout(() => loadIssueQueue(), 800);
   } else {
     toast(res.error || 'Failed to reject', 'error');
