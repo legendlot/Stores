@@ -3744,7 +3744,7 @@ function showView(name) {
   const VIEW_TO_GROUP = {
     dashboard:'overview', activity:'overview', reports:'overview',
     stock:'inventory', grn:'inventory', receiving:'inventory',
-    workorder:'production', issue:'production', lineflush:'production',
+    prodruns:'production', workorder:'production', issue:'production', lineflush:'production',
     returns:'outbound', manpower:'people', procurement:'procurement', users:'admin',
   };
   const groupId = VIEW_TO_GROUP[name];
@@ -3770,6 +3770,7 @@ function showView(name) {
       fromEl.value = d30.toISOString().split('T')[0];
     }
   }
+  if (name === 'prodruns')   { initProdRuns(); }
   if (name === 'activity')   { loadActivityLog(); }
   if (name === 'manpower')   { initManpower(); }
   if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
@@ -7204,7 +7205,7 @@ function initProdRuns() {
   // Populate product dropdown
   const sel = document.getElementById('pr-product');
   sel.innerHTML = '<option value="">Select...</option>';
-  PRODUCTS.filter(p => !['Atlas','DASH','Nitro'].includes(p)).forEach(p => {
+  PRODUCTS.forEach(p => {
     sel.innerHTML += `<option value="${p}">${PRODUCTS_DISPLAY[p]||p}</option>`;
   });
   // Default date to tomorrow
