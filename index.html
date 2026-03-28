@@ -3675,7 +3675,7 @@ function showView(name) {
     if (groupBtn) groupBtn.classList.add('active');
   }
   if (name === 'issue') {
-    if (!document.querySelector('#adhoc-lines .line-item')) addAdhocLine();
+    setTimeout(() => { loadIssueQueue(); loadIssueHistory(); }, 0);
   }
   if (name === 'receiving') {
     ensureMaterialCache();
@@ -3706,7 +3706,7 @@ function refreshCurrent() {
     case 'grn':       loadGRNHistory().then(done); break;
     case 'prodruns':  initProdRuns(); done(); break;
     case 'workorder': loadWorkOrders().then(done); break;
-    case 'issue':     loadIssueQueue(); loadIssueHistory(); done(); break;
+    case 'issue':     done(); break;
     case 'returns':   loadReturnsHistory().then(done); break;
     default: done();
   }
@@ -5062,6 +5062,77 @@ function toast(msg, type = 'info') {
   container.appendChild(el);
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
 }
+
+function addAdhocLine() {
+  ensureMaterialCache();
+  const container = document.getElementById('adhoc-lines');
+  const div = document.createElement('div');
+  div.className = 'line-item';
+  div.style.cssText = 'display:grid;grid-template-columns:130px 1fr 90px 24px;gap:6px;margin-bottom:6px;align-items:start';
+  const pcInput = Object.assign(document.createElement('input'), {
+    className:'form-input mono', placeholder:'Part code', style:'font-size:11px;text-transform:uppercase'
+  });
+  pcInput.oninput = function(){ this.value = this.value.toUpperCase(); };
+  pcInput.onblur = function(){
+    const code = this.value.trim();
+    const nm = this.closest('div').querySelectorAll('input')[1];
+    if (code && materialCache[code]) nm.value = materialCache[code].part_name || '';
+  };
+  const nmInput  = Object.assign(document.createElement('input'), { className:'form-input', placeholder:'Part name', style:'font-size:11px' });
+  const qtyInput = Object.assign(document.createElement('input'), { className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:11px;text-align:right' });
+  const rmBtn    = Object.assign(document.createElement('button'), { style:'background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0', innerHTML:'×' });
+  rmBtn.onclick  = () => div.remove();
+  [pcInput, nmInput, qtyInput, rmBtn].forEach(el => div.appendChild(el));
+  container.appendChild(div);
+}
+
+function clearAdhocIssue() {
+  document.getElementById('adhoc-lines').innerHTML = '';
+  document.getElementById('adhoc-reason').value = 'Line Shortage';
+  document.getElementById('adhoc-line').value   = 'L1';
+  document.getElementById('adhoc-shift').value  = 'Morning';
+  addAdhocLine();
+}
+
+async function submitAdhocIssue() {
+  const lines = [];
+  document.querySelectorAll('#adhoc-lines .line-item').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const pc  = inputs[0]?.value?.trim();
+    const pn  = inputs[1]?.value?.trim();
+    const qty = parseFloat(inputs[2]?.value) || 0;
+    if (pc && qty > 0) lines.push({ part_code: pc, part_name: pn||'', bom_qty: qty, actual_qty: qty });
+  });
+  if (!lines.length) { toast('Add at least one part', 'error'); return; }
+
+  const reason = document.getElementById('adhoc-reason').value;
+  const line   = document.getElementById('adhoc-line').value;
+  const shift  = document.getElementById('adhoc-shift').value;
+
+  const btn = document.getElementById('adhoc-submit-btn');
+  btn.textContent = 'ISSUING...';
+  btn.disabled = true;
+  try {
+    const res = await apiPost('postIssue', { data: {
+      issue_type: 'Ad Hoc', wo_no: null,
+      product: '—', variant: reason,
+      units: 1, line_no: line, shift, lines,
+    }});
+    if (res.ok) {
+      toast(`✅ Ad Hoc issue ${res.data.issue_no} recorded`, 'success');
+      clearAdhocIssue();
+      loadIssueHistory();
+    } else {
+      toast(res.error || 'Issue failed', 'error');
+    }
+  } catch(e) {
+    toast('Error submitting issue', 'error');
+  } finally {
+    btn.textContent = 'ISSUE PARTS';
+    btn.disabled = false;
+  }
+}
+
 // ══ ISSUE QUEUE ══════════════════════════════════════════════
 let issueQueueData  = null; // current selected item { type: 'run'|'wo', data, lines }
 let issueQueueSubmitting = false;
