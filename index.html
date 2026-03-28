@@ -7330,7 +7330,9 @@ async function loadProductionRuns() {
   const status = document.getElementById('pr-filter-status')?.value || '';
   const tbody  = document.getElementById('pr-list');
   tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
-  const res = await api('getProductionRuns', status ? `&status=${encodeURIComponent(status)}` : '');
+  const params = {};
+  if (status) params.status = status;
+  const res = await api('getProductionRuns', params);
   if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading runs</td></tr>`; return; }
   if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No production runs yet</td></tr>`; return; }
 
@@ -7364,7 +7366,7 @@ async function openProductionRun(runNo) {
   document.getElementById('pr-issue-panel').style.display = 'none';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const res = await api('getProductionRun', `&run_no=${encodeURIComponent(runNo)}`);
+  const res = await api('getProductionRun', { run_no: runNo });
   if (!res.ok) { toast('Failed to load run', 'error'); return; }
 
   currentRunData = res.data;
