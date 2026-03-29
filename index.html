@@ -3755,12 +3755,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
 // ══ CONFIG ══════════════════════════════════════════════════
 const API = 'https://lotopsproxy.afshaan.workers.dev';
 
-const PRODUCTS = ['Atlas','DASH','Fang','Flare','Ghost','Knox','Nitro','Shadow'];
-
-const PRODUCTS_DISPLAY = {
-  'Atlas': 'Atlas', 'DASH': 'Dash', 'Fang': 'Fang', 'Flare': 'Flare',
-  'Ghost': 'Ghost', 'Knox': 'Knox', 'Nitro': 'Nitro', 'Shadow': 'Shadow',
-};
+let PRODUCTS = [];
+let PRODUCTS_DISPLAY = {};
 
 const PRODUCT_VARIANTS = {
   'Flare':  ['Track','Race','Underground','Street','Burnout'],
@@ -3802,7 +3798,6 @@ const PRODUCT_SUBVARIANTS = {
 let currentToken       = '';
 let currentRole        = '';
 let currentUser        = {};
-let sessionExpiredHandled = false;
 let currentPermissions = {};  // granular permissions from roles table
 let currentView        = 'dashboard';
 let stockData          = [];
@@ -3834,11 +3829,10 @@ async function submitLogin() {
     });
     const data = await res.json();
     if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
-    currentToken          = data.data.access_token;
-    currentRole           = data.data.role;
-    currentPermissions    = data.data.permissions || {};
-    currentUser           = { email, full_name: data.data.full_name, role: data.data.role };
-    sessionExpiredHandled = false;
+    currentToken       = data.data.access_token;
+    currentRole        = data.data.role;
+    currentPermissions = data.data.permissions || {};
+    currentUser        = { email, full_name: data.data.full_name, role: data.data.role };
     if (data.data.must_change_password) {
       showChangePasswordScreen();
     } else {
@@ -3884,7 +3878,21 @@ function logout() {
 
 
 
-function launchApp() {
+function buildProductList() {
+  const seen = new Set();
+  Object.values(materialCache).forEach(r => {
+    if (r.product && r.product !== 'Universal') seen.add(r.product);
+  });
+  PRODUCTS = [...seen].sort((a, b) => a.localeCompare(b));
+  PRODUCTS_DISPLAY = {};
+  PRODUCTS.forEach(p => { PRODUCTS_DISPLAY[p] = p; });
+  LIB_PRODUCTS = PRODUCTS;
+}
+
+async function launchApp() {
+  // Derive product list from material master before building any dropdowns
+  await ensureMaterialCache();
+  buildProductList();
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
 
@@ -4012,23 +4020,6 @@ function formatDateForAPI(dateStr) {
 
 
 // ══ API ══════════════════════════════════════════════════════
-function handleSessionExpiry() {
-  if (sessionExpiredHandled) return;
-  sessionExpiredHandled = true;
-  // Persistent banner — doesn't auto-dismiss so user sees it before being redirected
-  const container = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = 'toast error';
-  el.style.cssText = 'opacity:1;font-size:13px;padding:14px 24px;pointer-events:none;';
-  el.textContent = '⏱ Session expired — logging you out';
-  container.appendChild(el);
-  setTimeout(() => {
-    el.remove();
-    logout();
-    sessionExpiredHandled = false;
-  }, 2500);
-}
-
 async function api(action, params = {}) {
   const p = { action };
   Object.keys(params).forEach(k => { p[k] = params[k]; });
@@ -4036,7 +4027,6 @@ async function api(action, params = {}) {
   const res = await fetch(`${API}?${qs}`, {
     headers: { 'Authorization': `Bearer ${currentToken}` },
   });
-  if (res.status === 401) { handleSessionExpiry(); return { ok: false, error: 'Session expired' }; }
   const text = await res.text();
   console.log('[API]', action, '→', text.slice(0, 120));
   try { return JSON.parse(text); }
@@ -4049,7 +4039,6 @@ async function apiPost(action, data = {}) {
     headers: { 'Authorization': `Bearer ${currentToken}` },
     body: JSON.stringify({ action, ...data }),
   });
-  if (res.status === 401) { handleSessionExpiry(); return { ok: false, error: 'Session expired' }; }
   return res.json();
 }
 
@@ -4290,7 +4279,7 @@ async function loadDashboard() {
 async function loadProducibleUnits() {
   const el = document.getElementById('producible-list');
   const statusEl = document.getElementById('prod-units-status');
-  const products = PRODUCTS.filter(p => p !== 'Atlas');
+  const products = PRODUCTS;
   // Don't clear el — keep showing previous data while refreshing silently
   try {
     const results = await Promise.all(
@@ -9842,7 +9831,8 @@ document.addEventListener('click', e => {
 
 // ══ LIBRARY — DOWNLOADS ══════════════════════════════════════
 
-const LIB_PRODUCTS = ['Atlas','DASH','Fang','Flare','Ghost','Knox','Nitro','Shadow'];
+// LIB_PRODUCTS is derived from the live PRODUCTS list — see buildProductList()
+let LIB_PRODUCTS = [];
 let libBOMCache = {}; // product -> rows
 
 function initLibDownloads() {
