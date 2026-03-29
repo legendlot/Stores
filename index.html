@@ -900,6 +900,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <button class="nav-group-btn" id="navg-btn-library">LIBRARY</button>
         <div class="nav-dropdown">
           <button class="nav-dropdown-item" onclick="showView('lib-downloads')" id="nav-lib-downloads">Downloads</button>
+          <button class="nav-dropdown-item" onclick="showView('lib-parts')" id="nav-lib-parts">Parts Database</button>
         </div>
       </div>
 
@@ -3345,6 +3346,77 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div><!-- /view-lib-downloads -->
 
+    <!-- ── LIBRARY — PARTS DATABASE ── -->
+    <div class="view" id="view-lib-parts">
+      <div class="page-header">
+        <div class="page-title">PARTS DATABASE</div>
+        <div class="page-subtitle">Search any part by code or name across all products and tiers</div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-body" style="padding:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="flex:1;min-width:220px;margin-bottom:0">
+              <label class="form-label">Search part code or name</label>
+              <input class="form-input" id="parts-search" placeholder="e.g. AT-EL-01 or Dumper Motor…" oninput="renderPartsDB()" autocomplete="off">
+            </div>
+            <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
+              <label class="form-label">Product</label>
+              <select class="form-select" id="parts-filter-product" onchange="renderPartsDB()">
+                <option value="">All Products</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
+              <label class="form-label">Tier</label>
+              <select class="form-select" id="parts-filter-tier" onchange="renderPartsDB()">
+                <option value="">All Tiers</option>
+                <option value="Common">Common</option>
+                <option value="Model">Model</option>
+                <option value="Colour">Colour / Variant</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
+              <label class="form-label">Category</label>
+              <select class="form-select" id="parts-filter-cat" onchange="renderPartsDB()">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="clearPartsSearch()" style="padding:9px 14px;flex-shrink:0">✕ Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="parts-count-label">Loading…</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3)" id="parts-load-status"></div>
+      </div>
+
+      <!-- Results table -->
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part Code</th>
+                <th>Part Name</th>
+                <th>Category</th>
+                <th>Tier</th>
+                <th>Products</th>
+                <th>Variant / Model</th>
+                <th style="text-align:right">Qty / Unit</th>
+              </tr>
+            </thead>
+            <tbody id="parts-db-body">
+              <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /view-lib-parts -->
+
     <!-- ── USERS ── -->
     <div class="view" id="view-users">
       <div class="page-header">
@@ -3891,6 +3963,7 @@ function launchApp() {
     'nav-returns':     () => P.returns && P.returns !== 'none',
     'nav-manpower':    () => !!P.dashboard,  // anyone with dashboard access
     'nav-lib-downloads': () => true,          // everyone
+    'nav-lib-parts':     () => true,           // everyone
     'nav-lineflush':   () => P.line_flush_create || P.line_flush_verify,
     'nav-procurement': () => P.procurement_view,
     'nav-reports':     () => P.reports,
@@ -4034,6 +4107,7 @@ function showView(name) {
     issue:'store', flushverify:'store', storehistory:'store', manpower:'store',
     returns:'outbound',
     'lib-downloads':'library',
+    'lib-parts':'library',
     procurement:'procurement', users:'admin',
   };
   const groupId = VIEW_TO_GROUP[name];
@@ -4063,6 +4137,7 @@ function showView(name) {
   if (name === 'activity')   { loadActivityLog(); }
   if (name === 'manpower')      { initManpower(); }
   if (name === 'lib-downloads') { initLibDownloads(); }
+  if (name === 'lib-parts')     { initLibParts(); }
   if (name === 'users')         { loadUsers(); switchUsersTab('users'); }
   if (name === 'procurement') { initProcurement(); }
 }
@@ -9836,6 +9911,179 @@ async function downloadFullBOM() {
   } finally {
     btn.disabled = false; btn.textContent = '↓ DOWNLOAD FULL EXTRACT';
   }
+}
+
+// ══ LIBRARY — PARTS DATABASE ═════════════════════════════════
+
+let partsDBData   = [];   // deduplicated master list: { part_code, part_name, category, tier, products:Set, variants:[], qty_per_unit }
+let partsDBLoaded = false;
+
+async function initLibParts() {
+  if (!partsDBLoaded) await loadPartsDB();
+  else renderPartsDB();
+}
+
+async function loadPartsDB() {
+  const statusEl = document.getElementById('parts-load-status');
+  const countEl  = document.getElementById('parts-count-label');
+  const tbody    = document.getElementById('parts-db-body');
+  if (statusEl) statusEl.textContent = 'Loading BOM data…';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+
+  try {
+    // Fetch all BOMs in parallel
+    const results = await Promise.all(LIB_PRODUCTS.map(p => api('getBOM', { product: p })));
+
+    // Build deduplicated map keyed by part_code
+    // For parts that appear in multiple products/variants, we merge and track all appearances
+    const map = {}; // part_code -> master record
+
+    results.forEach((res, i) => {
+      const product = LIB_PRODUCTS[i];
+      if (!res.ok || !res.data?.length) return;
+      res.data.forEach(r => {
+        const key = r.part_code;
+        if (!map[key]) {
+          map[key] = {
+            part_code:    r.part_code,
+            part_name:    r.part_name,
+            category:     r.part_category || '—',
+            tier:         r.common_variant || '—',
+            products:     new Set(),
+            variants:     [],   // [{product, variant_model, qty_per_unit}]
+            qty_per_unit: r.qty_per_unit || 1,
+          };
+        }
+        map[key].products.add(product);
+        map[key].variants.push({
+          product,
+          variant_model: r.variant_model || 'Common',
+          qty_per_unit:  r.qty_per_unit || 1,
+        });
+      });
+    });
+
+    partsDBData = Object.values(map).sort((a, b) => a.part_code.localeCompare(b.part_code));
+    partsDBLoaded = true;
+
+    // Populate category filter
+    const cats   = [...new Set(partsDBData.map(r => r.category).filter(c => c && c !== '—'))].sort();
+    const catSel = document.getElementById('parts-filter-cat');
+    if (catSel && catSel.options.length <= 1) {
+      cats.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        catSel.appendChild(o);
+      });
+    }
+
+    // Populate product filter
+    const prodSel = document.getElementById('parts-filter-product');
+    if (prodSel && prodSel.options.length <= 1) {
+      LIB_PRODUCTS.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p; o.textContent = p;
+        prodSel.appendChild(o);
+      });
+    }
+
+    if (statusEl) statusEl.textContent = '';
+    renderPartsDB();
+
+  } catch(e) {
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">Failed to load parts data</td></tr>';
+    if (statusEl) statusEl.textContent = 'Error loading data';
+  }
+}
+
+function renderPartsDB() {
+  const tbody   = document.getElementById('parts-db-body');
+  const countEl = document.getElementById('parts-count-label');
+  if (!tbody) return;
+
+  const search  = (document.getElementById('parts-search')?.value  || '').toLowerCase().trim();
+  const product = (document.getElementById('parts-filter-product')?.value || '');
+  const tier    = (document.getElementById('parts-filter-tier')?.value    || '');
+  const cat     = (document.getElementById('parts-filter-cat')?.value     || '');
+
+  if (!partsDBLoaded) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+    return;
+  }
+
+  let filtered = partsDBData;
+
+  if (search) {
+    filtered = filtered.filter(r =>
+      r.part_code.toLowerCase().includes(search) ||
+      r.part_name.toLowerCase().includes(search)
+    );
+  }
+  if (product) {
+    filtered = filtered.filter(r => r.products.has(product));
+  }
+  if (tier) {
+    filtered = filtered.filter(r => r.tier === tier);
+  }
+  if (cat) {
+    filtered = filtered.filter(r => r.category === cat);
+  }
+
+  if (countEl) {
+    countEl.textContent = search || product || tier || cat
+      ? `${filtered.length} of ${partsDBData.length} parts`
+      : `${partsDBData.length} unique parts across ${LIB_PRODUCTS.length} products`;
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No parts found</td></tr>';
+    return;
+  }
+
+  // Cap display at 300 rows for performance — prompt to narrow search
+  const LIMIT = 300;
+  const capped = filtered.length > LIMIT;
+  const rows   = capped ? filtered.slice(0, LIMIT) : filtered;
+
+  const tierColour = { Common: 'badge-green', Model: 'badge-blue', Colour: 'badge-yellow' };
+
+  tbody.innerHTML = rows.map(r => {
+    const productsStr = [...r.products].sort().join(', ');
+    const badgeClass  = tierColour[r.tier] || 'badge-gray';
+
+    // Variant column: show unique variant_models, skip 'Common' if product filter is active
+    const variantSet  = [...new Set(r.variants
+      .filter(v => !product || v.product === product)
+      .map(v => v.variant_model)
+    )].filter(v => v && v !== 'Common');
+    const variantStr  = variantSet.length ? variantSet.join(', ') : '—';
+
+    // Qty: if all same show once, else show range
+    const qtys   = [...new Set(r.variants.map(v => v.qty_per_unit))];
+    const qtyStr = qtys.length === 1 ? qtys[0] : qtys[0] + '–' + qtys[qtys.length - 1];
+
+    return `<tr>
+      <td class="mono" style="font-size:11px;color:var(--yellow)">${r.part_code}</td>
+      <td style="font-size:12px;max-width:260px;white-space:normal;line-height:1.3">${r.part_name}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.category}</td>
+      <td><span class="badge ${badgeClass}">${r.tier}</span></td>
+      <td style="font-size:11px;color:var(--text2);max-width:200px;white-space:normal;line-height:1.4">${productsStr}</td>
+      <td style="font-size:11px;color:var(--text2)">${variantStr}</td>
+      <td style="text-align:right;font-family:var(--mono);font-size:11px">${qtyStr}</td>
+    </tr>`;
+  }).join('');
+
+  if (capped) {
+    tbody.innerHTML += `<tr><td colspan="7" style="text-align:center;padding:12px;font-size:11px;color:var(--text3)">
+      Showing first ${LIMIT} of ${filtered.length} results — narrow your search to see more
+    </td></tr>`;
+  }
+}
+
+function clearPartsSearch() {
+  const ids = ['parts-search','parts-filter-product','parts-filter-tier','parts-filter-cat'];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderPartsDB();
 }
 
 </script>
