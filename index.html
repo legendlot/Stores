@@ -3764,7 +3764,7 @@ const PRODUCT_VARIANTS = {
   'Knox':   ['Adventure','Explorer'],
   'Shadow': ['Asphalt','Tarmac'],
   'Nitro':  ['Race Grey','Race Blue','Tarmac Black','Tarmac Green','Tarmac Grey','Burnout Red'],
-  'DASH':   ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
+  'Dash':   ['Street White','Green','Black','Blue','Silver','Urban Red','Urban White','Sports Yellow','Sports Blue'],
   'Fang':   [],
   'Atlas':  [],
 };
@@ -3789,7 +3789,7 @@ const PRODUCT_SUBVARIANTS = {
   },
   'Shadow':  {},
   'Nitro':   {},
-  'DASH':    {},
+  'Dash':    {},
   'Fang':    {},
   'Atlas':   {},
 };
@@ -3879,11 +3879,17 @@ function logout() {
 
 
 function buildProductList() {
-  const seen = new Set();
+  const seen = new Map(); // lowercase key → canonical display name
   Object.values(materialCache).forEach(r => {
-    if (r.product && r.product !== 'Universal') seen.add(r.product);
+    if (!r.product || r.product === 'Universal') return;
+    const key = r.product.trim().toLowerCase();
+    if (!seen.has(key)) {
+      // Prefer casing that matches a PRODUCT_VARIANTS key (e.g. 'Atlas' not 'ATLAS')
+      const canonical = Object.keys(PRODUCT_VARIANTS).find(k => k.toLowerCase() === key) || r.product.trim();
+      seen.set(key, canonical);
+    }
   });
-  PRODUCTS = [...seen].sort((a, b) => a.localeCompare(b));
+  PRODUCTS = [...seen.values()].sort((a, b) => a.localeCompare(b));
   PRODUCTS_DISPLAY = {};
   PRODUCTS.forEach(p => { PRODUCTS_DISPLAY[p] = p; });
   LIB_PRODUCTS = PRODUCTS;
