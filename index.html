@@ -2125,26 +2125,49 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <!-- ── PRODUCTION ── -->
         <div id="rpt-production" class="rpt-section" style="display:none">
           <div class="download-grid" style="margin-bottom:16px">
+            <div class="download-card" onclick="downloadReport('production_runs')">
+              <div class="download-card-icon">🏭</div>
+              <div class="download-card-title">Production Runs</div>
+              <div class="download-card-desc">All runs with status, product and unit counts</div>
+            </div>
             <div class="download-card" onclick="downloadReport('issues')">
               <div class="download-card-icon">📤</div>
               <div class="download-card-title">Issue Register</div>
               <div class="download-card-desc">All material issues to production — filterable by date</div>
             </div>
             <div class="download-card" onclick="downloadReport('workorders')">
-              <div class="download-card-icon">🏭</div>
+              <div class="download-card-icon">📝</div>
               <div class="download-card-title">Work Orders</div>
-              <div class="download-card-desc">All work orders including rework</div>
+              <div class="download-card-desc">All WOs — planned, ad hoc, rework, standalone</div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-bottom:16px">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Production Runs by Status</div>
+                <button class="btn btn-secondary" onclick="loadProductionReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+              </div>
+              <div class="panel-body" id="rpt-runs-status"><div class="empty">Click Load to fetch</div></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Parts Issued by Product</div></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead><tr><th>Product</th><th style="text-align:right">Run Issues</th><th style="text-align:right">Ad Hoc</th><th style="text-align:right">Total Parts</th></tr></thead>
+                  <tbody id="rpt-issues-summary"><tr><td colspan="4" class="empty">Click Load to fetch</td></tr></tbody>
+                </table>
+              </div>
             </div>
           </div>
           <div class="panel">
             <div class="panel-header">
-              <div class="panel-title">Issues by Product</div>
-              <button class="btn btn-secondary" onclick="loadIssuesSummaryReport()" style="padding:2px 10px;font-size:10px">↻ Load</button>
+              <div class="panel-title">Recent Production Runs</div>
+              <span class="badge badge-gray" id="rpt-runs-count">—</span>
             </div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Product</th><th style="text-align:right">Planned Issues</th><th style="text-align:right">Ad Hoc Issues</th><th style="text-align:right">Total Parts Issued</th></tr></thead>
-                <tbody id="rpt-issues-summary"><tr><td colspan="4" class="empty">Click Load to fetch</td></tr></tbody>
+                <thead><tr><th>Run No.</th><th>Date</th><th>Product</th><th>Variants</th><th style="text-align:right">Units</th><th>Status</th><th>Created By</th></tr></thead>
+                <tbody id="rpt-runs-body"><tr><td colspan="7" class="empty">Click Load to fetch</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2164,7 +2187,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="download-card-desc">All quarantined parts with bin locations</div>
             </div>
           </div>
-          <!-- Analytics panels -->
           <div class="grid-2" style="margin-bottom:16px">
             <div class="panel">
               <div class="panel-header">
@@ -2174,8 +2196,18 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="panel-body" id="rpt-flush-types"><div class="empty">Click Load to fetch</div></div>
             </div>
             <div class="panel">
-              <div class="panel-header"><div class="panel-title">Damage Rate Summary</div></div>
+              <div class="panel-header"><div class="panel-title">Damage Rate</div></div>
               <div class="panel-body" id="rpt-flush-damage"><div class="empty">—</div></div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Verification Status</div></div>
+              <div class="panel-body" id="rpt-flush-status"><div class="empty">—</div></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Parts Issued vs Returned</div></div>
+              <div class="panel-body" id="rpt-flush-vs-issued"><div class="empty">—</div></div>
             </div>
           </div>
         </div>
@@ -2225,95 +2257,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     
 
-    <!-- ── STORE HISTORY ── -->
-    <div class="view" id="view-storehistory">
-      <div class="page-header">
-        <div class="page-title">STORE HISTORY</div>
-        <div class="page-subtitle">Complete record of all issues and line flushes</div>
-      </div>
-
-      <!-- Tabs -->
-      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
-        <button class="nav-btn active" id="sh-tab-issues"   onclick="shSwitchTab('issues')"   style="border-radius:3px 3px 0 0;margin-right:4px">ISSUES</button>
-        <button class="nav-btn"        id="sh-tab-flushes"  onclick="shSwitchTab('flushes')"  style="border-radius:3px 3px 0 0">LINE FLUSHES</button>
-      </div>
-
-      <!-- Issues tab -->
-      <div id="sh-issues-section">
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
-          <div class="form-group" style="margin:0;min-width:140px">
-            <label class="form-label">Product</label>
-            <select class="form-select" id="sh-iss-product" onchange="shLoadIssues()" style="font-size:11px">
-              <option value="">All Products</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin:0;min-width:120px">
-            <label class="form-label">Type</label>
-            <select class="form-select" id="sh-iss-type" onchange="shLoadIssues()" style="font-size:11px">
-              <option value="">All Types</option>
-              <option>Planned</option>
-              <option>Ad Hoc</option>
-              <option>Rework</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">From</label>
-            <input class="form-input" type="date" id="sh-iss-from" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">To</label>
-            <input class="form-input" type="date" id="sh-iss-to" onchange="shLoadIssues()" style="font-size:11px;padding:5px 8px">
-          </div>
-          <button class="btn btn-secondary" onclick="shClearIssueFilters()" style="padding:5px 12px;font-size:11px;align-self:flex-end">CLEAR</button>
-          <button class="btn btn-secondary" onclick="shLoadIssues()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
-        </div>
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">ISSUES</div>
-            <span class="badge badge-yellow" id="sh-iss-count">—</span>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>Issue No.</th><th>Date</th><th>Type</th><th>WO / Run</th><th>Product</th><th>Variant</th><th>Colour</th><th style="text-align:right">Parts</th><th style="text-align:right">Total Qty</th><th>Issued By</th></tr></thead>
-              <tbody id="sh-iss-body">
-                <tr><td colspan="11"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- Flushes tab -->
-      <div id="sh-flushes-section" style="display:none">
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
-          <div class="form-group" style="margin:0;min-width:140px">
-            <label class="form-label">Status</label>
-            <select class="form-select" id="sh-fl-status" onchange="shLoadFlushes()" style="font-size:11px">
-              <option value="">All</option>
-              <option>Pending Verification</option>
-              <option>Verified</option>
-              <option>Disputed</option>
-            </select>
-          </div>
-          <button class="btn btn-secondary" onclick="shLoadFlushes()" style="padding:5px 12px;font-size:11px;align-self:flex-end">↻</button>
-        </div>
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">LINE FLUSHES</div>
-            <span class="badge badge-yellow" id="sh-fl-count">—</span>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>Flush ID</th><th>Date</th><th>Run / WO</th><th>Line</th><th>Shift</th><th>Parts</th><th>Raised By</th><th>Verified By</th><th>Status</th></tr></thead>
-              <tbody id="sh-fl-body">
-                <tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- /view-storehistory -->
 
     <!-- ── RETURNS ── -->
         <div id="rpt-returns" class="rpt-section" style="display:none">
@@ -6530,7 +6473,7 @@ function refreshCurrentReport() {
   const tab = currentRptTab;
   if (tab === 'inventory')   loadInventorySummary();
   if (tab === 'inward')      loadGRNSummaryReport();
-  if (tab === 'production')  loadIssuesSummaryReport();
+  if (tab === 'production')  loadProductionReport();
   if (tab === 'lineflush')   loadFlushReport();
   if (tab === 'procurement') loadProcurementReport();
   if (tab === 'returns')     loadReturnsReport();
@@ -6626,41 +6569,110 @@ async function loadGRNSummaryReport() {
 }
 
 // ── Production ────────────────────────────────────────────────
-async function loadIssuesSummaryReport() {
-  const tbody = document.getElementById('rpt-issues-summary');
-  tbody.innerHTML = '<tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>';
+async function loadProductionReport() {
+  const statusEl  = document.getElementById('rpt-runs-status');
+  const tbody     = document.getElementById('rpt-issues-summary');
+  const runsBody  = document.getElementById('rpt-runs-body');
+  const countBadge= document.getElementById('rpt-runs-count');
+  if (statusEl) statusEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  if (tbody)    tbody.innerHTML    = '<tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  if (runsBody) runsBody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+
   try {
-    const res = await api('getIssues');
-    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Error</td></tr>'; return; }
     const { from, to } = getRptDates();
-    let rows = res.data || [];
-    if (from) rows = rows.filter(r => (r.issue_date||'') >= from);
-    if (to)   rows = rows.filter(r => (r.issue_date||'') <= to);
-    const byProduct = {};
-    rows.forEach(r => {
-      if (!byProduct[r.product]) byProduct[r.product] = { planned:0, adhoc:0, total:0 };
-      const p = byProduct[r.product];
-      const qty = parseFloat(r.actual_issued||r.bom_issue_qty||0);
-      if ((r.issue_type||'').toLowerCase() === 'ad hoc') p.adhoc += qty;
-      else p.planned += qty;
-      p.total += qty;
-    });
-    tbody.innerHTML = Object.entries(byProduct).sort(([a],[b])=>a.localeCompare(b)).map(([prod, p]) => `<tr>
-      <td style="font-weight:600">${prod}</td>
-      <td class="mono" style="text-align:right;color:var(--blue)">${p.planned.toLocaleString()}</td>
-      <td class="mono" style="text-align:right;color:var(--red)">${p.adhoc.toLocaleString()}</td>
-      <td class="mono" style="text-align:right;font-weight:700">${p.total.toLocaleString()}</td>
-    </tr>`).join('');
-  } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="empty">Error</td></tr>'; }
+    const [runsRes, issuesRes] = await Promise.all([
+      api('getProductionRuns'),
+      api('getIssues'),
+    ]);
+
+    // ── Runs by status ───────────────────────────────────────
+    if (runsRes.ok) {
+      let runs = runsRes.data || [];
+      if (from) runs = runs.filter(r => (r.run_date||'') >= from);
+      if (to)   runs = runs.filter(r => (r.run_date||'') <= to);
+
+      const byStatus = {};
+      runs.forEach(r => {
+        byStatus[r.status] = (byStatus[r.status]||0) + 1;
+      });
+      const statusColors = {
+        'Draft':'badge-gray', 'Submitted':'badge-blue', 'Issued':'badge-green',
+        'Rejected':'badge-red', 'Cancelled':'badge-gray', 'In Progress':'badge-yellow',
+      };
+      if (statusEl) statusEl.innerHTML = Object.keys(byStatus).length
+        ? Object.entries(byStatus).map(([s, count]) => {
+            const bc = statusColors[s] || 'badge-gray';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span class="badge ${bc}" style="font-size:10px">${s}</span>
+              <span style="font-family:var(--mono);font-size:18px;font-weight:700">${count}</span>
+            </div>`;
+          }).join('') + `<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">${runs.length} total runs</div>`
+        : '<div class="empty">No runs in range</div>';
+
+      // Recent runs table
+      if (countBadge) countBadge.textContent = runs.length + ' runs';
+      if (runsBody) runsBody.innerHTML = runs.length
+        ? runs.slice(0, 50).map(r => {
+            const variantStr = (r.variants||[]).map(v =>
+              (v.variant||'Common') + (v.colour ? ' '+v.colour : '') + ' ×' + v.qty
+            ).join(', ') || '—';
+            const sc = statusColors[r.status] || 'badge-gray';
+            return `<tr>
+              <td class="mono" style="font-size:11px;color:var(--yellow)">${r.run_no}</td>
+              <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.run_date)}</td>
+              <td style="font-size:12px;font-weight:600">${r.product||'—'}</td>
+              <td style="font-size:11px;color:var(--text2);max-width:220px;white-space:normal;line-height:1.4">${variantStr}</td>
+              <td class="mono" style="text-align:right">${(r.total_units||0).toLocaleString()}</td>
+              <td><span class="badge ${sc}" style="font-size:9px">${r.status}</span></td>
+              <td style="font-size:11px;color:var(--text2)">${r.created_by||'—'}</td>
+            </tr>`;
+          }).join('')
+        : '<tr><td colspan="7" class="empty">No runs in range</td></tr>';
+    }
+
+    // ── Issues by product ────────────────────────────────────
+    if (issuesRes.ok && tbody) {
+      let rows = issuesRes.data || [];
+      if (from) rows = rows.filter(r => (r.issue_date||'') >= from);
+      if (to)   rows = rows.filter(r => (r.issue_date||'') <= to);
+      const byProduct = {};
+      rows.forEach(r => {
+        const prod = r.product || 'Unknown';
+        if (!byProduct[prod]) byProduct[prod] = { run: 0, adhoc: 0, total: 0 };
+        const qty = parseFloat(r.actual_issued || r.bom_issue_qty || 0);
+        const type = (r.issue_type||'').toLowerCase();
+        if (type === 'ad hoc') byProduct[prod].adhoc += qty;
+        else                   byProduct[prod].run   += qty;
+        byProduct[prod].total += qty;
+      });
+      tbody.innerHTML = Object.keys(byProduct).length
+        ? Object.entries(byProduct).sort(([a],[b])=>a.localeCompare(b)).map(([prod, p]) => `<tr>
+            <td style="font-weight:600">${prod}</td>
+            <td class="mono" style="text-align:right;color:var(--blue)">${p.run.toLocaleString()}</td>
+            <td class="mono" style="text-align:right;color:var(--red)">${p.adhoc.toLocaleString()}</td>
+            <td class="mono" style="text-align:right;font-weight:700">${p.total.toLocaleString()}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No issues in range</td></tr>';
+    }
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<div class="empty">Error</div>';
+    if (tbody)    tbody.innerHTML    = '<tr><td colspan="4" class="empty">Error</td></tr>';
+  }
 }
 
 // ── Line Flush ────────────────────────────────────────────────
 async function loadFlushReport() {
   const { from, to } = getRptDates();
   try {
-    const res = await api('getReportSummary', { type: 'lineflush', from, to });
-    if (!res.ok) { toast('Error loading flush report', 'error'); return; }
-    const d = res.data;
+    const [summaryRes, flushesRes, issuesRes] = await Promise.all([
+      api('getReportSummary', { type: 'lineflush', from, to }),
+      api('getFlushes'),
+      api('getIssues'),
+    ]);
+
+    if (!summaryRes.ok) { toast('Error loading flush report', 'error'); return; }
+    const d = summaryRes.data;
+
     // Returns by type bar chart
     const typeEl = document.getElementById('rpt-flush-types');
     const types  = d.by_return_type || {};
@@ -6678,8 +6690,9 @@ async function loadFlushReport() {
               <div style="width:${Math.round((qty/maxQty)*100)}%;height:6px;background:${typeColors[t]||'var(--text3)'};border-radius:3px"></div>
             </div>
           </div>`).join('')
-        + `<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">Total: ${d.total_flush_qty?.toLocaleString()||0} parts across ${d.total_flush_lines||0} lines</div>`
+        + `<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">Total: ${d.total_flush_qty?.toLocaleString()||0} parts · ${d.total_flush_lines||0} lines</div>`
       : '<div class="empty">No flush data in range</div>';
+
     // Damage rate
     const damageEl = document.getElementById('rpt-flush-damage');
     const damaged  = (types['Damaged']||0) + (types['QC Rejected']||0);
@@ -6692,7 +6705,54 @@ async function loadFlushReport() {
         <div style="font-size:11px;color:var(--text2);margin-top:12px">${damaged.toLocaleString()} damaged / ${total.toLocaleString()} total returned</div>
         <div style="font-size:10px;color:var(--text3);margin-top:4px">${parseFloat(rate)>5?'⚠ High — investigate':'✅ Within acceptable range'}</div>
       </div>`;
-  } catch(e) { toast('Error', 'error'); }
+
+    // Verification status breakdown
+    const statusEl = document.getElementById('rpt-flush-status');
+    if (statusEl && flushesRes.ok) {
+      let flushes = flushesRes.data || [];
+      if (from) flushes = flushes.filter(r => (r.flush_date||'') >= from);
+      if (to)   flushes = flushes.filter(r => (r.flush_date||'') <= to);
+      const byStatus = {};
+      flushes.forEach(f => { byStatus[f.status] = (byStatus[f.status]||0) + 1; });
+      const sc = { 'Pending Verification':'badge-yellow', 'Verified':'badge-green', 'Disputed':'badge-red' };
+      statusEl.innerHTML = Object.keys(byStatus).length
+        ? Object.entries(byStatus).map(([s, count]) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span class="badge ${sc[s]||'badge-gray'}" style="font-size:10px">${s}</span>
+              <span style="font-family:var(--mono);font-size:18px;font-weight:700">${count}</span>
+            </div>`).join('')
+          + `<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:8px">${flushes.length} total flushes</div>`
+        : '<div class="empty">No flush data in range</div>';
+    }
+
+    // Parts issued vs returned
+    const vsEl = document.getElementById('rpt-flush-vs-issued');
+    if (vsEl && issuesRes.ok) {
+      let issRows = issuesRes.data || [];
+      if (from) issRows = issRows.filter(r => (r.issue_date||'') >= from);
+      if (to)   issRows = issRows.filter(r => (r.issue_date||'') <= to);
+      const totalIssued   = issRows.reduce((s,r) => s + parseFloat(r.actual_issued||0), 0);
+      const totalReturned = d.total_flush_qty || 0;
+      const returnRate    = totalIssued > 0 ? ((totalReturned/totalIssued)*100).toFixed(1) : '0.0';
+      vsEl.innerHTML = `
+        <div style="padding:16px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div style="text-align:center">
+              <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--text)">${totalIssued.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono)">PARTS ISSUED</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--yellow)">${totalReturned.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono)">PARTS RETURNED</div>
+            </div>
+          </div>
+          <div style="background:var(--bg3);border-radius:3px;height:8px;overflow:hidden;margin-bottom:8px">
+            <div style="width:${Math.min(100,parseFloat(returnRate))}%;height:8px;background:var(--yellow);border-radius:3px"></div>
+          </div>
+          <div style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text2)">${returnRate}% return rate</div>
+        </div>`;
+    }
+  } catch(e) { toast('Error loading flush report', 'error'); }
 }
 
 // ── Procurement ───────────────────────────────────────────────
