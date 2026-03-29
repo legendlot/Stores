@@ -3802,6 +3802,7 @@ const PRODUCT_SUBVARIANTS = {
 let currentToken       = '';
 let currentRole        = '';
 let currentUser        = {};
+let sessionExpiredHandled = false;
 let currentPermissions = {};  // granular permissions from roles table
 let currentView        = 'dashboard';
 let stockData          = [];
@@ -3833,10 +3834,11 @@ async function submitLogin() {
     });
     const data = await res.json();
     if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
-    currentToken       = data.data.access_token;
-    currentRole        = data.data.role;
-    currentPermissions = data.data.permissions || {};
-    currentUser        = { email, full_name: data.data.full_name, role: data.data.role };
+    currentToken          = data.data.access_token;
+    currentRole           = data.data.role;
+    currentPermissions    = data.data.permissions || {};
+    currentUser           = { email, full_name: data.data.full_name, role: data.data.role };
+    sessionExpiredHandled = false;
     if (data.data.must_change_password) {
       showChangePasswordScreen();
     } else {
@@ -4010,6 +4012,23 @@ function formatDateForAPI(dateStr) {
 
 
 // ══ API ══════════════════════════════════════════════════════
+function handleSessionExpiry() {
+  if (sessionExpiredHandled) return;
+  sessionExpiredHandled = true;
+  // Persistent banner — doesn't auto-dismiss so user sees it before being redirected
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast error';
+  el.style.cssText = 'opacity:1;font-size:13px;padding:14px 24px;pointer-events:none;';
+  el.textContent = '⏱ Session expired — logging you out';
+  container.appendChild(el);
+  setTimeout(() => {
+    el.remove();
+    logout();
+    sessionExpiredHandled = false;
+  }, 2500);
+}
+
 async function api(action, params = {}) {
   const p = { action };
   Object.keys(params).forEach(k => { p[k] = params[k]; });
@@ -4017,6 +4036,7 @@ async function api(action, params = {}) {
   const res = await fetch(`${API}?${qs}`, {
     headers: { 'Authorization': `Bearer ${currentToken}` },
   });
+  if (res.status === 401) { handleSessionExpiry(); return { ok: false, error: 'Session expired' }; }
   const text = await res.text();
   console.log('[API]', action, '→', text.slice(0, 120));
   try { return JSON.parse(text); }
@@ -4029,6 +4049,7 @@ async function apiPost(action, data = {}) {
     headers: { 'Authorization': `Bearer ${currentToken}` },
     body: JSON.stringify({ action, ...data }),
   });
+  if (res.status === 401) { handleSessionExpiry(); return { ok: false, error: 'Session expired' }; }
   return res.json();
 }
 
