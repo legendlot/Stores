@@ -885,6 +885,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <button class="nav-dropdown-item" onclick="showView('issue')"        id="nav-issue">Issue Queue</button>
           <button class="nav-dropdown-item" onclick="showView('flushverify')"  id="nav-flushverify">Flush Verify</button>
           <button class="nav-dropdown-item" onclick="showView('storehistory')" id="nav-storehistory">Store History</button>
+          <div class="nav-dropdown-sep"></div>
+          <button class="nav-dropdown-item" onclick="showView('manpower')" id="nav-manpower" style="display:none">Manpower</button>
         </div>
       </div>
 
@@ -893,9 +895,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <button class="nav-group-btn no-arrow" onclick="showView('returns')" id="nav-returns">RETURNS</button>
       </div>
 
-      <!-- People — direct link -->
-      <div class="nav-group" id="navg-people">
-        <button class="nav-group-btn no-arrow" onclick="showView('manpower')" id="nav-manpower" style="display:none">MANPOWER</button>
+      <!-- Library — dropdown -->
+      <div class="nav-group" id="navg-library">
+        <button class="nav-group-btn" id="navg-btn-library">LIBRARY</button>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-item" onclick="showView('lib-downloads')" id="nav-lib-downloads">Downloads</button>
+        </div>
       </div>
 
       <!-- Procurement — direct link -->
@@ -3269,6 +3274,77 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
     </div> <!-- /view-lineflush -->
 
+    <!-- ── LIBRARY — DOWNLOADS ── -->
+    <div class="view" id="view-lib-downloads">
+      <div class="page-header">
+        <div class="page-title">DOWNLOADS</div>
+        <div class="page-subtitle">Latest BOM exports — timestamped at time of download</div>
+      </div>
+
+      <div class="grid-2" style="gap:20px;align-items:start">
+
+        <!-- Single product -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">SINGLE PRODUCT BOM</div>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+              Download the full BOM for one product — Common parts, model-specific parts, and colour/variant parts. Each row shows the part code, part name, category, tier (Common / Model / Colour), and quantity per unit.
+            </p>
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Select Product</label>
+              <select class="form-select" id="lib-dl-product" style="max-width:300px">
+                <option value="">— choose product —</option>
+              </select>
+            </div>
+            <div id="lib-dl-single-preview" style="display:none;margin-bottom:16px">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PREVIEW</div>
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 14px;font-size:11px;color:var(--text2)" id="lib-dl-single-preview-text"></div>
+            </div>
+            <button class="btn btn-primary" onclick="downloadSingleBOM()" id="lib-dl-single-btn" disabled>
+              ↓ DOWNLOAD BOM
+            </button>
+          </div>
+        </div>
+
+        <!-- Full extract -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">FULL BOM EXTRACT</div>
+          </div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+              Download every BOM line across all products in a single CSV. Includes a Product column so you can filter by product in any spreadsheet app. Use this to print a master reference for the factory floor or store.
+            </p>
+            <div style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:10px 14px;margin-bottom:16px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="lib-dl-full-stats">
+                <div style="font-size:11px;color:var(--text3)">Products covered</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text)" id="lib-stat-products">—</div>
+                <div style="font-size:11px;color:var(--text3)">Total BOM lines</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text)" id="lib-stat-lines">—</div>
+                <div style="font-size:11px;color:var(--text3)">Unique part codes</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--text)" id="lib-stat-parts">—</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="downloadFullBOM()" id="lib-dl-full-btn">
+              ↓ DOWNLOAD FULL EXTRACT
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- How to use note -->
+      <div style="margin-top:20px;padding:14px 18px;background:rgba(242,205,26,.04);border:1px solid rgba(242,205,26,.12);border-radius:4px;font-size:12px;color:var(--text2);line-height:1.7">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--yellow);letter-spacing:.08em">HOW TO USE</span><br>
+        The downloaded file is a CSV — open it in Google Sheets or Excel to search, filter, and print.
+        The filename includes the exact date and time of download so your printed copy always matches the system version at that moment.
+        If you print a copy and parts are updated in the system later, download a fresh copy.
+      </div>
+
+    </div><!-- /view-lib-downloads -->
+
     <!-- ── USERS ── -->
     <div class="view" id="view-users">
       <div class="page-header">
@@ -3814,6 +3890,7 @@ function launchApp() {
     'nav-issue':       () => P.stock_issue && P.stock_issue !== 'none',
     'nav-returns':     () => P.returns && P.returns !== 'none',
     'nav-manpower':    () => !!P.dashboard,  // anyone with dashboard access
+    'nav-lib-downloads': () => true,          // everyone
     'nav-lineflush':   () => P.line_flush_create || P.line_flush_verify,
     'nav-procurement': () => P.procurement_view,
     'nav-reports':     () => P.reports,
@@ -3954,8 +4031,10 @@ function showView(name) {
     dashboard:'overview', activity:'overview', reports:'overview',
     stock:'inventory', grn:'inventory', receiving:'inventory',
     prodruns:'production', workorder:'production', lineflush:'production',
-    issue:'store', flushverify:'store', storehistory:'store',
-    returns:'outbound', manpower:'people', procurement:'procurement', users:'admin',
+    issue:'store', flushverify:'store', storehistory:'store', manpower:'store',
+    returns:'outbound',
+    'lib-downloads':'library',
+    procurement:'procurement', users:'admin',
   };
   const groupId = VIEW_TO_GROUP[name];
   if (groupId) {
@@ -3982,8 +4061,9 @@ function showView(name) {
   if (name === 'prodruns')   { initProdRuns(); }
   if (name === 'workorder')  { setWOType('Parts Request'); woInitBOMProducts(); }
   if (name === 'activity')   { loadActivityLog(); }
-  if (name === 'manpower')   { initManpower(); }
-  if (name === 'users')       { loadUsers(); switchUsersTab('users'); }
+  if (name === 'manpower')      { initManpower(); }
+  if (name === 'lib-downloads') { initLibDownloads(); }
+  if (name === 'users')         { loadUsers(); switchUsersTab('users'); }
   if (name === 'procurement') { initProcurement(); }
 }
 
@@ -9603,6 +9683,161 @@ document.addEventListener('click', e => {
   const modal = document.getElementById('po-amend-modal');
   if (modal && e.target === modal) closeAmendModal();
 });
+
+// ══ LIBRARY — DOWNLOADS ══════════════════════════════════════
+
+const LIB_PRODUCTS = ['Atlas','DASH','Fang','Flare','Ghost','Knox','Nitro','Shadow'];
+let libBOMCache = {}; // product -> rows
+
+function initLibDownloads() {
+  // Populate product dropdown
+  const sel = document.getElementById('lib-dl-product');
+  if (sel && sel.options.length <= 1) {
+    LIB_PRODUCTS.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p; o.textContent = p;
+      sel.appendChild(o);
+    });
+    sel.onchange = onLibProductChange;
+  }
+  // Load full stats in background
+  loadLibFullStats();
+}
+
+async function onLibProductChange() {
+  const product = document.getElementById('lib-dl-product').value;
+  const btn     = document.getElementById('lib-dl-single-btn');
+  const preview = document.getElementById('lib-dl-single-preview');
+  const previewText = document.getElementById('lib-dl-single-preview-text');
+  btn.disabled = true;
+  if (!product) { preview.style.display = 'none'; return; }
+  btn.textContent = '⟳ Loading…';
+  try {
+    const res = await api('getBOM', { product });
+    if (!res.ok || !res.data?.length) {
+      previewText.textContent = 'No BOM data found for ' + product;
+      preview.style.display = '';
+      return;
+    }
+    libBOMCache[product] = res.data;
+    const common  = res.data.filter(r => r.common_variant === 'Common').length;
+    const model   = res.data.filter(r => r.common_variant === 'Model').length;
+    const colour  = res.data.filter(r => r.common_variant === 'Colour').length;
+    previewText.innerHTML =
+      `<strong style="color:var(--text)">${res.data.length}</strong> BOM lines &nbsp;·&nbsp; ` +
+      `${common} Common &nbsp;·&nbsp; ${model} Model &nbsp;·&nbsp; ${colour} Colour/Variant`;
+    preview.style.display = '';
+    btn.disabled = false;
+    btn.textContent = '↓ DOWNLOAD BOM';
+  } catch(e) {
+    previewText.textContent = 'Error loading BOM';
+    preview.style.display = '';
+    btn.textContent = '↓ DOWNLOAD BOM';
+  }
+}
+
+async function loadLibFullStats() {
+  try {
+    const results = await Promise.all(LIB_PRODUCTS.map(p => api('getBOM', { product: p })));
+    let totalLines = 0;
+    const allCodes = new Set();
+    let loaded = 0;
+    results.forEach((res, i) => {
+      if (res.ok && res.data?.length) {
+        libBOMCache[LIB_PRODUCTS[i]] = res.data;
+        totalLines += res.data.length;
+        res.data.forEach(r => allCodes.add(r.part_code));
+        loaded++;
+      }
+    });
+    const pEl = document.getElementById('lib-stat-products');
+    const lEl = document.getElementById('lib-stat-lines');
+    const cEl = document.getElementById('lib-stat-parts');
+    if (pEl) pEl.textContent = loaded;
+    if (lEl) lEl.textContent = totalLines.toLocaleString();
+    if (cEl) cEl.textContent = allCodes.size.toLocaleString();
+  } catch(e) { /* silent */ }
+}
+
+function bomToCSV(rows, includeProductCol) {
+  const headers = includeProductCol
+    ? ['Product','Part Code','Part Name','Category','Tier','Variant Model','Qty Per Unit']
+    : ['Part Code','Part Name','Category','Tier','Variant Model','Qty Per Unit'];
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const vals = includeProductCol
+      ? [r.product, r.part_code, r.part_name, r.part_category||'', r.common_variant||'', r.variant_model||'', r.qty_per_unit||1]
+      : [r.part_code, r.part_name, r.part_category||'', r.common_variant||'', r.variant_model||'', r.qty_per_unit||1];
+    lines.push(vals.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  });
+  return lines.join('\n');
+}
+
+function nowStamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function triggerCSVDownload(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function downloadSingleBOM() {
+  const product = document.getElementById('lib-dl-product').value;
+  if (!product) { toast('Select a product first', 'error'); return; }
+  const btn = document.getElementById('lib-dl-single-btn');
+  btn.disabled = true; btn.textContent = '⟳ Fetching…';
+  try {
+    // Always fetch fresh on download to ensure latest data
+    const res = await api('getBOM', { product });
+    if (!res.ok || !res.data?.length) { toast('No BOM data found', 'error'); return; }
+    const stamp = nowStamp();
+    const csv   = bomToCSV(res.data, false);
+    triggerCSVDownload(csv, `LOT-BOM-${product}-${stamp}.csv`);
+    toast(`Downloaded BOM for ${product} — ${res.data.length} lines`, 'success');
+  } catch(e) {
+    toast('Download failed', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '↓ DOWNLOAD BOM';
+  }
+}
+
+async function downloadFullBOM() {
+  const btn = document.getElementById('lib-dl-full-btn');
+  btn.disabled = true; btn.textContent = '⟳ Fetching all BOMs…';
+  try {
+    const results = await Promise.all(LIB_PRODUCTS.map(p => api('getBOM', { product: p })));
+    const allRows = [];
+    results.forEach((res, i) => {
+      if (res.ok && res.data?.length) allRows.push(...res.data);
+    });
+    if (!allRows.length) { toast('No BOM data found', 'error'); return; }
+    const stamp = nowStamp();
+    const csv   = bomToCSV(allRows, true);
+    triggerCSVDownload(csv, `LOT-BOM-FULL-${stamp}.csv`);
+    toast(`Downloaded full BOM — ${allRows.length} lines across ${LIB_PRODUCTS.length} products`, 'success');
+    // Refresh stats
+    const pEl = document.getElementById('lib-stat-products');
+    const lEl = document.getElementById('lib-stat-lines');
+    const cEl = document.getElementById('lib-stat-parts');
+    const codes = new Set(allRows.map(r => r.part_code));
+    if (pEl) pEl.textContent = LIB_PRODUCTS.length;
+    if (lEl) lEl.textContent = allRows.length.toLocaleString();
+    if (cEl) cEl.textContent = codes.size.toLocaleString();
+  } catch(e) {
+    toast('Download failed', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '↓ DOWNLOAD FULL EXTRACT';
+  }
+}
+
 </script>
 </body>
 </html>
