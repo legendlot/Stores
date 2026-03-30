@@ -1092,29 +1092,11 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div class="form-group" style="flex:0 0 160px;margin-bottom:0">
               <select class="form-select" id="stock-category-filter" onchange="filterStock()">
                 <option value="">All Categories</option>
-                <option value="Car">Car</option>
-                <option value="Remote">Remote</option>
-                <option value="Remote/Car">Remote/Car</option>
-                <option value="Accessories">Accessories</option>
-                <option value="Packaging">Packaging</option>
-                <option value="Para">Para</option>
-                <option value="Metal">Metal</option>
-                <option value="Consumables">Consumables</option>
               </select>
             </div>
             <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
               <select class="form-select" id="stock-type-filter" onchange="filterStock()">
                 <option value="">All Types</option>
-                <option>Electronic</option>
-                <option>Hardware</option>
-                <option>Plastic</option>
-                <option>Metal</option>
-                <option>Rubber</option>
-                <option>Paper</option>
-                <option>Packaging</option>
-                <option>Sticker</option>
-                <option>Foam</option>
-                <option>Accessories</option>
               </select>
             </div>
             <div class="form-group" style="flex:0 0 150px;margin-bottom:0">
@@ -4586,6 +4568,17 @@ async function loadStock() {
     clearTimeout(stockTimeout);
     if (!res.ok) return;
     stockData = res.data || [];
+    // Rebuild category and type filters dynamically from live data
+    const catSel = document.getElementById('stock-category-filter');
+    const typeSel = document.getElementById('stock-type-filter');
+    const prevCat = catSel.value;
+    const prevType = typeSel.value;
+    const cats = [...new Set(stockData.map(r => r.category).filter(Boolean))].sort();
+    const types = [...new Set(stockData.map(r => r.part_type).filter(Boolean))].sort();
+    catSel.innerHTML  = '<option value="">All Categories</option>' +
+      cats.map(c  => `<option value="${c}"${c  === prevCat  ? ' selected' : ''}>${c}</option>`).join('');
+    typeSel.innerHTML = '<option value="">All Types</option>' +
+      types.map(t => `<option value="${t}"${t === prevType ? ' selected' : ''}>${t}</option>`).join('');
     renderStockTable(stockData);
   } catch(e) {
     console.error(e);
@@ -8852,7 +8845,7 @@ let currentFlushData = null;
 
 function initLineFlush() {
   const newBtn = document.getElementById('new-flush-btn');
-  if (newBtn) newBtn.style.display = currentPermissions.line_flush_create ? '' : 'none';
+  if (newBtn) newBtn.style.display = ['production','store_manager','ops'].includes(currentRole) ? '' : 'none';
   loadFlushes();
 }
 
