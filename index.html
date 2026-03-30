@@ -8817,7 +8817,7 @@ let currentFlushData = null;
 
 function initLineFlush() {
   const newBtn = document.getElementById('new-flush-btn');
-  if (newBtn) newBtn.style.display = ['production','store_manager','ops'].includes(currentRole) ? '' : 'none';
+  if (newBtn) newBtn.style.display = currentPermissions.line_flush_create ? '' : 'none';
   loadFlushes();
 }
 
