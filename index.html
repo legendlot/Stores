@@ -8508,7 +8508,8 @@ function addPRVariantRow() {
 
   const row = document.createElement('div');
   row.className = 'pr-variant-row';
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 80px 28px;gap:6px;margin-bottom:6px;align-items:end';
+  // Grid: variant | colour (shown conditionally) | ecomm | retail | total | remove
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 70px 70px 50px 28px;gap:6px;margin-bottom:6px;align-items:end';
   row.dataset.idx = idx;
 
   const variantOpts = variants.map(v => `<option value="${v}">${v}</option>`).join('');
@@ -8526,12 +8527,30 @@ function addPRVariantRow() {
       <select class="form-select pr-colour-sel" style="font-size:11px"><option value="">All</option></select>
     </div>
     <div class="form-group" style="margin:0">
-      <label class="form-label" style="font-size:9px">QTY</label>
-      <input class="form-input pr-qty" type="number" placeholder="0" min="1" style="font-size:11px">
+      <label class="form-label" style="font-size:9px">E-COMM</label>
+      <input class="form-input pr-qty-ecomm" type="number" placeholder="0" min="0"
+        oninput="prUpdateTotal(this)" style="font-size:11px">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:9px">RETAIL</label>
+      <input class="form-input pr-qty-retail" type="number" placeholder="0" min="0"
+        oninput="prUpdateTotal(this)" style="font-size:11px">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label class="form-label" style="font-size:9px">TOTAL</label>
+      <div class="pr-qty-total" style="font-family:var(--mono);font-size:13px;color:var(--yellow);padding:6px 2px;line-height:1.6">0</div>
     </div>
     <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0 0 2px;align-self:flex-end">×</button>
   `;
   container.appendChild(row);
+}
+
+function prUpdateTotal(input) {
+  const row    = input.closest('.pr-variant-row');
+  const ecomm  = parseInt(row.querySelector('.pr-qty-ecomm')?.value)  || 0;
+  const retail = parseInt(row.querySelector('.pr-qty-retail')?.value) || 0;
+  const totalEl = row.querySelector('.pr-qty-total');
+  if (totalEl) totalEl.textContent = (ecomm + retail).toLocaleString();
 }
 
 function prVariantRowChanged(sel) {
@@ -8561,14 +8580,18 @@ async function createProductionRun() {
   const rows = document.querySelectorAll('.pr-variant-row');
   const variants = [];
   for (const row of rows) {
-    const variantSel = row.querySelector('select');
-    const colourSel  = row.querySelector('.pr-colour-sel');
-    const qty        = parseInt(row.querySelector('.pr-qty').value) || 0;
-    if (!qty) continue;
+    const variantSel  = row.querySelector('select');
+    const colourSel   = row.querySelector('.pr-colour-sel');
+    const qtyEcomm    = parseInt(row.querySelector('.pr-qty-ecomm')?.value)  || 0;
+    const qtyRetail   = parseInt(row.querySelector('.pr-qty-retail')?.value) || 0;
+    const totalQty    = qtyEcomm + qtyRetail;
+    if (!totalQty) continue;
     variants.push({
-      variant: variantSel?.value || '',
-      colour:  colourSel?.value  || '',
-      qty,
+      variant:    variantSel?.value || '',
+      colour:     colourSel?.value  || '',
+      qty:        totalQty,
+      qty_ecomm:  qtyEcomm,
+      qty_retail: qtyRetail,
     });
   }
   if (!variants.length) return toast('Add at least one variant with a quantity', 'error');
@@ -8622,7 +8645,13 @@ async function loadProductionRuns() {
   };
 
   tbody.innerHTML = res.data.map(r => {
-    const variantStr = (r.variants||[]).map(v => `${v.variant||'Common'}${v.colour?' '+v.colour:''} ×${v.qty}`).join(', ');
+    const variantStr = (r.variants||[]).map(v => {
+      const base  = `${v.variant||'Common'}${v.colour?' '+v.colour:''}`;
+      const split = (v.qty_ecomm || v.qty_retail)
+        ? ` E:${v.qty_ecomm||0}/R:${v.qty_retail||0}`
+        : ` ×${v.qty}`;
+      return base + split;
+    }).join(', ');
     const colour = statusColour[r.status] || 'var(--text)';
     return `<tr>
       <td style="font-family:var(--mono);color:var(--yellow)">${r.run_no}</td>
@@ -8654,15 +8683,18 @@ async function openProductionRun(runNo) {
   document.getElementById('pr-detail-title').textContent = `${run.run_no} — ${run.product} — ${run.status}`;
 
   // WO chips
-  document.getElementById('pr-detail-wos').innerHTML = wos.map(wo =>
-    `<div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px">
+  document.getElementById('pr-detail-wos').innerHTML = wos.map(wo => {
+    const splitStr = (wo.qty_ecomm || wo.qty_retail)
+      ? ` <span style="color:var(--text3);font-size:10px">(E:${wo.qty_ecomm||0} R:${wo.qty_retail||0})</span>`
+      : '';
+    return `<div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px">
       <span style="font-family:var(--mono);color:var(--yellow)">${wo.wo_no}</span>
       <span style="color:var(--text3);margin:0 6px">·</span>
       <span>${wo.variant||'Common'}${wo.colour?' '+wo.colour:''}</span>
       <span style="color:var(--text3);margin:0 6px">·</span>
-      <span style="color:var(--blue)">${wo.qty} units</span>
-    </div>`
-  ).join('');
+      <span style="color:var(--blue)">${wo.qty} units${splitStr}</span>
+    </div>`;
+  }).join('');
 
   // Pick list summary
   const shorts = pick_list.filter(p => p.status === 'SHORT').length;
