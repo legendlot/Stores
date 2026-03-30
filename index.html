@@ -3789,10 +3789,7 @@ const PRODUCT_SUBVARIANTS = {
     'Adventure':  ['Black','Green'],
     'Explorer':   ['Black','Blue'],
   },
-  'Shadow': {
-    'Asphalt': ['Black','Silver'],
-    'Tarmac':  ['Black','Red'],
-  },
+  'Shadow':  {},
   'Nitro':   {},
   'Dash':    {},
   'Fang':    {},
@@ -4723,7 +4720,7 @@ function filterStock() {
 
   let filtered = stockData.filter(r => {
     const matchSearch   = !search   || (r.part_code||'').toLowerCase().includes(search) || (r.part_name||'').toLowerCase().includes(search);
-    const matchProduct  = !product  || r.product === product || r.product === 'Universal';
+    const matchProduct  = !product  || r.product === product;
     const matchCategory = !category || r.category === category;
     const matchType     = !partType || (r.part_type||r.category||'').toLowerCase().includes(partType.toLowerCase());
     const isLow         = Number(r.reorder_level) > 0 && Number(r.closing_stock) <= Number(r.reorder_level);
