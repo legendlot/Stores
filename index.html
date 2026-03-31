@@ -8215,20 +8215,26 @@ async function printPastIssue(issueNo, woNo, product, variant, units) {
     ? new Date(lines[0].issue_date).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
     : dateStr;
 
-  const tableRows = lines.map(l => {
+  // Attach category from materialCache so buildPrintTableRows can sort
+  const annotatedLines = lines.map(l => ({
+    ...l,
+    category: (materialCache[l.part_code] || {}).part_category || (materialCache[l.part_code] || {}).category || '—',
+  }));
+
+  const tableRows = buildPrintTableRows(annotatedLines, 7, function(l) {
     const bagSize = bagMap[l.part_code] || 25;
     const bags    = Math.ceil((l.actual_issued||0) / bagSize);
     const prod    = (materialCache[l.part_code]||{}).product || l.product || '—';
-    return `<tr>
-      <td style="text-align:center;font-size:14pt">☐</td>
-      <td style="font-family:monospace;font-size:9pt">${l.part_code}</td>
-      <td>${l.part_name||'—'}</td>
-      <td style="color:#555;font-size:9pt">${prod}</td>
-      <td style="text-align:right;font-family:monospace;font-weight:700">${l.actual_issued||0}</td>
-      <td style="text-align:right;font-family:monospace">${bagSize} pcs</td>
-      <td style="text-align:right;font-family:monospace;font-weight:700">${bags}</td>
-    </tr>`;
-  }).join('');
+    return '<tr>' +
+      '<td style="text-align:center;font-size:14pt">☐</td>' +
+      '<td style="font-family:monospace;font-size:9pt">' + l.part_code + '</td>' +
+      '<td>' + (l.part_name||'—') + '</td>' +
+      '<td style="color:#555;font-size:9pt">' + prod + '</td>' +
+      '<td style="text-align:right;font-family:monospace;font-weight:700">' + (l.actual_issued||0) + '</td>' +
+      '<td style="text-align:right;font-family:monospace">' + bagSize + ' pcs</td>' +
+      '<td style="text-align:right;font-family:monospace;font-weight:700">' + bags + '</td>' +
+      '</tr>';
+  });
 
   const html_doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>Pick List — ${issueNo}</title>
@@ -8290,6 +8296,26 @@ async function printPastIssue(issueNo, woNo, product, variant, units) {
   };
 }
 
+function buildPrintTableRows(parts, colCount, rowFn) {
+  var sorted = parts.slice().sort(function(a, b) { return pickSortKey(a) - pickSortKey(b); });
+  var html = '', lastCat = null, lastType = null;
+  sorted.forEach(function(p) {
+    var cat  = (p.category || 'Other').trim();
+    var type = ((materialCache[p.part_code] || {}).part_type || '—').trim();
+    if (cat !== lastCat) {
+      html += '<tr style="background:#1c1c1c;page-break-inside:avoid"><td colspan="' + colCount + '" style="padding:6px 8px 4px;color:#fff;font-weight:700;font-size:8.5pt;letter-spacing:.8px;text-transform:uppercase">&#9658; ' + cat + '</td></tr>';
+      lastCat = cat; lastType = null;
+    }
+    if (type !== lastType) {
+      html += '<tr style="background:#ebebeb;page-break-inside:avoid"><td colspan="' + colCount + '" style="padding:3px 8px 2px 22px;color:#666;font-size:7pt;letter-spacing:.6px;font-family:monospace;text-transform:uppercase">' + type + '</td></tr>';
+      lastType = type;
+    }
+    html += rowFn(p);
+  });
+  return html;
+}
+
+
 async function printIssueQueuePickList() {
   if (!issueQueueData) { toast('Load a request first', 'error'); return; }
 
@@ -8315,23 +8341,22 @@ async function printIssueQueuePickList() {
       <div class="meta-item"><label>Total Units</label><span>${totalUnits}</span></div>
       <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>
       <div class="meta-item" style="grid-column:1/-1"><label>Variants</label><span>${wos.map(w=>(w.variant||'Common')+(w.colour?' '+w.colour:'')+' ×'+w.qty).join(' | ')}</span></div>`;
-    tableRows = lines.map(p => {
-      const isShort  = (p.shortfall||0) > 0;
-      const bagSize  = bagMap[p.part_code] || 25;
-      const bags     = Math.ceil((p.total_qty||0) / bagSize);
-      return `<tr style="${isShort?'background:#fff5f5':''}">
-        <td style="text-align:center;font-size:14pt">☐</td>
-        <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
-        <td>${p.part_name}</td>
-        <td style="color:#555;font-size:9pt">${(materialCache[p.part_code]||{}).product||'—'}</td>
-        <td style="color:#666;font-size:9pt">${p.category||'—'}</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${p.total_qty}</td>
-        <td style="text-align:right;font-family:monospace">${p.available}</td>
-        <td style="text-align:right;font-family:monospace">${bagSize} pcs</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${bags}</td>
-        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600'}">${isShort?'SHORT −'+p.shortfall:'OK'}</td>
-      </tr>`;
-    }).join('');
+    tableRows = buildPrintTableRows(lines, 9, function(p) {
+      var isShort = (p.shortfall||0) > 0;
+      var bagSize = bagMap[p.part_code] || 25;
+      var bags    = Math.ceil((p.total_qty||0) / bagSize);
+      return '<tr style="' + (isShort?'background:#fff5f5':'') + '">' +
+        '<td style="text-align:center;font-size:14pt">☐</td>' +
+        '<td style="font-family:monospace;font-size:9pt">' + p.part_code + '</td>' +
+        '<td>' + p.part_name + '</td>' +
+        '<td style="color:#555;font-size:9pt">' + ((materialCache[p.part_code]||{}).product||'—') + '</td>' +
+        '<td style="text-align:right;font-family:monospace;font-weight:700">' + p.total_qty + '</td>' +
+        '<td style="text-align:right;font-family:monospace">' + p.available + '</td>' +
+        '<td style="text-align:right;font-family:monospace">' + bagSize + ' pcs</td>' +
+        '<td style="text-align:right;font-family:monospace;font-weight:700">' + bags + '</td>' +
+        '<td style="' + (isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600') + '">' + (isShort?'SHORT −'+p.shortfall:'OK') + '</td>' +
+        '</tr>';
+    });
   } else {
     const wo = issueQueueData.wo;
     metaHtml = `
@@ -8339,25 +8364,24 @@ async function printIssueQueuePickList() {
       <div class="meta-item"><label>Type</label><span>Ad Hoc Request</span></div>
       <div class="meta-item"><label>Line / Shift</label><span>${wo.line_no||'—'} / ${wo.shift||'—'}</span></div>
       <div class="meta-item"><label>Date Printed</label><span>${dateStr}</span></div>`;
-    tableRows = lines.map(p => {
-      const qty     = p.total_qty || p.qty_requested || 0;
-      const avail   = p.available || 0;
-      const isShort = avail < qty && avail >= 0;
-      const bagSize = bagMap[p.part_code] || 25;
-      const bags    = Math.ceil(qty / bagSize);
-      return `<tr style="${isShort?'background:#fff5f5':''}">
-        <td style="text-align:center;font-size:14pt">☐</td>
-        <td style="font-family:monospace;font-size:9pt">${p.part_code}</td>
-        <td>${p.part_name}</td>
-        <td style="color:#555;font-size:9pt">${(materialCache[p.part_code]||{}).product||'—'}</td>
-        <td style="color:#666;font-size:9pt">—</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${qty}</td>
-        <td style="text-align:right;font-family:monospace">${avail||'—'}</td>
-        <td style="text-align:right;font-family:monospace">${bagSize} pcs</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${bags}</td>
-        <td style="${isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600'}">${isShort?'SHORT':'OK'}</td>
-      </tr>`;
-    }).join('');
+    tableRows = buildPrintTableRows(lines, 9, function(p) {
+      var qty     = p.total_qty || p.qty_requested || 0;
+      var avail   = p.available || 0;
+      var isShort = avail < qty && avail >= 0;
+      var bagSize = bagMap[p.part_code] || 25;
+      var bags    = Math.ceil(qty / bagSize);
+      return '<tr style="' + (isShort?'background:#fff5f5':'') + '">' +
+        '<td style="text-align:center;font-size:14pt">☐</td>' +
+        '<td style="font-family:monospace;font-size:9pt">' + p.part_code + '</td>' +
+        '<td>' + p.part_name + '</td>' +
+        '<td style="color:#555;font-size:9pt">' + ((materialCache[p.part_code]||{}).product||'—') + '</td>' +
+        '<td style="text-align:right;font-family:monospace;font-weight:700">' + qty + '</td>' +
+        '<td style="text-align:right;font-family:monospace">' + (avail||'—') + '</td>' +
+        '<td style="text-align:right;font-family:monospace">' + bagSize + ' pcs</td>' +
+        '<td style="text-align:right;font-family:monospace;font-weight:700">' + bags + '</td>' +
+        '<td style="' + (isShort?'color:#c0392b;font-weight:700':'color:#27ae60;font-weight:600') + '">' + (isShort?'SHORT':'OK') + '</td>' +
+        '</tr>';
+    });
   }
 
   const html_doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -8388,7 +8412,7 @@ async function printIssueQueuePickList() {
   <table>
     <thead><tr>
       <th style="width:28px">✓</th>
-      <th>Part Code</th><th>Part Name</th><th>Product</th><th>Category</th>
+      <th>Part Code</th><th>Part Name</th><th>Product</th>
       <th style="text-align:right">Qty Required</th>
       <th style="text-align:right">In Stock</th>
       <th style="text-align:right">Bag Size</th>
@@ -8428,25 +8452,24 @@ function printPickList() {
   const units   = opt.dataset.qty || '—';
   const dateStr = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
 
-  const rows = plannedKitData.map(r => {
+  const rows = buildPrintTableRows(plannedKitData, 7, function(r) {
     const isShort  = r.status === 'SHORT';
     const rowStyle = isShort ? 'background:#fff8f0' : '';
     const bagSize  = r.bag_size || 25;
     const bags     = Math.ceil((r.total_qty || 0) / bagSize);
     const statusCell = isShort
-      ? `<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −${r.shortfall}</td>`
-      : `<td style="color:#27ae60;font-size:10pt">OK</td>`;
-    return `<tr style="${rowStyle}">
-      <td style="text-align:center;font-size:14pt">☐</td>
-      <td style="font-family:monospace;font-size:9pt">${r.part_code}</td>
-      <td style="font-size:10pt">${r.part_name}</td>
-      <td style="font-family:monospace;font-size:9pt;color:#666">${r.category||'—'}</td>
-      <td style="text-align:right;font-family:monospace">${r.bom_qty}</td>
-      <td style="text-align:right;font-family:monospace;font-weight:700">${r.total_qty}</td>
-      <td style="text-align:right;font-family:monospace;color:#555">${bags}<span style="font-size:7pt;color:#888;margin-left:2px">×${bagSize}</span></td>
-      ${statusCell}
-    </tr>`;
-  }).join('');
+      ? '<td style="color:#c0392b;font-weight:700;font-size:10pt">SHORT −' + r.shortfall + '</td>'
+      : '<td style="color:#27ae60;font-size:10pt">OK</td>';
+    return '<tr style="' + rowStyle + '">' +
+      '<td style="text-align:center;font-size:14pt">☐</td>' +
+      '<td style="font-family:monospace;font-size:9pt">' + r.part_code + '</td>' +
+      '<td style="font-size:10pt">' + r.part_name + '</td>' +
+      '<td style="text-align:right;font-family:monospace">' + r.bom_qty + '</td>' +
+      '<td style="text-align:right;font-family:monospace;font-weight:700">' + r.total_qty + '</td>' +
+      '<td style="text-align:right;font-family:monospace">' + bags + '<span style="font-size:7pt;color:#888;margin-left:2px">×' + bagSize + '</span></td>' +
+      statusCell +
+      '</tr>';
+  });
 
   const shortCount = plannedKitData.filter(r => r.status === 'SHORT').length;
   const shortNote = shortCount > 0
@@ -8483,7 +8506,7 @@ function printPickList() {
   </div>
   ${shortNote}
   <table>
-    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th>Category</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th style="text-align:right">Bags</th><th>Status</th></tr></thead>
+    <thead><tr><th style="width:32px">✓</th><th>Part Code</th><th>Part Name</th><th style="text-align:right">BOM Qty</th><th style="text-align:right">Total Pick</th><th style="text-align:right">Bags</th><th>Status</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="footer">
