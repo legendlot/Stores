@@ -2944,7 +2944,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div id="pr-picklist-summary" style="display:flex;gap:12px;margin-bottom:10px"></div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Part Code</th><th>Part Name</th><th>Category</th><th>Required</th><th>In Stock</th><th>Shortfall</th><th>Status</th></tr></thead>
+                <thead><tr><th>Part Code</th><th>Part Name</th><th>Type</th><th>Required</th><th>In Stock</th><th>Shortfall</th><th>Status</th></tr></thead>
                 <tbody id="pr-picklist-body"></tbody>
               </table>
             </div>
@@ -6131,6 +6131,45 @@ async function loadIssueQueue() {
   `).join('');
 }
 
+// ── Pick list grouping helpers ─────────────────────────────────
+const PICK_CAT_ORDER  = ['Car','Remote','Accessories','Packaging','Para','Batteries','License'];
+const PICK_TYPE_ORDER = ['Electronic','Metal','Plastic','Cardboard','Paper','Fabric','Chemical','Rubber'];
+
+function pickSortKey(p) {
+  var cat  = (p.category || '').trim();
+  var type = ((materialCache[p.part_code] || {}).part_type || '').trim();
+  var catI  = PICK_CAT_ORDER.findIndex(function(c) { return cat.toLowerCase().includes(c.toLowerCase()); });
+  var typeI = PICK_TYPE_ORDER.findIndex(function(t) { return t.toLowerCase() === type.toLowerCase(); });
+  return (catI  < 0 ? 90 : catI) * 1000 +
+         (typeI < 0 ? 90 : typeI);
+}
+
+function renderPickListGrouped(parts, colspan, rowFn) {
+  var sorted   = parts.slice().sort(function(a, b) { return pickSortKey(a) - pickSortKey(b); });
+  var html     = '';
+  var lastCat  = null;
+  var lastType = null;
+  sorted.forEach(function(p) {
+    var cat  = (p.category || 'Other').trim();
+    var type = ((materialCache[p.part_code] || {}).part_type || '—').trim();
+    if (cat !== lastCat) {
+      html += '<tr style="background:rgba(242,205,26,.07);border-top:2px solid var(--border2)">' +
+        '<td colspan="' + colspan + '" style="padding:6px 10px 4px;font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--yellow)">' +
+        '&#9658; ' + cat + '</td></tr>';
+      lastCat  = cat;
+      lastType = null;
+    }
+    if (type !== lastType) {
+      html += '<tr style="background:rgba(255,255,255,.018)">' +
+        '<td colspan="' + colspan + '" style="padding:3px 10px 2px 22px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--text3)">' +
+        type.toUpperCase() + '</td></tr>';
+      lastType = type;
+    }
+    html += rowFn(p);
+  });
+  return html;
+}
+
 async function openIssueQueueItem(type, ref) {
   const panel = document.getElementById('iss-detail-panel');
   const title = document.getElementById('iss-detail-title');
@@ -6166,19 +6205,20 @@ async function openIssueQueueItem(type, ref) {
         <span style="color:var(--text3)">Total: </span><strong>${wos.reduce((s,w)=>s+(w.qty||0),0)} units</strong>
       </div>`;
 
-    tbody.innerHTML = pick_list.map((p, i) => `
-      <tr>
-        <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
-        <td style="font-size:11px">${p.part_name}</td>
-        <td style="font-size:10px;color:var(--text3)">${materialCache[p.part_code]?.product||'—'}</td>
-        <td style="font-family:var(--mono)">${p.total_qty}</td>
-        <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.available}</td>
-        <td><input class="form-input iss-actual-qty" type="number" min="0"
-          value="${p.total_qty}" data-planned="${p.total_qty}"
-          data-part-code="${p.part_code}"
-          data-part-name="${(p.part_name||'').replace(/"/g,'&quot;')}"
-          style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>
-      </tr>`).join('');
+    tbody.innerHTML = renderPickListGrouped(pick_list, 6, function(p) {
+      return '<tr>' +
+        '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>' +
+        '<td style="font-size:11px">' + p.part_name + '</td>' +
+        '<td style="font-size:10px;color:var(--text3)">' + ((materialCache[p.part_code] || {}).product || '—') + '</td>' +
+        '<td style="font-family:var(--mono)">' + p.total_qty + '</td>' +
+        '<td style="font-family:var(--mono);color:' + (p.shortfall > 0 ? '#ff5252' : 'var(--green)') + '">' + p.available + '</td>' +
+        '<td><input class="form-input iss-actual-qty" type="number" min="0"' +
+        ' value="' + p.total_qty + '" data-planned="' + p.total_qty + '"' +
+        ' data-part-code="' + p.part_code + '"' +
+        ' data-part-name="' + (p.part_name || '').replace(/"/g, '&quot;') + '"' +
+        ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>' +
+        '</tr>';
+    });
 
   } else {
     // WO-based issue — load BOM kit
@@ -8704,17 +8744,18 @@ async function openProductionRun(runNo) {
   `;
 
   // Pick list table
-  document.getElementById('pr-picklist-body').innerHTML = pick_list.map(p => `
-    <tr>
-      <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
-      <td>${p.part_name}</td>
-      <td style="color:var(--text3);font-size:11px">${p.category||''}</td>
-      <td style="font-family:var(--mono)">${p.total_qty}</td>
-      <td style="font-family:var(--mono)">${p.available}</td>
-      <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.shortfall>0?'-'+p.shortfall:'—'}</td>
-      <td><span style="font-size:10px;font-family:var(--mono);color:${p.status==='SHORT'?'#ff5252':'var(--green)'}">${p.status}</span></td>
-    </tr>
-  `).join('');
+  document.getElementById('pr-picklist-body').innerHTML = renderPickListGrouped(pick_list, 7, function(p) {
+    var type = ((materialCache[p.part_code] || {}).part_type || '—');
+    return '<tr>' +
+      '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>' +
+      '<td>' + p.part_name + '</td>' +
+      '<td style="color:var(--text3);font-size:11px">' + type + '</td>' +
+      '<td style="font-family:var(--mono)">' + p.total_qty + '</td>' +
+      '<td style="font-family:var(--mono)">' + p.available + '</td>' +
+      '<td style="font-family:var(--mono);color:' + (p.shortfall > 0 ? '#ff5252' : 'var(--green)') + '">' + (p.shortfall > 0 ? '-' + p.shortfall : '—') + '</td>' +
+      '<td><span style="font-size:10px;font-family:var(--mono);color:' + (p.status === 'SHORT' ? '#ff5252' : 'var(--green)') + '">' + p.status + '</span></td>' +
+      '</tr>';
+  });
 
   // Show/hide action buttons based on status and role
   const btnCancel = document.getElementById('pr-btn-cancel');
@@ -8782,17 +8823,17 @@ function showIssueRunPanel() {
   const panel = document.getElementById('pr-issue-panel');
   const tbody  = document.getElementById('pr-issue-lines-body');
 
-  tbody.innerHTML = pick_list.map((p, i) => `
-    <tr>
-      <td style="font-family:var(--mono);font-size:10px">${p.part_code}</td>
-      <td style="font-size:11px">${p.part_name}</td>
-      <td style="font-family:var(--mono)">${p.total_qty}</td>
-      <td style="font-family:var(--mono);color:${p.shortfall>0?'#ff5252':'var(--green)'}">${p.available}</td>
-      <td><input class="form-input issue-actual-qty" type="number" min="0" value="${p.total_qty}"
-        data-part-code="${p.part_code}" data-part-name="${p.part_name.replace(/"/g,'&quot;')}"
-        style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = renderPickListGrouped(pick_list, 5, function(p) {
+    return '<tr>' +
+      '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>' +
+      '<td style="font-size:11px">' + p.part_name + '</td>' +
+      '<td style="font-family:var(--mono)">' + p.total_qty + '</td>' +
+      '<td style="font-family:var(--mono);color:' + (p.shortfall > 0 ? '#ff5252' : 'var(--green)') + '">' + p.available + '</td>' +
+      '<td><input class="form-input issue-actual-qty" type="number" min="0" value="' + p.total_qty + '"' +
+      ' data-part-code="' + p.part_code + '" data-part-name="' + p.part_name.replace(/"/g, '&quot;') + '"' +
+      ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>' +
+      '</tr>';
+  });
 
   panel.style.display = '';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
