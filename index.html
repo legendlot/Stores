@@ -488,6 +488,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 .badge-green  { background:rgba(34,197,94,.12);  color:#4ade80; border:1px solid rgba(34,197,94,.2); }
 .badge-yellow { background:rgba(242,205,26,.12); color:#f2cd1a; border:1px solid rgba(242,205,26,.2); }
 .badge-blue   { background:rgba(33,60,226,.2);   color:#7b93ff; border:1px solid rgba(33,60,226,.3); }
+.badge-orange { background:rgba(255,140,0,.15);  color:#ffaa33; border:1px solid rgba(255,140,0,.25); }
 .badge-gray   { background:rgba(80,80,80,.2);    color:#888;    border:1px solid rgba(80,80,80,.3); }
 
 /* ── FORMS ── */
@@ -1685,7 +1686,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
       </div>
 
       <!-- Issue Queue -->
-      <!-- Open Requests: full width -->
       <div class="panel" style="margin-bottom:16px">
         <div class="panel-header">
           <div class="panel-title">OPEN REQUESTS</div>
@@ -1701,7 +1701,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
       </div>
 
-      <!-- Recent Issues: full width below -->
       <div class="panel" id="issue-history-panel" style="margin-bottom:16px">
         <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
         <div class="tbl-wrap">
@@ -2943,6 +2942,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div class="panel-title" id="pr-detail-title">Run Detail</div>
             <div style="display:flex;gap:6px">
               <button class="btn btn-secondary" id="pr-btn-cancel" onclick="cancelProductionRun()" style="display:none">CANCEL RUN</button>
+              <button class="btn btn-primary"   id="pr-btn-receipt" onclick="showReceiptPanel()" style="display:none">CONFIRM RECEIPT</button>
+              <button class="btn btn-secondary" id="pr-btn-reappeal" onclick="showReappealPanel()" style="display:none">RE-APPEAL</button>
+              <button class="btn btn-danger"    id="pr-btn-force-resolve" onclick="forceResolveReceipt()" style="display:none">FORCE RESOLVE</button>
               
               <button class="btn btn-secondary" onclick="document.getElementById('pr-detail-panel').style.display='none'">✕ Close</button>
             </div>
@@ -2964,6 +2966,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
             <!-- Notes (shows rejection reason if rejected) -->
             <div id="pr-detail-notes" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.2);border-radius:3px;font-size:12px;color:#ff5252"></div>
+            <div id="pr-receipt-status" style="display:none;margin-top:12px"></div>
+            <div id="pr-receipt-panel" style="display:none;margin-top:16px"></div>
           </div>
         </div>
 
@@ -6114,10 +6118,7 @@ async function loadIssueQueue() {
   const tbody = document.getElementById('issue-queue-body');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
-
-  // Ensure material cache is loaded for product lookup
   await ensureMaterialCache();
-  // Fetch submitted runs + open ad hoc/rework WOs in parallel
   let runsRes, wosRes;
   try {
     [runsRes, wosRes] = await Promise.all([
@@ -6128,73 +6129,59 @@ async function loadIssueQueue() {
     tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading queue — ' + e.message + '</td></tr>';
     return;
   }
-
   let rows = [];
-
-  // 1. Production Runs first
   if (runsRes.ok) {
     runsRes.data.forEach(run => {
       rows.push({
-        type:     'run',
-        ref:      run.run_no,
-        badge:    '<span class="badge badge-blue" style="font-size:9px">PROD RUN</span>',
-        product:  run.product,
-        details:  (run.variants||[]).map(v => `${v.variant||'Common'} ×${v.qty}`).join(', '),
-        units:    run.total_units || 0,
-        date:     run.run_date,
-        raw:      run,
+        type: 'run', ref: run.run_no,
+        badge: '<span class="badge badge-blue" style="font-size:9px">PROD RUN</span>',
+        product: run.product,
+        details: (run.variants||[]).map(v => (v.variant||'Common') + ' ×' + v.qty).join(', '),
+        units: run.total_units || 0,
+        run_date: run.run_date, submitted: run.released_at, raw: run,
       });
     });
   }
-
-  // 2. Ad Hoc / Rework WOs
   if (wosRes.ok) {
-    wosRes.data
-      .filter(w => ['Parts Request','adhoc','standalone'].includes(w.wo_type) || w.status === 'Pending Rework')
-      .forEach(wo => {
-        const isRework = wo.status === 'Pending Rework';
-        rows.push({
-          type:      'wo',
-          ref:       wo.wo_no,
-          badge:     isRework
-            ? '<span class="badge badge-red" style="font-size:9px">REWORK</span>'
-            : '<span class="badge badge-yellow" style="font-size:9px">AD HOC</span>',
-          product:   wo.product || '—',
-          details:   `${wo.variant||''} ${wo.colour||''}`.trim() || '—',
-          units:     wo.qty || '—',
-          run_date:  wo.date,
-          submitted: wo.created_at,
-          raw:       wo,
-        });
+    wosRes.data.forEach(wo => {
+      const isRework     = wo.status === 'Pending Rework';
+      const isShortIssue = !!(wo.receipt_id);
+      if (!isShortIssue && !isRework && !['Parts Request','adhoc','standalone'].includes(wo.wo_type)) return;
+      let badge, type;
+      if (isShortIssue)      { badge = '<span class="badge badge-orange" style="font-size:9px">SHORT ISSUE</span>'; type = 'short-issue'; }
+      else if (isRework)     { badge = '<span class="badge badge-red"    style="font-size:9px">REWORK</span>';      type = 'wo'; }
+      else                   { badge = '<span class="badge badge-yellow" style="font-size:9px">AD HOC</span>';      type = 'wo'; }
+      rows.push({
+        type, ref: wo.wo_no, badge,
+        product:    wo.product || '—',
+        details:    isShortIssue ? ('Short re-issue — ' + (wo.notes||'')) : (wo.variant||'') + ' ' + (wo.colour||'').trim() || '—',
+        units:      wo.qty || '—',
+        run_date:   wo.date, submitted: wo.created_at,
+        receipt_id: wo.receipt_id || null, raw: wo,
       });
+    });
   }
-
-  // Filter out rejected items (client-side, prevents flash-back)
   const filteredRows = rows.filter(r => !rejectedRefs.has(r.ref));
   if (!filteredRows.length) {
     tbody.innerHTML = '<tr><td colspan="8" class="empty">No open requests — all clear ✓</td></tr>';
     return;
   }
-
   tbody.innerHTML = filteredRows.map(r => {
-    const runDateStr = r.run_date ? formatDisplayDate(r.run_date) : '—';
-    const subStr = r.submitted
-      ? new Date(r.submitted).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})
-      : '—';
+    const rd  = r.run_date ? formatDisplayDate(r.run_date) : '—';
+    const sub = r.submitted ? new Date(r.submitted).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
     return '<tr>'
       + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.ref + '</td>'
       + '<td>' + r.badge + '</td>'
       + '<td>' + r.product + '</td>'
       + '<td style="font-size:11px;color:var(--text3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + r.details + '">' + r.details + '</td>'
       + '<td style="font-family:var(--mono)">' + r.units + '</td>'
-      + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + runDateStr + '</td>'
-      + '<td style="font-size:10px;color:var(--text3)">' + subStr + '</td>'
-      + '<td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px" onclick="openIssueQueueItem(\''+r.type+'\',\''+r.ref+'\')">ISSUE →</button></td>'
+      + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + rd + '</td>'
+      + '<td style="font-size:10px;color:var(--text3)">' + sub + '</td>'
+      + '<td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px" onclick="openIssueQueueItem(\'' + r.type + '\',\'' + r.ref + '\')">' + (r.type==='short-issue'?'ISSUE SHORT →':'ISSUE →') + '</button></td>'
       + '</tr>';
   }).join('');
 }
 
-// ── Pick list grouping helpers ─────────────────────────────────
 const PICK_CAT_ORDER  = ['Car','Remote','Accessories','Packaging','Para','Batteries','License'];
 const PICK_TYPE_ORDER = ['Electronic','Metal','Plastic','Cardboard','Paper','Fabric','Chemical','Rubber'];
 
@@ -6282,6 +6269,40 @@ async function openIssueQueueItem(type, ref) {
         ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>' +
         '</tr>';
     });
+
+  } else if (type === 'short-issue') {
+    const wosAll = await api('getWorkOrders');
+    const wo = wosAll.ok ? wosAll.data.find(w => w.wo_no === ref) : null;
+    if (!wo) { toast('WO not found', 'error'); return; }
+    const prRes    = await api('getWOParts', { wo_no: ref });
+    const parts    = prRes.ok ? prRes.data : [];
+    const stockRes = await api('getStock');
+    const stockMap = {};
+    if (stockRes.ok) stockRes.data.forEach(s => { stockMap[s.part_code] = s.closing_stock||0; });
+    issueQueueData = { type: 'short-issue', ref, wo, receipt_id: wo.receipt_id, lines: parts.map(p => ({
+      part_code: p.part_code, part_name: p.part_name,
+      total_qty: p.qty_requested, available: stockMap[p.part_code]||0,
+    })) };
+    title.textContent = ref + ' — ' + (wo.product||'') + ' — Short Issue';
+    document.getElementById('iss-detail-summary').innerHTML =
+      '<div style="font-size:11px"><span style="color:var(--text3)">Receipt: </span><strong>' + (wo.receipt_id||'—') + '</strong></div>'
+      + '<div style="font-size:11px"><span style="color:var(--text3)">Short parts: </span><strong>' + parts.length + '</strong></div>';
+    tbody.innerHTML = parts.map(p => {
+      const avail = stockMap[p.part_code]||0;
+      return '<tr>'
+        + '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>'
+        + '<td style="font-size:11px">' + (p.part_name||'') + '</td>'
+        + '<td style="font-size:10px;color:var(--text3)">' + ((materialCache[p.part_code]||{}).product||'—') + '</td>'
+        + '<td style="font-family:var(--mono)">' + p.qty_requested + '</td>'
+        + '<td style="font-family:var(--mono);color:' + (avail < p.qty_requested ? '#ff5252' : 'var(--green)') + '">' + avail + '</td>'
+        + '<td><input class="form-input iss-actual-qty" type="number" min="0"'
+        + ' value="' + p.qty_requested + '" data-planned="' + p.qty_requested + '"'
+        + ' data-part-code="' + p.part_code + '"'
+        + ' data-part-name="' + (p.part_name||'').replace(/"/g, '&quot;') + '"'
+        + ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>'
+        + '</tr>';
+    }).join('');
+    if (rejectBtn) rejectBtn.style.display = 'none';
 
   } else {
     // WO-based issue — load BOM kit
@@ -6442,6 +6463,16 @@ async function submitQueueIssue() {
       res = await apiPost('issueAgainstRun', {
         data: { run_no: issueQueueData.ref, lines }
       });
+    } else if (issueQueueData.type === 'short-issue') {
+      const siLines = lines.filter(l => (parseFloat(l.actual_issued)||0) > 0).map(l => ({
+        part_code: l.part_code, part_name: l.part_name,
+        actual_issued: parseFloat(l.actual_issued)||0,
+      }));
+      res = await apiPost('postShortIssue', { data: {
+        receipt_id: issueQueueData.receipt_id,
+        wo_no:      issueQueueData.ref,
+        lines:      siLines,
+      }});
     } else {
       // WO-based issue
       const wo = issueQueueData.wo;
@@ -6487,34 +6518,36 @@ async function loadIssueHistory() {
   const tbody = document.getElementById('issue-history');
   if (!tbody) return;
   if (!res.data.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">No issues yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No issues yet</td></tr>';
     return;
   }
   const grouped = {};
   res.data.forEach(r => { if (!grouped[r.issue_no]) grouped[r.issue_no] = r; });
   tbody.innerHTML = Object.values(grouped).slice(0,20).map(r => {
     const runCell = r.run_no
-      ? '<span style="font-family:var(--mono);font-size:10px;color:var(--yellow);cursor:pointer;'
-        + 'text-decoration:underline dotted" onclick="openIssueQueueItem(\'run\',\''
-        + r.run_no + '\')" title="Open ' + r.run_no + '">' + r.run_no + '</span>'
+      ? '<span style="font-family:var(--mono);font-size:10px;color:var(--yellow);cursor:pointer;text-decoration:underline dotted"'
+        + ' onclick="openIssueQueueItem(\'run\',\'' + r.run_no + '\')" title="Open ' + r.run_no + '">' + r.run_no + '</span>'
       : '<span style="color:var(--text3)">&#8212;</span>';
-    const bc = r.issue_type==='Planned'?'badge-blue':r.issue_type==='Rework'?'badge-red':'badge-yellow';
+    const isShort  = r.issue_type === 'Short Issue';
+    const bc = isShort ? 'badge-orange' : r.issue_type==='Planned' ? 'badge-blue' : r.issue_type==='Rework' ? 'badge-red' : 'badge-yellow';
     const dt = r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
     const pr = "printPastIssue('" + r.issue_no + "','" + (r.wo_no||'') + "','" + (r.product||'') + "','" + (r.variant||'') + "','" + (r.units_planned||0) + "')";
     return '<tr>'
-      + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.issue_no + '</td>'
+      + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.issue_no + (r.ref_issue_no ? '<br><span style="font-size:9px;color:var(--text3)">ref:'+r.ref_issue_no+'</span>' : '') + '</td>'
       + '<td><span class="badge ' + bc + '" style="font-size:9px">' + (r.issue_type||'&#8212;') + '</span></td>'
       + '<td>' + runCell + '</td>'
       + '<td style="font-family:var(--mono);font-size:10px">' + (r.wo_no||'&#8212;') + '</td>'
       + '<td>' + (r.product||'') + '</td>'
       + '<td>' + (r.variant||'<span style="color:var(--text3)">&#8212;</span>') + '</td>'
+      + '<td style="color:var(--text3);font-size:11px">' + (r.colour||'&#8212;') + '</td>'
       + '<td style="font-family:var(--mono)">' + (r.units_planned||'') + '</td>'
       + '<td>' + dt + '</td>'
       + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="' + pr + '">&#128424;</button></td>'
       + '</tr>';
   }).join('');
 }
-// ══ RETURNS ══════════════════════════════════════════════════
+
+// ══ RETURNS ══════════════════════════════════════════════════════
 function clearReturn() {
   document.getElementById('ret-orderid').value = '';
   document.getElementById('ret-variant').value = '';
@@ -8603,7 +8636,8 @@ async function generateBagsForLineBtn(btn) {
 
 // ══ PRODUCTION RUNS ════════════════════════════════════════════
 
-let currentRunData = null; // { run, wos, pick_list }
+let currentRunData     = null; // { run, wos, pick_list }
+let currentReceiptData = null; // receipt for current run
 
 function initProdRuns() {
   // Populate product dropdown
@@ -8725,15 +8759,11 @@ async function createProductionRun() {
   btn.textContent = 'CREATING...';
   btn.disabled = true;
   try {
-    // Step 1: create run (warns if an open run already exists for this product)
+    // Step 1: create run
     const payload = { product, run_date: date, line_no: line, shift, notes, variants };
     let res = await apiPost('createProductionRun', { data: payload });
-
-    // Worker returns warning:true if a Submitted/Issued run already exists for this product
     if (!res.ok && res.warning) {
-      const confirmed = confirm(
-        res.message + '\n\nClick OK to create anyway, or Cancel to go back.'
-      );
+      const confirmed = confirm(res.message + '\n\nClick OK to create anyway, or Cancel to go back.');
       if (!confirmed) return;
       res = await apiPost('createProductionRun', { data: Object.assign({}, payload, { force: true }) });
     }
@@ -8743,7 +8773,7 @@ async function createProductionRun() {
     // Step 2: immediately submit to store
     const subRes = await apiPost('submitProductionRun', { data: { run_no: runNo } });
     if (!subRes.ok) {
-      toast('Run ' + runNo + ' created but submit failed: ' + subRes.error, 'error');
+      toast(`Run ${runNo} created but submit failed: ${subRes.error}`, 'error');
     } else {
       toast('Run ' + runNo + ' created and submitted to store', 'success');
     }
@@ -8768,8 +8798,8 @@ async function loadProductionRuns() {
   const params = {};
   if (status) params.status = status;
   const res = await api('getProductionRuns', params);
-  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="8" class="empty">Error loading runs</td></tr>`; return; }
-  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">No production runs yet</td></tr>`; return; }
+  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading runs</td></tr>`; return; }
+  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No production runs yet</td></tr>`; return; }
 
   const statusColour = {
     'Draft':'var(--text3)', 'Submitted':'var(--blue)', 'Issued':'var(--yellow)',
@@ -8797,7 +8827,7 @@ async function loadProductionRuns() {
       + '<td style="font-size:10px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + variantStr + '">' + (variantStr||'—') + '</td>'
       + '<td style="font-family:var(--mono)">' + (r.total_units||0) + '</td>'
       + '<td style="color:' + colour + ';font-family:var(--mono);font-size:10px">' + r.status + '</td>'
-      + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun(\''+r.run_no+'\')">→</button></td>'
+      + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun(\''+r.run_no+'\')">VIEW</button></td>'
       + '</tr>';
   }).join('');
 }
@@ -8805,76 +8835,118 @@ async function loadProductionRuns() {
 async function openProductionRun(runNo) {
   const panel = document.getElementById('pr-detail-panel');
   panel.style.display = 'block';
-  document.getElementById('pr-detail-title').textContent = `Run ${runNo} — Loading...`;
+  document.getElementById('pr-detail-title').textContent = runNo + ' -- Loading...';
   document.getElementById('pr-picklist-body').innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
   document.getElementById('pr-detail-wos').innerHTML = '';
   document.getElementById('pr-issue-panel').style.display = 'none';
+  document.getElementById('pr-receipt-panel').style.display = 'none';
+  document.getElementById('pr-receipt-status').style.display = 'none';
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  const res = await api('getProductionRun', { run_no: runNo });
-  if (!res.ok) { toast('Failed to load run', 'error'); return; }
+  const [runRes, rcptRes] = await Promise.all([
+    api('getProductionRun', { run_no: runNo }),
+    api('getIssueReceipts', {}),
+  ]);
+  if (!runRes.ok) { toast('Failed to load run', 'error'); return; }
 
-  currentRunData = res.data;
-  const { run, wos, pick_list } = res.data;
+  currentRunData = runRes.data;
+  const { run, wos, pick_list } = runRes.data;
+  const receipts   = rcptRes.ok ? rcptRes.data : [];
+  const receipt    = receipts.find(r => r.run_id === run.id) || null;
+  currentReceiptData = receipt;
 
-  document.getElementById('pr-detail-title').textContent = `${run.run_no} — ${run.product} — ${run.status}`;
+  document.getElementById('pr-detail-title').textContent = run.run_no + ' \u2014 ' + run.product + ' \u2014 ' + run.status;
 
-  // WO chips
   document.getElementById('pr-detail-wos').innerHTML = wos.map(wo => {
     const splitStr = (wo.qty_ecomm || wo.qty_retail)
-      ? ` <span style="color:var(--text3);font-size:10px">(E:${wo.qty_ecomm||0} R:${wo.qty_retail||0})</span>`
+      ? ' <span style="color:var(--text3);font-size:10px">(E:' + (wo.qty_ecomm||0) + ' R:' + (wo.qty_retail||0) + ')</span>'
       : '';
-    return `<div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px">
-      <span style="font-family:var(--mono);color:var(--yellow)">${wo.wo_no}</span>
-      <span style="color:var(--text3);margin:0 6px">·</span>
-      <span>${wo.variant||'Common'}${wo.colour?' '+wo.colour:''}</span>
-      <span style="color:var(--text3);margin:0 6px">·</span>
-      <span style="color:var(--blue)">${wo.qty} units${splitStr}</span>
-    </div>`;
+    return '<div style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px">'
+      + '<span style="font-family:var(--mono);color:var(--yellow)">' + wo.wo_no + '</span>'
+      + '<span style="color:var(--text3);margin:0 6px">&middot;</span>'
+      + '<span>' + (wo.variant||'Common') + (wo.colour?' '+wo.colour:'') + '</span>'
+      + '<span style="color:var(--text3);margin:0 6px">&middot;</span>'
+      + '<span style="color:var(--blue)">' + wo.qty + ' units' + splitStr + '</span>'
+      + '</div>';
   }).join('');
 
-  // Pick list summary
   const shorts = pick_list.filter(p => p.status === 'SHORT').length;
-  document.getElementById('pr-picklist-summary').innerHTML = `
-    <div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px">
-      <span style="color:var(--text3)">Parts: </span><strong>${pick_list.length}</strong>
-    </div>
-    <div style="padding:6px 12px;background:${shorts?'rgba(255,82,82,.08)':'rgba(39,174,96,.08)'};border:1px solid ${shorts?'rgba(255,82,82,.3)':'rgba(39,174,96,.3)'};border-radius:3px;font-size:11px">
-      <span style="color:var(--text3)">Short: </span><strong style="color:${shorts?'#ff5252':'var(--green)'}">${shorts}</strong>
-    </div>
-    <div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px">
-      <span style="color:var(--text3)">Total units: </span><strong>${wos.reduce((s,w)=>s+(w.qty||0),0)}</strong>
-    </div>
-  `;
+  document.getElementById('pr-picklist-summary').innerHTML =
+    '<div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px"><span style="color:var(--text3)">Parts: </span><strong>' + pick_list.length + '</strong></div>'
+    + '<div style="padding:6px 12px;background:' + (shorts?'rgba(255,82,82,.08)':'rgba(39,174,96,.08)') + ';border:1px solid ' + (shorts?'rgba(255,82,82,.3)':'rgba(39,174,96,.3)') + ';border-radius:3px;font-size:11px"><span style="color:var(--text3)">Short: </span><strong style="color:' + (shorts?'#ff5252':'var(--green)') + '">' + shorts + '</strong></div>'
+    + '<div style="padding:6px 12px;background:var(--bg3);border-radius:3px;font-size:11px"><span style="color:var(--text3)">Total units: </span><strong>' + wos.reduce((s,w)=>s+(w.qty||0),0) + '</strong></div>';
 
-  // Pick list table
   document.getElementById('pr-picklist-body').innerHTML = renderPickListGrouped(pick_list, 7, function(p) {
-    var type = ((materialCache[p.part_code] || {}).part_type || '—');
-    return '<tr>' +
-      '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>' +
-      '<td>' + p.part_name + '</td>' +
-      '<td style="color:var(--text3);font-size:11px">' + type + '</td>' +
-      '<td style="font-family:var(--mono)">' + p.total_qty + '</td>' +
-      '<td style="font-family:var(--mono)">' + p.available + '</td>' +
-      '<td style="font-family:var(--mono);color:' + (p.shortfall > 0 ? '#ff5252' : 'var(--green)') + '">' + (p.shortfall > 0 ? '-' + p.shortfall : '—') + '</td>' +
-      '<td><span style="font-size:10px;font-family:var(--mono);color:' + (p.status === 'SHORT' ? '#ff5252' : 'var(--green)') + '">' + p.status + '</span></td>' +
-      '</tr>';
+    var type = ((materialCache[p.part_code] || {}).part_type || '--');
+    return '<tr>'
+      + '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>'
+      + '<td>' + p.part_name + '</td>'
+      + '<td style="color:var(--text3);font-size:11px">' + type + '</td>'
+      + '<td style="font-family:var(--mono)">' + p.total_qty + '</td>'
+      + '<td style="font-family:var(--mono)">' + p.available + '</td>'
+      + '<td style="font-family:var(--mono);color:' + (p.shortfall > 0 ? '#ff5252' : 'var(--green)') + '">' + (p.shortfall > 0 ? '-' + p.shortfall : '--') + '</td>'
+      + '<td><span style="font-size:10px;font-family:var(--mono);color:' + (p.status === 'SHORT' ? '#ff5252' : 'var(--green)') + '">' + p.status + '</span></td>'
+      + '</tr>';
   });
 
-  // Show/hide action buttons based on status and role
-  const btnCancel = document.getElementById('pr-btn-cancel');
-  const btnReject = null;
-  const btnIssue  = null;
-  btnCancel.style.display = 'none';
-  if (btnReject) btnReject.style.display = 'none';
-  if (btnIssue) btnIssue.style.display = 'none';
+  const btnCancel   = document.getElementById('pr-btn-cancel');
+  const btnReceipt  = document.getElementById('pr-btn-receipt');
+  const btnReappeal = document.getElementById('pr-btn-reappeal');
+  const btnForce    = document.getElementById('pr-btn-force-resolve');
+  btnCancel.style.display   = 'none';
+  btnReceipt.style.display  = 'none';
+  btnReappeal.style.display = 'none';
+  btnForce.style.display    = 'none';
 
-  // Cancel: production side only
   if (['Draft','Submitted'].includes(run.status) && ['production','ops','vinay','super_admin'].includes(currentRole)) {
     btnCancel.style.display = '';
   }
+  if (run.status === 'Issued' && !receipt && currentPermissions.receipt_confirm) {
+    btnReceipt.style.display = '';
+  }
+  if (receipt && receipt.status === 'Contested' && currentPermissions.receipt_confirm) {
+    btnReappeal.style.display = '';
+  }
+  if (receipt && receipt.status === 'Locked' && currentPermissions.procurement_approve) {
+    btnForce.style.display = '';
+  }
 
-  // Show rejection reason if rejected
+  if (receipt) {
+    const rcptColors = {
+      'Confirmed':    ['rgba(39,174,96,.08)',  'rgba(39,174,96,.3)',  'var(--green)', 'badge-green' ],
+      'Short-Pending':['rgba(255,140,0,.08)',  'rgba(255,140,0,.3)',  '#ffaa33',      'badge-orange'],
+      'Contested':    ['rgba(255,82,82,.08)',  'rgba(255,82,82,.3)',  '#ff5252',      'badge-red'   ],
+      'Re-appealed':  ['rgba(255,140,0,.08)',  'rgba(255,140,0,.3)',  '#ffaa33',      'badge-orange'],
+      'Resolved':     ['rgba(39,174,96,.08)',  'rgba(39,174,96,.3)',  'var(--green)', 'badge-green' ],
+      'Locked':       ['rgba(255,82,82,.12)',  'rgba(255,82,82,.4)',  '#ff5252',      'badge-red'   ],
+    };
+    const rc = rcptColors[receipt.status] || ['var(--bg3)','var(--border)','var(--text)',''];
+    const shortRcptLines = (receipt.lines||[]).filter(l => l.variance < 0);
+    const shortSummary = shortRcptLines.map(l =>
+      '<div style="font-size:11px;margin-top:4px">'
+      + '<span style="font-family:var(--mono);color:var(--yellow)">' + l.part_code + '</span>'
+      + ' <span style="color:var(--text3)">' + (l.part_name||'') + '</span>'
+      + ' &mdash; issued: <strong>' + l.qty_issued + '</strong>'
+      + ', received: <strong style="color:' + rc[2] + '">' + l.qty_received + '</strong>'
+      + ', short: <strong style="color:#ff5252">' + Math.abs(l.variance) + '</strong>'
+      + '</div>'
+    ).join('');
+    const contestNote = receipt.contested_at
+      ? '<div style="margin-top:8px;font-size:11px;color:#ff5252">&#9888; Contested by store on '
+        + new Date(receipt.contested_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + '</div>'
+      : '';
+    document.getElementById('pr-receipt-status').innerHTML =
+      '<div style="padding:12px 14px;background:' + rc[0] + ';border:1px solid ' + rc[1] + ';border-radius:4px">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:' + (shortRcptLines.length?'8':'0') + 'px">'
+      + '<span style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--text3)">RECEIPT</span>'
+      + '<span class="badge ' + rc[3] + '" style="font-size:10px">' + receipt.status.toUpperCase() + '</span>'
+      + '<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">' + receipt.receipt_id + '</span>'
+      + '<span style="font-size:10px;color:var(--text3)">confirmed by ' + (receipt.confirmed_by||'--') + '</span>'
+      + '</div>'
+      + shortSummary + contestNote + '</div>';
+    document.getElementById('pr-receipt-status').style.display = '';
+  }
+
   const notesDiv = document.getElementById('pr-detail-notes');
   if (run.notes && run.notes.includes('[REJECTED')) {
     notesDiv.textContent = run.notes;
@@ -8883,6 +8955,226 @@ async function openProductionRun(runNo) {
     notesDiv.style.display = 'none';
   }
 }
+
+
+// ══ ISSUE RECEIPT CONFIRMATION ════════════════════════════════
+
+function showReceiptPanel() {
+  if (!currentRunData) return;
+  const { run, wos, pick_list } = currentRunData;
+  const panel = document.getElementById('pr-receipt-panel');
+
+  // Issue no: find the issue_no from the last ISS record for this run
+  // (stored in currentRunData if we pass it, else we just use the run_no as label)
+  const issueNo = currentRunData.issue_no || '';
+
+  const rows = pick_list.map(function(p) {
+    return '<tr>'
+      + '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>'
+      + '<td style="font-size:11px">' + p.part_name + '</td>'
+      + '<td style="font-family:var(--mono);text-align:right">' + p.total_qty + '</td>'
+      + '<td><input class="form-input rcpt-qty-received" type="number" min="0"'
+      + ' value="' + p.total_qty + '"'
+      + ' data-part-code="' + p.part_code + '"'
+      + ' data-part-name="' + (p.part_name||'').replace(/"/g,'&quot;') + '"'
+      + ' data-qty-issued="' + p.total_qty + '"'
+      + ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"'
+      + ' oninput="rcptHighlightVariance(this)"></td>'
+      + '<td class="rcpt-variance-cell" style="font-family:var(--mono);font-size:11px;color:var(--text3)">--</td>'
+      + '</tr>';
+  }).join('');
+
+  panel.innerHTML =
+    '<div class="panel">'
+    + '<div class="panel-header">'
+    + '<div class="panel-title">Confirm Receipt &mdash; ' + run.run_no + '</div>'
+    + '<button class="btn btn-secondary" style="padding:3px 10px;font-size:11px" onclick="document.getElementById(\'pr-receipt-panel\').style.display=\'none\'">&#10005;</button>'
+    + '</div>'
+    + '<div class="panel-body">'
+    + '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Enter the actual quantity received for each part. Leave unchanged if correct.</div>'
+    + '<div class="tbl-wrap"><table>'
+    + '<thead><tr><th>Part Code</th><th>Part Name</th><th>Issued</th><th>Received</th><th>Variance</th></tr></thead>'
+    + '<tbody id="rcpt-lines-body">' + rows + '</tbody>'
+    + '</table></div>'
+    + '<div class="btn-row" style="margin-top:12px">'
+    + '<button class="btn btn-secondary" onclick="rcptFillAllIssued()">ALL AS ISSUED</button>'
+    + '<button class="btn btn-primary" id="rcpt-submit-btn" onclick="submitReceiptConfirmation()">CONFIRM RECEIPT</button>'
+    + '</div>'
+    + '</div></div>';
+
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function rcptHighlightVariance(input) {
+  const issued   = parseFloat(input.dataset.qtyIssued) || 0;
+  const received = parseFloat(input.value) || 0;
+  const variance = received - issued;
+  const cell = input.closest('tr').querySelector('.rcpt-variance-cell');
+  if (!cell) return;
+  if (variance === 0) {
+    cell.textContent = '--';
+    cell.style.color = 'var(--text3)';
+    input.style.borderColor = '';
+  } else if (variance < 0) {
+    cell.textContent = variance;
+    cell.style.color = '#ff5252';
+    input.style.borderColor = '#ff5252';
+  } else {
+    cell.textContent = '+' + variance;
+    cell.style.color = 'var(--green)';
+    input.style.borderColor = 'var(--green)';
+  }
+}
+
+function rcptFillAllIssued() {
+  document.querySelectorAll('.rcpt-qty-received').forEach(function(inp) {
+    inp.value = inp.dataset.qtyIssued;
+    rcptHighlightVariance(inp);
+  });
+}
+
+async function submitReceiptConfirmation() {
+  if (!currentRunData) return;
+  const { run } = currentRunData;
+
+  // Find issue_no for this run from recent issues
+  const issuesRes = await api('getIssues');
+  const runIssue  = issuesRes.ok
+    ? issuesRes.data.find(function(r) { return r.run_id === run.id; })
+    : null;
+  const issueNo = runIssue ? runIssue.issue_no : '';
+  if (!issueNo) { toast('Could not find issue record for this run. Has it been issued?', 'error'); return; }
+
+  const inputs = document.querySelectorAll('.rcpt-qty-received');
+  const lines  = Array.from(inputs).map(function(inp) {
+    return {
+      part_code:    inp.dataset.partCode,
+      part_name:    inp.dataset.partName,
+      qty_issued:   parseFloat(inp.dataset.qtyIssued) || 0,
+      qty_received: parseFloat(inp.value) || 0,
+    };
+  });
+
+  const btn = document.getElementById('rcpt-submit-btn');
+  btn.textContent = 'SUBMITTING...';
+  btn.disabled = true;
+  try {
+    const res = await apiPost('postIssueReceipt', {
+      data: { run_no: run.run_no, issue_no: issueNo, lines }
+    });
+    if (res.ok) {
+      if (res.data.status === 'Confirmed') {
+        toast('Receipt confirmed -- all quantities match', 'success');
+      } else {
+        toast('Receipt submitted -- ' + res.data.short_lines + ' part(s) short. Short Issue WO ' + res.data.short_wo + ' raised for store.', 'success');
+      }
+      document.getElementById('pr-receipt-panel').style.display = 'none';
+      openProductionRun(run.run_no);
+    } else {
+      toast(res.error || 'Receipt submission failed', 'error');
+    }
+  } catch(e) {
+    toast('Error submitting receipt', 'error');
+  } finally {
+    btn.textContent = 'CONFIRM RECEIPT';
+    btn.disabled = false;
+  }
+}
+
+function showReappealPanel() {
+  if (!currentReceiptData) return;
+  const receipt = currentReceiptData;
+  const panel   = document.getElementById('pr-receipt-panel');
+  const shortLines = (receipt.lines||[]).filter(function(l) { return l.variance < 0; });
+
+  const rows = shortLines.map(function(l) {
+    return '<tr>'
+      + '<td style="font-family:var(--mono);font-size:10px">' + l.part_code + '</td>'
+      + '<td style="font-size:11px">' + (l.part_name||'') + '</td>'
+      + '<td style="font-family:var(--mono);text-align:right">' + l.qty_issued + '</td>'
+      + '<td style="font-family:var(--mono);text-align:right;color:#ff5252">' + l.qty_received + '</td>'
+      + '<td><input class="form-input rcpt-qty-received" type="number" min="0"'
+      + ' value="' + l.qty_received + '"'
+      + ' data-part-code="' + l.part_code + '"'
+      + ' data-part-name="' + (l.part_name||'').replace(/"/g,'&quot;') + '"'
+      + ' data-qty-issued="' + l.qty_issued + '"'
+      + ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"'
+      + ' oninput="rcptHighlightVariance(this)"></td>'
+      + '<td class="rcpt-variance-cell" style="font-family:var(--mono);font-size:11px;color:#ff5252">' + l.variance + '</td>'
+      + '</tr>';
+  }).join('');
+
+  panel.innerHTML =
+    '<div class="panel" style="border-color:rgba(255,140,0,.3)">'
+    + '<div class="panel-header">'
+    + '<div class="panel-title">Re-Appeal &mdash; ' + receipt.receipt_id + '</div>'
+    + '<button class="btn btn-secondary" style="padding:3px 10px;font-size:11px" onclick="document.getElementById(\'pr-receipt-panel\').style.display=\'none\'">&#10005;</button>'
+    + '</div>'
+    + '<div class="panel-body">'
+    + '<div style="font-size:11px;color:#ffaa33;margin-bottom:12px">Store has contested this receipt. Update the quantities you believe were received and re-submit.</div>'
+    + '<div class="tbl-wrap"><table>'
+    + '<thead><tr><th>Part Code</th><th>Part Name</th><th>Issued</th><th>Prev. Received</th><th>Updated Received</th><th>Variance</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '</table></div>'
+    + '<div class="btn-row" style="margin-top:12px">'
+    + '<button class="btn btn-primary" id="rcpt-reappeal-btn" onclick="submitReappeal()">SUBMIT RE-APPEAL</button>'
+    + '</div>'
+    + '</div></div>';
+
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function submitReappeal() {
+  if (!currentReceiptData) return;
+  const inputs = document.querySelectorAll('.rcpt-qty-received');
+  const lines  = Array.from(inputs).map(function(inp) {
+    return {
+      part_code:    inp.dataset.partCode,
+      part_name:    inp.dataset.partName,
+      qty_issued:   parseFloat(inp.dataset.qtyIssued) || 0,
+      qty_received: parseFloat(inp.value) || 0,
+    };
+  });
+
+  const btn = document.getElementById('rcpt-reappeal-btn');
+  btn.textContent = 'SUBMITTING...';
+  btn.disabled = true;
+  try {
+    const res = await apiPost('reappealIssueReceipt', {
+      data: { receipt_id: currentReceiptData.receipt_id, lines }
+    });
+    if (res.ok) {
+      toast('Re-appeal submitted -- Short Issue WO ' + res.data.new_wo + ' raised for store', 'success');
+      document.getElementById('pr-receipt-panel').style.display = 'none';
+      openProductionRun(currentRunData.run.run_no);
+    } else {
+      toast(res.error || 'Re-appeal failed', 'error');
+    }
+  } catch(e) {
+    toast('Error submitting re-appeal', 'error');
+  } finally {
+    btn.textContent = 'SUBMIT RE-APPEAL';
+    btn.disabled = false;
+  }
+}
+
+async function forceResolveReceipt() {
+  if (!currentReceiptData) return;
+  const reason = prompt('Reason for force-resolving receipt ' + currentReceiptData.receipt_id + ':');
+  if (!reason) return;
+  const res = await apiPost('forceResolveReceipt', {
+    data: { receipt_id: currentReceiptData.receipt_id, reason }
+  });
+  if (res.ok) {
+    toast('Receipt ' + currentReceiptData.receipt_id + ' force-resolved', 'success');
+    openProductionRun(currentRunData.run.run_no);
+  } else {
+    toast(res.error || 'Force resolve failed', 'error');
+  }
+}
+
 
 async function cancelProductionRun() {
   if (!currentRunData) return;
