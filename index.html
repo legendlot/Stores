@@ -6526,7 +6526,7 @@ async function loadIssueHistory() {
   tbody.innerHTML = Object.values(grouped).slice(0,20).map(r => {
     const runCell = r.run_no
       ? '<span style="font-family:var(--mono);font-size:10px;color:var(--yellow);cursor:pointer;text-decoration:underline dotted"'
-        + ' onclick="openProductionRun(\'' + r.run_no + '\')" title="View run ' + r.run_no + '">' + r.run_no + '</span>'
+        + ' onclick="viewRunFromHistory(\'' + r.run_no + '\')" title="View run ' + r.run_no + '">' + r.run_no + '</span>'
       : '<span style="color:var(--text3)">&#8212;</span>';
     const isShort  = r.issue_type === 'Short Issue';
     const bc = isShort ? 'badge-orange' : r.issue_type==='Planned' ? 'badge-blue' : r.issue_type==='Rework' ? 'badge-red' : 'badge-yellow';
@@ -8830,6 +8830,12 @@ async function loadProductionRuns() {
       + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun(\''+r.run_no+'\')">VIEW</button></td>'
       + '</tr>';
   }).join('');
+}
+
+function viewRunFromHistory(runNo) {
+  showView('prodruns');
+  // Small delay to let the view render before opening the panel
+  setTimeout(function() { openProductionRun(runNo); }, 80);
 }
 
 async function openProductionRun(runNo) {
