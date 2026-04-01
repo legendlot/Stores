@@ -728,6 +728,21 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
 .line-item .remove-btn:hover { color:var(--red); background:rgba(222,42,42,.1); }
 
+.line-item-name-wrap { position:relative; min-width:0; }
+.line-item-name-wrap input { width:100%; box-sizing:border-box; }
+.part-dropdown {
+  position:absolute; top:calc(100% + 2px); left:0; right:0;
+  background:var(--surface2,#1e1e1e); border:1px solid var(--border);
+  border-radius:4px; z-index:200; max-height:180px; overflow-y:auto;
+  box-shadow:0 4px 12px rgba(0,0,0,.5);
+}
+.part-dropdown-item {
+  padding:5px 8px; cursor:pointer; display:flex; gap:8px; align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.part-dropdown-item:last-child { border-bottom:none; }
+.part-dropdown-item:hover { background:rgba(255,204,0,.08); }
+
 /* ── AS-OF TIMESTAMP ── */
 .as-of {
   font-family:var(--mono);
@@ -4932,9 +4947,13 @@ function addGRNLine() {
   div.className = 'line-item';
   div.innerHTML = `
     <input placeholder="Part Code" class="mono" style="font-size:11px;text-transform:uppercase"
-           oninput="this.value=this.value.toUpperCase()"
-           onblur="lookupPartCodeInEl(this)">
-    <input placeholder="Auto-fills from code" style="color:var(--text3);font-size:11px" readonly>
+           oninput="this.value=this.value.toUpperCase();lookupPartCode(this)"
+           onblur="lookupPartCode(this)">
+    <div class="line-item-name-wrap">
+      <input placeholder="Or search by name\u2026" style="font-size:11px"
+             oninput="lookupPartName(this)"
+             onblur="scheduleHidePartDropdown(this)">
+    </div>
     <input type="number" placeholder="Qty" min="1" style="text-align:right">
     <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
   `;
@@ -5388,19 +5407,60 @@ function lookupPartCode(input) {
   if (part) {
     nameInput.value = part.part_name || '';
     nameInput.style.color = 'var(--green)';
-    nameInput.readOnly = true;
     input.style.borderColor = 'var(--green)';
   } else if (code.length >= 5) {
-    nameInput.value = '⚠ Code not found in material master';
+    nameInput.value = '\u26a0 Code not found in material master';
     nameInput.style.color = 'var(--red)';
-    nameInput.readOnly = false;
     input.style.borderColor = 'var(--red)';
   } else {
     nameInput.value = '';
     nameInput.style.color = '';
-    nameInput.readOnly = false;
     input.style.borderColor = '';
   }
+}
+
+function lookupPartName(input) {
+  const q = input.value.trim().toLowerCase();
+  const wrap = input.parentElement;
+  const existing = wrap.querySelector('.part-dropdown');
+  if (existing) existing.remove();
+  // If code is already filled and matched, just let it be
+  const row = input.closest('.line-item');
+  if (!row) return;
+  const codeInput = row.querySelectorAll('input')[0];
+  if (q.length < 2) {
+    if (!codeInput.value) { input.style.color = ''; }
+    return;
+  }
+  const matches = Object.values(materialCache)
+    .filter(r => (r.part_name||'').toLowerCase().includes(q) || (r.part_code||'').toLowerCase().includes(q))
+    .slice(0, 12);
+  if (!matches.length) return;
+  const dropdown = document.createElement('div');
+  dropdown.className = 'part-dropdown';
+  matches.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'part-dropdown-item';
+    item.innerHTML =
+      '<span class="mono" style="font-size:10px;color:var(--yellow);flex-shrink:0">' + m.part_code + '</span>' +
+      '<span style="font-size:11px;color:var(--text)">' + (m.part_name||'') + '</span>';
+    item.onmousedown = function() {
+      codeInput.value = m.part_code;
+      input.value = m.part_name || '';
+      codeInput.style.borderColor = 'var(--green)';
+      input.style.color = 'var(--green)';
+      dropdown.remove();
+    };
+    dropdown.appendChild(item);
+  });
+  wrap.appendChild(dropdown);
+}
+
+function scheduleHidePartDropdown(input) {
+  setTimeout(function() {
+    const wrap = input.parentElement;
+    if (wrap) { const d = wrap.querySelector('.part-dropdown'); if (d) d.remove(); }
+  }, 200);
 }
 
 function addIssLine() {
@@ -5410,11 +5470,15 @@ function addIssLine() {
   div.className = 'line-item';
   div.innerHTML = `
     <input placeholder="Part Code" class="mono" style="font-size:11px;text-transform:uppercase"
-           oninput="this.value=this.value.toUpperCase()"
-           onblur="lookupPartCodeInEl(this)">
-    <input placeholder="Part name auto-fills from code" style="color:var(--text3);font-size:11px">
+           oninput="this.value=this.value.toUpperCase();lookupPartCode(this)"
+           onblur="lookupPartCode(this)">
+    <div class="line-item-name-wrap">
+      <input placeholder="Or search by name…" style="font-size:11px"
+             oninput="lookupPartName(this)"
+             onblur="scheduleHidePartDropdown(this)">
+    </div>
     <input type="number" placeholder="Qty" min="1" style="text-align:right">
-    <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
+    <button class="remove-btn" onclick="this.parentElement.remove()">\u00d7</button>
   `;
   container.appendChild(div);
 }
@@ -8909,7 +8973,7 @@ let currentFlushData = null;
 
 function initLineFlush() {
   const newBtn = document.getElementById('new-flush-btn');
-  if (newBtn) newBtn.style.display = ['production','store_manager','ops'].includes(currentRole) ? '' : 'none';
+  if (newBtn) newBtn.style.display = (currentPermissions.line_flush_create) ? '' : 'none';
   loadFlushes();
 }
 
@@ -9256,7 +9320,7 @@ function renderFlushDetail({ flush, lines, dispositions }) {
 
   // Verify button area
   const btnArea   = document.getElementById('lf-verify-btn-area');
-  const canVerify = ['store','store_manager','ops','vinay'].includes(currentRole);
+  const canVerify = !!(currentPermissions.line_flush_verify);
   const isPending = flush.status === 'Pending Verification';
   btnArea.innerHTML = (isPending && canVerify)
     ? '<button class="btn btn-primary" onclick="showVerifySection()">VERIFY THIS FLUSH</button>'
