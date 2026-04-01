@@ -732,7 +732,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 .line-item-name-wrap input { width:100%; box-sizing:border-box; }
 .part-dropdown {
   position:absolute; top:calc(100% + 2px); left:0; right:0;
-  background:var(--surface2,#1e1e1e); border:1px solid var(--border);
+  background:var(--bg2,#1a1a1a); border:1px solid var(--border);
   border-radius:4px; z-index:200; max-height:180px; overflow-y:auto;
   box-shadow:0 4px 12px rgba(0,0,0,.5);
 }
@@ -1707,7 +1707,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Issue No.</th><th>Type</th><th>WO</th><th>Product</th><th>Variant</th><th>Colour</th><th>Units</th><th>Date</th><th></th></tr></thead>
+              <thead><tr><th>Issue No.</th><th>Type</th><th>Run</th><th>WO</th><th>Product</th><th>Variant</th><th>Units</th><th>Date</th><th></th></tr></thead>
               <tbody id="issue-history">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -4950,7 +4950,7 @@ function addGRNLine() {
            oninput="this.value=this.value.toUpperCase();lookupPartCode(this)"
            onblur="lookupPartCode(this)">
     <div class="line-item-name-wrap">
-      <input placeholder="Or search by name\u2026" style="font-size:11px"
+      <input placeholder="Or search by name…" style="font-size:11px"
              oninput="lookupPartName(this)"
              onblur="scheduleHidePartDropdown(this)">
     </div>
@@ -5409,7 +5409,7 @@ function lookupPartCode(input) {
     nameInput.style.color = 'var(--green)';
     input.style.borderColor = 'var(--green)';
   } else if (code.length >= 5) {
-    nameInput.value = '\u26a0 Code not found in material master';
+    nameInput.value = '⚠ Code not found in material master';
     nameInput.style.color = 'var(--red)';
     input.style.borderColor = 'var(--red)';
   } else {
@@ -5424,14 +5424,10 @@ function lookupPartName(input) {
   const wrap = input.parentElement;
   const existing = wrap.querySelector('.part-dropdown');
   if (existing) existing.remove();
-  // If code is already filled and matched, just let it be
   const row = input.closest('.line-item');
   if (!row) return;
   const codeInput = row.querySelectorAll('input')[0];
-  if (q.length < 2) {
-    if (!codeInput.value) { input.style.color = ''; }
-    return;
-  }
+  if (q.length < 2) { input.style.color = ''; return; }
   const matches = Object.values(materialCache)
     .filter(r => (r.part_name||'').toLowerCase().includes(q) || (r.part_code||'').toLowerCase().includes(q))
     .slice(0, 12);
@@ -5441,9 +5437,8 @@ function lookupPartName(input) {
   matches.forEach(m => {
     const item = document.createElement('div');
     item.className = 'part-dropdown-item';
-    item.innerHTML =
-      '<span class="mono" style="font-size:10px;color:var(--yellow);flex-shrink:0">' + m.part_code + '</span>' +
-      '<span style="font-size:11px;color:var(--text)">' + (m.part_name||'') + '</span>';
+    item.innerHTML = '<span class="mono" style="font-size:10px;color:var(--yellow);flex-shrink:0">' + m.part_code + '</span>'
+      + '<span style="font-size:11px;color:var(--text)">' + (m.part_name||'') + '</span>';
     item.onmousedown = function() {
       codeInput.value = m.part_code;
       input.value = m.part_name || '';
@@ -5478,7 +5473,7 @@ function addIssLine() {
              onblur="scheduleHidePartDropdown(this)">
     </div>
     <input type="number" placeholder="Qty" min="1" style="text-align:right">
-    <button class="remove-btn" onclick="this.parentElement.remove()">\u00d7</button>
+    <button class="remove-btn" onclick="this.parentElement.remove()">×</button>
   `;
   container.appendChild(div);
 }
@@ -6488,26 +6483,32 @@ async function loadIssueHistory() {
   const tbody = document.getElementById('issue-history');
   if (!tbody) return;
   if (!res.data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No issues yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No issues yet</td></tr>';
     return;
   }
-  // Group by issue_no
   const grouped = {};
-  res.data.forEach(r => {
-    if (!grouped[r.issue_no]) grouped[r.issue_no] = r;
-  });
-  tbody.innerHTML = Object.values(grouped).slice(0,20).map(r => `
-    <tr>
-      <td style="font-family:var(--mono);color:var(--yellow)">${r.issue_no}</td>
-      <td><span class="badge ${r.issue_type==='Planned'?'badge-blue':r.issue_type==='Rework'?'badge-red':'badge-yellow'}" style="font-size:9px">${r.issue_type||'—'}</span></td>
-      <td style="font-family:var(--mono);font-size:10px">${r.wo_no||'—'}</td>
-      <td>${r.product||''}</td>
-      <td>${r.variant||''}</td>
-      <td style="color:var(--text3);font-size:11px">${r.colour||'—'}</td>
-      <td style="font-family:var(--mono)">${r.units_planned||''}</td>
-      <td>${r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : ''}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="printPastIssue('${r.issue_no}','${r.wo_no||''}','${r.product||''}','${r.variant||''}','${r.units_planned||0}')">🖨</button></td>
-    </tr>`).join('');
+  res.data.forEach(r => { if (!grouped[r.issue_no]) grouped[r.issue_no] = r; });
+  tbody.innerHTML = Object.values(grouped).slice(0,20).map(r => {
+    const runCell = r.run_no
+      ? '<span style="font-family:var(--mono);font-size:10px;color:var(--yellow);cursor:pointer;'
+        + 'text-decoration:underline dotted" onclick="openIssueQueueItem(\'run\',\''
+        + r.run_no + '\')" title="Open ' + r.run_no + '">' + r.run_no + '</span>'
+      : '<span style="color:var(--text3)">&#8212;</span>';
+    const bc = r.issue_type==='Planned'?'badge-blue':r.issue_type==='Rework'?'badge-red':'badge-yellow';
+    const dt = r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const pr = "printPastIssue('" + r.issue_no + "','" + (r.wo_no||'') + "','" + (r.product||'') + "','" + (r.variant||'') + "','" + (r.units_planned||0) + "')";
+    return '<tr>'
+      + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.issue_no + '</td>'
+      + '<td><span class="badge ' + bc + '" style="font-size:9px">' + (r.issue_type||'&#8212;') + '</span></td>'
+      + '<td>' + runCell + '</td>'
+      + '<td style="font-family:var(--mono);font-size:10px">' + (r.wo_no||'&#8212;') + '</td>'
+      + '<td>' + (r.product||'') + '</td>'
+      + '<td>' + (r.variant||'<span style="color:var(--text3)">&#8212;</span>') + '</td>'
+      + '<td style="font-family:var(--mono)">' + (r.units_planned||'') + '</td>'
+      + '<td>' + dt + '</td>'
+      + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="' + pr + '">&#128424;</button></td>'
+      + '</tr>';
+  }).join('');
 }
 // ══ RETURNS ══════════════════════════════════════════════════
 function clearReturn() {
@@ -8720,19 +8721,27 @@ async function createProductionRun() {
   btn.textContent = 'CREATING...';
   btn.disabled = true;
   try {
-    // Step 1: create run
-    const res = await apiPost('createProductionRun', {
-      data: { product, run_date: date, line_no: line, shift, notes, variants }
-    });
+    // Step 1: create run (warns if an open run already exists for this product)
+    const payload = { product, run_date: date, line_no: line, shift, notes, variants };
+    let res = await apiPost('createProductionRun', { data: payload });
+
+    // Worker returns warning:true if a Submitted/Issued run already exists for this product
+    if (!res.ok && res.warning) {
+      const confirmed = confirm(
+        res.message + '\n\nClick OK to create anyway, or Cancel to go back.'
+      );
+      if (!confirmed) return;
+      res = await apiPost('createProductionRun', { data: Object.assign({}, payload, { force: true }) });
+    }
     if (!res.ok) { toast(res.error || 'Failed to create run', 'error'); return; }
     const runNo = res.data.run_no;
 
     // Step 2: immediately submit to store
     const subRes = await apiPost('submitProductionRun', { data: { run_no: runNo } });
     if (!subRes.ok) {
-      toast(`Run ${runNo} created but submit failed: ${subRes.error}`, 'error');
+      toast('Run ' + runNo + ' created but submit failed: ' + subRes.error, 'error');
     } else {
-      toast(`✅ Run ${runNo} created and submitted to store`, 'success');
+      toast('Run ' + runNo + ' created and submitted to store', 'success');
     }
 
     // Reset form
