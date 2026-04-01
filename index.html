@@ -1685,34 +1685,32 @@ tr:hover td { background:rgba(255,255,255,.02); }
       </div>
 
       <!-- Issue Queue -->
-      <div class="grid-2" style="margin-bottom:16px">
-        <!-- Left: Open requests queue -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">OPEN REQUESTS</div>
-            <button class="btn btn-secondary" onclick="loadIssueQueue()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>Ref</th><th>Type</th><th>Product</th><th>Details</th><th>Units</th><th></th></tr></thead>
-              <tbody id="issue-queue-body">
-                <tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
+      <!-- Open Requests: full width -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title">OPEN REQUESTS</div>
+          <button class="btn btn-secondary" onclick="loadIssueQueue()" style="padding:3px 10px;font-size:11px">↻ Refresh</button>
         </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Ref</th><th>Type</th><th>Product</th><th>Details</th><th>Units</th><th>Run Date</th><th>Submitted</th><th></th></tr></thead>
+            <tbody id="issue-queue-body">
+              <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <!-- Right: Recent issues -->
-        <div class="panel" id="issue-history-panel">
-          <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
-          <div class="tbl-wrap">
-            <table>
-              <thead><tr><th>Issue No.</th><th>Type</th><th>Run</th><th>WO</th><th>Product</th><th>Variant</th><th>Units</th><th>Date</th><th></th></tr></thead>
-              <tbody id="issue-history">
-                <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
-            </table>
-          </div>
+      <!-- Recent Issues: full width below -->
+      <div class="panel" id="issue-history-panel" style="margin-bottom:16px">
+        <div class="panel-header"><div class="panel-title">Recent Issues</div></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Issue No.</th><th>Type</th><th>Run</th><th>WO</th><th>Product</th><th>Variant</th><th>Colour</th><th>Units</th><th>Date</th><th></th></tr></thead>
+            <tbody id="issue-history">
+              <tr><td colspan="10"><div class="loading"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -2929,7 +2927,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Run</th><th>Date</th><th>Product</th><th>Variants</th><th>Units</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Run</th><th>Run Date</th><th>Submitted</th><th>Product</th><th>Variants</th><th>Units</th><th>Status</th><th></th></tr></thead>
               <tbody id="pr-list">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -6115,7 +6113,7 @@ let issueQueueSubmitting = false;
 async function loadIssueQueue() {
   const tbody = document.getElementById('issue-queue-body');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
 
   // Ensure material cache is loaded for product lookup
   await ensureMaterialCache();
@@ -6127,7 +6125,7 @@ async function loadIssueQueue() {
       api('getWorkOrders'),
     ]);
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Error loading queue — ' + e.message + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading queue — ' + e.message + '</td></tr>';
     return;
   }
 
@@ -6156,16 +6154,17 @@ async function loadIssueQueue() {
       .forEach(wo => {
         const isRework = wo.status === 'Pending Rework';
         rows.push({
-          type:    'wo',
-          ref:     wo.wo_no,
-          badge:   isRework
+          type:      'wo',
+          ref:       wo.wo_no,
+          badge:     isRework
             ? '<span class="badge badge-red" style="font-size:9px">REWORK</span>'
             : '<span class="badge badge-yellow" style="font-size:9px">AD HOC</span>',
-          product:  wo.product || '—',
-          details:  `${wo.variant||''} ${wo.colour||''}`.trim() || '—',
-          units:    wo.qty || '—',
-          date:     wo.date,
-          raw:      wo,
+          product:   wo.product || '—',
+          details:   `${wo.variant||''} ${wo.colour||''}`.trim() || '—',
+          units:     wo.qty || '—',
+          run_date:  wo.date,
+          submitted: wo.created_at,
+          raw:       wo,
         });
       });
   }
@@ -6173,21 +6172,26 @@ async function loadIssueQueue() {
   // Filter out rejected items (client-side, prevents flash-back)
   const filteredRows = rows.filter(r => !rejectedRefs.has(r.ref));
   if (!filteredRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">No open requests — all clear ✓</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">No open requests — all clear ✓</td></tr>';
     return;
   }
 
-  tbody.innerHTML = filteredRows.map(r => `
-    <tr>
-      <td style="font-family:var(--mono);color:var(--yellow)">${r.ref}</td>
-      <td>${r.badge}</td>
-      <td>${r.product}</td>
-      <td style="font-size:11px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.details}">${r.details}</td>
-      <td style="font-family:var(--mono)">${r.units}</td>
-      <td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px"
-        onclick="openIssueQueueItem('${r.type}','${r.ref}')">ISSUE →</button></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = filteredRows.map(r => {
+    const runDateStr = r.run_date ? formatDisplayDate(r.run_date) : '—';
+    const subStr = r.submitted
+      ? new Date(r.submitted).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})
+      : '—';
+    return '<tr>'
+      + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.ref + '</td>'
+      + '<td>' + r.badge + '</td>'
+      + '<td>' + r.product + '</td>'
+      + '<td style="font-size:11px;color:var(--text3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + r.details + '">' + r.details + '</td>'
+      + '<td style="font-family:var(--mono)">' + r.units + '</td>'
+      + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + runDateStr + '</td>'
+      + '<td style="font-size:10px;color:var(--text3)">' + subStr + '</td>'
+      + '<td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px" onclick="openIssueQueueItem(\''+r.type+'\',\''+r.ref+'\')">ISSUE →</button></td>'
+      + '</tr>';
+  }).join('');
 }
 
 // ── Pick list grouping helpers ─────────────────────────────────
@@ -8764,8 +8768,8 @@ async function loadProductionRuns() {
   const params = {};
   if (status) params.status = status;
   const res = await api('getProductionRuns', params);
-  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading runs</td></tr>`; return; }
-  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No production runs yet</td></tr>`; return; }
+  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="8" class="empty">Error loading runs</td></tr>`; return; }
+  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="8" class="empty">No production runs yet</td></tr>`; return; }
 
   const statusColour = {
     'Draft':'var(--text3)', 'Submitted':'var(--blue)', 'Issued':'var(--yellow)',
@@ -8782,15 +8786,19 @@ async function loadProductionRuns() {
       return base + split;
     }).join(', ');
     const colour = statusColour[r.status] || 'var(--text)';
-    return `<tr>
-      <td style="font-family:var(--mono);color:var(--yellow)">${r.run_no}</td>
-      <td>${r.run_date||''}</td>
-      <td>${r.product||''}</td>
-      <td style="font-size:10px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${variantStr}">${variantStr||'—'}</td>
-      <td>${r.total_units||0}</td>
-      <td style="color:${colour};font-family:var(--mono);font-size:10px">${r.status}</td>
-      <td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun('${r.run_no}')">VIEW</button></td>
-    </tr>`;
+    const subAt = r.released_at
+      ? new Date(r.released_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})
+      : '—';
+    return '<tr>'
+      + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.run_no + '</td>'
+      + '<td style="font-size:11px">' + formatDisplayDate(r.run_date) + '</td>'
+      + '<td style="font-size:10px;color:var(--text3)">' + subAt + '</td>'
+      + '<td>' + (r.product||'') + '</td>'
+      + '<td style="font-size:10px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + variantStr + '">' + (variantStr||'—') + '</td>'
+      + '<td style="font-family:var(--mono)">' + (r.total_units||0) + '</td>'
+      + '<td style="color:' + colour + ';font-family:var(--mono);font-size:10px">' + r.status + '</td>'
+      + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun(\''+r.run_no+'\')">→</button></td>'
+      + '</tr>';
   }).join('');
 }
 
