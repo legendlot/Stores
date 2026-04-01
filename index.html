@@ -9038,12 +9038,8 @@ async function submitReceiptConfirmation() {
   if (!currentRunData) return;
   const { run } = currentRunData;
 
-  // Find issue_no for this run from recent issues
-  const issuesRes = await api('getIssues');
-  const runIssue  = issuesRes.ok
-    ? issuesRes.data.find(function(r) { return r.run_id === run.id; })
-    : null;
-  const issueNo = runIssue ? runIssue.issue_no : '';
+  // issue_no is pre-fetched by getProductionRun when run is Issued
+  const issueNo = currentRunData.issue_no || '';
   if (!issueNo) { toast('Could not find issue record for this run. Has it been issued?', 'error'); return; }
 
   const inputs = document.querySelectorAll('.rcpt-qty-received');
