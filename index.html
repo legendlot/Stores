@@ -9417,104 +9417,166 @@ async function lf_runSelected() {
   window._lf_run_no    = runNo;
 }
 
+// ── FLUSH LINE BUILDER ───────────────────────────────────────
+// Creates a "part card" — one card per part, multiple return-type splits inside.
+// partCode/partName pre-populated for run-based loads; empty for standalone.
+function _buildPartCard(partCode, partName, category) {
+  const typeOpts = LF_RETURN_TYPES.map(t => `<option>${t}</option>`).join('');
+  const card = document.createElement('div');
+  card.className = 'flush-part-card';
+  card.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin-bottom:10px;overflow:hidden';
+
+  // ── Card header ──
+  const hdEl = document.createElement('div');
+  hdEl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg2)';
+
+  const isPrepopulated = !!partCode;
+
+  if (isPrepopulated) {
+    hdEl.innerHTML = `
+      <span class="mono" style="font-size:12px;color:var(--yellow);flex-shrink:0">${partCode}</span>
+      <span style="font-size:12px;flex:1">${partName}</span>
+      ${category ? `<span style="font-size:10px;color:var(--text3);font-family:var(--mono)">${category.toUpperCase()}</span>` : ''}
+      <span class="flush-card-total" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-left:auto">Total: <strong style="color:var(--text)">0</strong></span>
+      <button style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 8px" onclick="this.closest('.flush-part-card').remove()" title="Remove part">×</button>`;
+    card.dataset.partCode = partCode;
+    card.dataset.partName = partName;
+  } else {
+    // Manual entry — editable part code & name
+    const pcInput = Object.assign(document.createElement('input'), {
+      className:'form-input mono', placeholder:'PART-CODE', style:'font-size:11px;text-transform:uppercase;flex:0 0 140px'
+    });
+    pcInput.oninput = function(){ this.value = this.value.toUpperCase(); };
+    pcInput.onblur  = function(){ _lookupCardPart(this); };
+
+    const nmInput = Object.assign(document.createElement('input'), {
+      className:'form-input', placeholder:'Part name (auto-fills)', readOnly:true, style:'font-size:11px;color:var(--text3);flex:1'
+    });
+
+    const totalSpan = document.createElement('span');
+    totalSpan.className = 'flush-card-total';
+    totalSpan.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--text3);flex-shrink:0';
+    totalSpan.innerHTML = 'Total: <strong style="color:var(--text)">0</strong>';
+
+    const rmCard = Object.assign(document.createElement('button'), {
+      style:'background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:0 0 0 8px', title:'Remove part', innerHTML:'×'
+    });
+    rmCard.onclick = function(){ this.closest('.flush-part-card').remove(); };
+
+    [pcInput, nmInput, totalSpan, rmCard].forEach(el => hdEl.appendChild(el));
+  }
+  card.appendChild(hdEl);
+
+  // ── Splits body ──
+  const splitsEl = document.createElement('div');
+  splitsEl.className = 'flush-splits';
+  splitsEl.style.cssText = 'padding:8px 12px';
+
+  const splitHdr = document.createElement('div');
+  splitHdr.style.cssText = 'display:grid;grid-template-columns:160px 100px 28px;gap:6px;margin-bottom:4px';
+  splitHdr.innerHTML = '<div class="form-label" style="font-size:9px">RETURN TYPE</div><div class="form-label" style="font-size:9px;text-align:right">QTY</div><div></div>';
+  splitsEl.appendChild(splitHdr);
+
+  card.appendChild(splitsEl);
+
+  // ── Add-split footer ──
+  const footer = document.createElement('div');
+  footer.style.cssText = 'padding:4px 12px 8px;display:flex;align-items:center;gap:12px';
+
+  const addBtn = Object.assign(document.createElement('button'), {
+    className:'btn btn-secondary', style:'padding:2px 8px;font-size:10px', innerHTML:'+ Add Split'
+  });
+  addBtn.onclick = function(){ _addSplitRow(card); };
+
+  footer.appendChild(addBtn);
+  card.appendChild(footer);
+
+  // Pre-add one split row
+  _addSplitRow(card);
+
+  return card;
+}
+
+function _addSplitRow(card) {
+  const splitsEl = card.querySelector('.flush-splits');
+  const typeOpts = LF_RETURN_TYPES.map(t => `<option>${t}</option>`).join('');
+  const row = document.createElement('div');
+  row.className = 'flush-split-row';
+  row.style.cssText = 'display:grid;grid-template-columns:160px 100px 28px;gap:6px;margin-bottom:4px;align-items:center';
+
+  const typeSel  = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML: typeOpts});
+  const qtyInput = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:12px;text-align:right'});
+  const rmBtn    = Object.assign(document.createElement('button'), {style:'background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1', innerHTML:'×'});
+
+  qtyInput.oninput = function(){ _updateCardTotal(card); };
+  rmBtn.onclick    = function(){
+    row.remove();
+    _updateCardTotal(card);
+  };
+
+  [typeSel, qtyInput, rmBtn].forEach(el => row.appendChild(el));
+  splitsEl.appendChild(row);
+}
+
+function _updateCardTotal(card) {
+  let total = 0;
+  card.querySelectorAll('.flush-split-row input[type="number"]').forEach(inp => {
+    total += parseFloat(inp.value) || 0;
+  });
+  const strong = card.querySelector('.flush-card-total strong');
+  if (strong) strong.textContent = total;
+}
+
+function _lookupCardPart(pcInput) {
+  const code = pcInput.value.trim().toUpperCase();
+  const card = pcInput.closest('.flush-part-card');
+  if (!card) return;
+  const nmInput = card.querySelector('.form-input:not(.mono)');
+  const part = materialCache[code];
+  if (part) {
+    nmInput.value = part.part_name || '';
+    nmInput.style.color = 'var(--green)';
+    pcInput.style.borderColor = 'var(--green)';
+    card.dataset.partCode = code;
+    card.dataset.partName = part.part_name || '';
+  } else if (code.length >= 3) {
+    nmInput.value = '⚠ Not found';
+    nmInput.style.color = 'var(--red)';
+    pcInput.style.borderColor = 'var(--red)';
+  }
+}
+
 async function lf_loadRunParts() {
   const pick_list = window._lf_pick_list || [];
   const container = document.getElementById('lf-lines-container');
   container.innerHTML = '';
   if (!pick_list.length) { toast('No parts found for this run', 'error'); return; }
 
-  // Sort by category
   const sorted = [...pick_list].sort((a,b) => {
     const ca = (a.category||'').toLowerCase();
     const cb = (b.category||'').toLowerCase();
     return ca < cb ? -1 : ca > cb ? 1 : 0;
   });
 
-  // Build pre-populated table
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'display:grid;grid-template-columns:140px 1fr 100px 160px 100px 28px;gap:8px;margin-bottom:6px;padding:0 4px';
-  hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Category</div><div class="form-label">Return Type</div><div class="form-label">Qty Returning</div><div></div>';
-  container.appendChild(hdr);
-
-  const typeOpts = LF_RETURN_TYPES.map(t => `<option>${t}</option>`).join('');
   let lastCat = null;
-
   sorted.forEach(p => {
-    // Category separator
     if (p.category !== lastCat) {
       lastCat = p.category;
       const sep = document.createElement('div');
-      sep.style.cssText = 'grid-column:1/-1;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;padding:6px 4px 2px;border-top:1px solid var(--border);margin-top:4px';
-      sep.textContent = (p.category||'UNCATEGORISED').toUpperCase();
-      const sepWrapper = document.createElement('div');
-      sepWrapper.style.cssText = 'display:grid;grid-template-columns:140px 1fr 100px 160px 100px 28px;gap:8px';
-      sepWrapper.appendChild(sep);
-      container.appendChild(sepWrapper);
+      sep.style.cssText = 'font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;padding:8px 4px 4px;border-top:1px solid var(--border);margin-top:4px';
+      sep.textContent = (p.category || 'UNCATEGORISED').toUpperCase();
+      container.appendChild(sep);
     }
-
-    const row = document.createElement('div');
-    row.className = 'flush-line-item';
-    row.style.cssText = 'display:grid;grid-template-columns:140px 1fr 100px 160px 100px 28px;gap:8px;margin-bottom:4px;align-items:center';
-    row.dataset.partCode = p.part_code;
-
-    const pcSpan = document.createElement('div');
-    pcSpan.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--yellow);padding:6px 0';
-    pcSpan.textContent = p.part_code;
-
-    const nmSpan = document.createElement('div');
-    nmSpan.style.cssText = 'font-size:11px;padding:6px 0';
-    nmSpan.textContent = p.part_name;
-
-    const catSpan = document.createElement('div');
-    catSpan.style.cssText = 'font-size:10px;color:var(--text3);padding:6px 0';
-    catSpan.textContent = p.category || '—';
-
-    const typeSel = Object.assign(document.createElement('select'), {
-      className:'form-select', style:'font-size:11px', innerHTML: typeOpts
-    });
-
-    const qtyInput = Object.assign(document.createElement('input'), {
-      className:'form-input', type:'number', placeholder:'0', min:'0', value:'',
-      style:'font-size:12px;text-align:right'
-    });
-
-    const rmBtn = Object.assign(document.createElement('button'), {
-      style:'background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0',
-      innerHTML:'×'
-    });
-    rmBtn.onclick = () => row.remove();
-
-    [pcSpan, nmSpan, catSpan, typeSel, qtyInput, rmBtn].forEach(el => row.appendChild(el));
-    container.appendChild(row);
+    container.appendChild(_buildPartCard(p.part_code, p.part_name, p.category));
   });
 
-  toast(`${sorted.length} parts loaded — enter qty for items being returned`, 'success');
+  toast(`${sorted.length} parts loaded — enter qtys and return types`, 'success');
 }
 
 function addFlushLine() {
   ensureMaterialCache();
   const container = document.getElementById('lf-lines-container');
-  const showHeader = container.children.length === 0;
-  const div = document.createElement('div');
-  div.className = 'flush-line-item';
-  div.style.cssText = 'display:grid;grid-template-columns:140px 1fr 160px 100px 28px;gap:8px;margin-bottom:8px;align-items:start';
-  if (showHeader) {
-    const hdr = document.createElement('div');
-    hdr.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:140px 1fr 160px 100px 28px;gap:8px;margin-bottom:2px';
-    hdr.innerHTML = '<div class="form-label">Part Code</div><div class="form-label">Part Name</div><div class="form-label">Return Type</div><div class="form-label">Qty</div><div></div>';
-    div.appendChild(hdr);
-  }
-  const typeOpts = LF_RETURN_TYPES.map(t => `<option>${t}</option>`).join('');
-  const pcInput  = Object.assign(document.createElement('input'), {className:'form-input mono', placeholder:'Part code', style:'font-size:11px;text-transform:uppercase'});
-  pcInput.oninput = function(){ this.value=this.value.toUpperCase(); };
-  pcInput.onblur  = function(){ lookupFlushLinePart(this); };
-  const nmInput  = Object.assign(document.createElement('input'), {className:'form-input', placeholder:'Auto-fills', readOnly:true, style:'font-size:11px;color:var(--text3)'});
-  const typeSel  = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:typeOpts});
-  const qtyInput = Object.assign(document.createElement('input'), {className:'form-input', type:'number', placeholder:'0', min:'0', style:'font-size:12px;text-align:right'});
-  const rmBtn    = Object.assign(document.createElement('button'), {style:'width:24px;height:36px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px', title:'Remove', innerHTML:'×'});
-  rmBtn.onclick  = function(){ this.closest('.flush-line-item').remove(); };
-  [pcInput, nmInput, typeSel, qtyInput, rmBtn].forEach(el => div.appendChild(el));
-  container.appendChild(div);
+  container.appendChild(_buildPartCard('', '', ''));
 }
 
 function lookupFlushLinePart(input) {
@@ -9538,19 +9600,22 @@ async function submitFlush() {
   const flushType = document.getElementById('lf-flush-type').value;
   const isRun     = flushType === 'run';
 
-  // Collect lines — handle both pre-populated (run) and manual (standalone)
+  // Collect lines from part cards — one line per split row per card
   const lines = [];
-  document.querySelectorAll('.flush-line-item').forEach(div => {
-    const partCode = div.dataset.partCode || div.querySelectorAll('input')[0]?.value?.trim();
-    const partName = div.dataset.partCode
-      ? div.querySelectorAll('div')[1]?.textContent?.trim()   // pre-populated span
-      : div.querySelectorAll('input')[1]?.value?.trim();      // manual input
-    const typeSel  = div.querySelector('select');
-    const qtyInput = div.querySelector('input[type="number"]');
-    const qty      = parseFloat(qtyInput?.value) || 0;
-    if (partCode && qty > 0) {
-      lines.push({ part_code: partCode, part_name: partName||'', return_type: typeSel?.value||'Unused', qty_raised: qty });
-    }
+  const partTotals = {};
+  document.querySelectorAll('.flush-part-card').forEach(card => {
+    const partCode = (card.dataset.partCode || '').trim();
+    const partName = (card.dataset.partName || '').trim();
+    if (!partCode) return; // skip empty manual cards
+    card.querySelectorAll('.flush-split-row').forEach(splitRow => {
+      const typeSel  = splitRow.querySelector('select');
+      const qtyInput = splitRow.querySelector('input[type="number"]');
+      const qty      = parseFloat(qtyInput?.value) || 0;
+      if (qty > 0) {
+        lines.push({ part_code: partCode, part_name: partName, return_type: typeSel?.value||'Unused', qty_raised: qty });
+        partTotals[partCode] = (partTotals[partCode]||0) + qty;
+      }
+    });
   });
 
   if (!lines.length) { toast('Enter at least one non-zero quantity to return', 'error'); return; }
@@ -9613,24 +9678,46 @@ function renderFlushDetail({ flush, lines, dispositions }) {
     </div>
     ${flush.notes ? `<div style="margin-top:10px;font-size:11px;color:var(--text2)">${flush.notes}</div>` : ''}`;
 
-  // Lines raised
+  // Lines raised — group by part_code to show multi-split rows clearly
   const rtColors = {'Unused':'badge-blue','Damaged':'badge-red','QC Rejected':'badge-red','Partial Assembly':'badge-yellow','Wrong Issue':'badge-gray'};
-  document.getElementById('lf-detail-lines').innerHTML = lines.length ? lines.map(l => {
-    const verified = l.qty_verified != null;
-    const variance = verified ? l.qty_verified - l.qty_raised : null;
-    const varCell  = variance === null ? '<td class="empty">—</td>' :
-      variance === 0 ? '<td style="color:var(--green);font-family:var(--mono)">✓</td>' :
-      `<td style="color:var(--red);font-family:var(--mono)">${variance > 0 ? '+' : ''}${variance}</td>`;
-    return `<tr>
-      <td class="mono" style="font-size:11px">${l.part_code}</td>
-      <td style="font-size:11px">${l.part_name}</td>
-      <td><span class="badge ${rtColors[l.return_type]||'badge-gray'}" style="font-size:9px">${l.return_type}</span></td>
-      <td class="mono" style="text-align:right">${l.qty_raised}</td>
-      <td class="mono" style="text-align:right;color:${l.qty_verified!=null?'var(--text)':'var(--text3)'}">${l.qty_verified??'—'}</td>
-      ${varCell}
-      <td style="font-size:11px;color:var(--text3)">${l.notes||'—'}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty">No lines</td></tr>';
+  if (lines.length) {
+    // Build part groups
+    const partMap = {};
+    const partOrder = [];
+    lines.forEach(l => {
+      if (!partMap[l.part_code]) { partMap[l.part_code] = []; partOrder.push(l.part_code); }
+      partMap[l.part_code].push(l);
+    });
+    document.getElementById('lf-detail-lines').innerHTML = partOrder.map(pc => partMap[pc]).map(pLines => {
+      const prodTotal = pLines.reduce((s,l) => s + (l.qty_raised||0), 0);
+      const verifiedTotal = pLines.some(l => l.qty_verified != null) ? pLines.reduce((s,l) => s + (l.qty_verified||0), 0) : null;
+      return pLines.map((l, idx) => {
+        const verified = l.qty_verified != null;
+        const variance = verified ? l.qty_verified - l.qty_raised : null;
+        const varCell  = variance === null ? '<td class="empty">—</td>' :
+          variance === 0 ? '<td style="color:var(--green);font-family:var(--mono)">✓</td>' :
+          `<td style="color:var(--red);font-family:var(--mono)">${variance > 0 ? '+' : ''}${variance}</td>`;
+        const isFirst = idx === 0;
+        const isLast  = idx === pLines.length - 1;
+        return `<tr style="${isFirst && pLines.length > 1 ? '' : ''}">
+          <td class="mono" style="font-size:11px">${isFirst ? `<strong style="color:var(--yellow)">${l.part_code}</strong>` : '<span style="color:var(--text3);font-size:10px">↳</span>'}</td>
+          <td style="font-size:11px">${isFirst ? l.part_name : ''}</td>
+          <td><span class="badge ${rtColors[l.return_type]||'badge-gray'}" style="font-size:9px">${l.return_type}</span></td>
+          <td class="mono" style="text-align:right">${l.qty_raised}</td>
+          <td class="mono" style="text-align:right;color:${l.qty_verified!=null?'var(--text)':'var(--text3)'}">${l.qty_verified??'—'}</td>
+          ${varCell}
+          <td style="font-size:11px;color:var(--text3)">${l.notes||'—'}</td>
+        </tr>` + (isLast && pLines.length > 1 ? `<tr style="background:var(--bg3)">
+          <td colspan="3" style="font-size:10px;color:var(--text3);font-family:var(--mono);padding:3px 8px">PART TOTAL</td>
+          <td class="mono" style="text-align:right;font-size:11px;font-weight:700">${prodTotal}</td>
+          <td class="mono" style="text-align:right;font-size:11px;font-weight:700;color:${verifiedTotal!=null?'var(--text)':'var(--text3)'}">${verifiedTotal??'—'}</td>
+          <td colspan="2"></td>
+        </tr>` : '');
+      }).join('');
+    }).join('');
+  } else {
+    document.getElementById('lf-detail-lines').innerHTML = '<tr><td colspan="7" class="empty">No lines</td></tr>';
+  }
 
   // Verify button area
   const btnArea   = document.getElementById('lf-verify-btn-area');
@@ -9670,30 +9757,151 @@ function showVerifySection() {
 function buildVerifyForm(flush, lines) {
   const container = document.getElementById('lf-verify-container');
   container.innerHTML = '';
+
+  // Group lines by part_code, preserving order
+  const partGroups = [];
+  const partMap    = {};
   lines.forEach(line => {
+    if (!partMap[line.part_code]) {
+      const g = { part_code: line.part_code, part_name: line.part_name, lines: [], prodTotal: 0 };
+      partGroups.push(g);
+      partMap[line.part_code] = g;
+    }
+    partMap[line.part_code].lines.push(line);
+    partMap[line.part_code].prodTotal += (line.qty_raised || 0);
+  });
+
+  const rtColors = {'Unused':'#213CE2','Damaged':'#DE2A2A','QC Rejected':'#DE2A2A','Partial Assembly':'#d4b200','Wrong Issue':'#555'};
+
+  partGroups.forEach(group => {
     const section = document.createElement('div');
-    section.style.cssText = 'margin-bottom:16px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px';
-    const rtColor = {'Unused':'var(--blue)','Damaged':'var(--red)','QC Rejected':'var(--red)','Partial Assembly':'var(--yellow)','Wrong Issue':'var(--text3)'}[line.return_type]||'var(--text3)';
+    section.className = 'flush-verify-group';
+    section.dataset.partCode = group.part_code;
+    section.dataset.partName = group.part_name;
+    section.dataset.prodTotal = group.prodTotal;
+    section.style.cssText = 'margin-bottom:16px;border:1px solid var(--border);border-radius:4px;overflow:hidden';
+
+    // ── Group header ──
+    const rtSummary = group.lines.map(l =>
+      `<span style="color:${rtColors[l.return_type]||'#999'};font-size:10px;font-family:var(--mono)">${l.return_type}×${l.qty_raised}</span>`
+    ).join(' &nbsp;·&nbsp; ');
+
     section.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div>
-          <span class="mono" style="font-size:12px;color:var(--yellow)">${line.part_code}</span>
-          <span style="font-size:12px;margin-left:8px">${line.part_name}</span>
-          <span style="font-family:var(--mono);font-size:10px;color:${rtColor};margin-left:8px">${line.return_type}</span>
-        </div>
-        <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">Raised: <strong style="color:var(--text)">${line.qty_raised}</strong></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border)">
+        <span class="mono" style="font-size:12px;color:var(--yellow)">${group.part_code}</span>
+        <span style="font-size:12px;flex:1">${group.part_name}</span>
+        <span style="font-size:10px;color:var(--text3);margin:0 8px">Production: ${rtSummary}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">Total: <strong class="verify-group-prodtotal" style="color:var(--text)">${group.prodTotal}</strong></span>
       </div>
-      <div class="disp-rows" data-line-id="${line.line_id}" data-part-code="${line.part_code}" data-part-name="${line.part_name}"></div>
-      <button class="btn btn-secondary" onclick="addDispRow(this)" style="padding:2px 8px;font-size:10px;margin-top:6px">+ Add Disposition</button>`;
+      <div style="padding:4px 12px 2px;display:grid;grid-template-columns:110px 90px 170px 110px 1fr 24px;gap:6px;margin-top:6px">
+        <div class="form-label" style="font-size:9px">RETURN TYPE</div>
+        <div class="form-label" style="font-size:9px;text-align:right">VERIFIED QTY</div>
+        <div class="form-label" style="font-size:9px">DISPOSITION</div>
+        <div class="form-label" style="font-size:9px">BIN</div>
+        <div class="form-label" style="font-size:9px">NOTES</div>
+        <div></div>
+      </div>`;
+
+    const rowsWrap = document.createElement('div');
+    rowsWrap.className = 'verify-rows-wrap';
+    rowsWrap.style.cssText = 'padding:0 12px';
+
+    // One editable row per flush_line (per return_type)
+    group.lines.forEach(line => {
+      rowsWrap.appendChild(_buildVerifyRow(line, section));
+    });
+
+    section.appendChild(rowsWrap);
+
+    // ── Balance footer ──
+    const balDiv = document.createElement('div');
+    balDiv.className = 'verify-balance';
+    balDiv.style.cssText = 'padding:6px 12px 8px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)';
+    balDiv.innerHTML = `<span style="font-size:11px;color:var(--text3)">Store total:</span>
+      <span class="verify-store-total" style="font-family:var(--mono);font-weight:700;font-size:13px">0</span>
+      <span style="font-size:11px;color:var(--text3)">/ ${group.prodTotal}</span>
+      <span class="verify-balance-msg" style="font-family:var(--mono);font-size:11px;margin-left:4px"></span>`;
+    section.appendChild(balDiv);
+
     container.appendChild(section);
-    // Add one default disposition row
-    addDispRow(section.querySelector('button'));
+    _refreshGroupBalance(section);
   });
 }
 
+function _buildVerifyRow(line, section) {
+  const dispOpts = LF_DISPOSITIONS.map(d => `<option>${d}</option>`).join('');
+  const rtColors = {'Unused':'badge-blue','Damaged':'badge-red','QC Rejected':'badge-red','Partial Assembly':'badge-yellow','Wrong Issue':'badge-gray'};
+  const row = document.createElement('div');
+  row.className = 'verify-row';
+  row.dataset.lineId   = line.line_id;
+  row.dataset.partCode = line.part_code;
+  row.dataset.partName = line.part_name;
+  row.style.cssText = 'display:grid;grid-template-columns:110px 90px 170px 110px 1fr 24px;gap:6px;margin-bottom:6px;align-items:center';
+
+  // Return type badge (readonly)
+  const rtBadge = document.createElement('div');
+  rtBadge.innerHTML = `<span class="badge ${rtColors[line.return_type]||'badge-gray'}" style="font-size:9px">${line.return_type}</span>`;
+  rtBadge.style.cssText = 'display:flex;align-items:center';
+
+  // Verified qty — pre-filled from production, editable
+  const qtyInput = Object.assign(document.createElement('input'), {
+    className:'form-input', type:'number', min:'0', value: line.qty_raised,
+    style:'font-size:12px;text-align:right'
+  });
+  qtyInput.oninput = function(){ _refreshGroupBalance(section); };
+
+  // Disposition
+  const dispSel = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML: dispOpts});
+
+  // Bin (shown for Quarantine)
+  const binInput = Object.assign(document.createElement('input'), {
+    className:'form-input', placeholder:'Bin', style:'font-size:11px;display:none'
+  });
+  dispSel.onchange = function(){
+    binInput.style.display = this.value === 'Quarantine' ? '' : 'none';
+  };
+
+  // Notes
+  const noteInput = Object.assign(document.createElement('input'), {
+    className:'form-input', placeholder:'Notes', style:'font-size:11px'
+  });
+
+  // No remove button — production-defined splits; store can set qty to 0 if they want
+  const spacer = document.createElement('div');
+
+  [rtBadge, qtyInput, dispSel, binInput, noteInput, spacer].forEach(el => row.appendChild(el));
+  return row;
+}
+
+function _refreshGroupBalance(section) {
+  const prodTotal  = parseFloat(section.dataset.prodTotal) || 0;
+  let storeTotal   = 0;
+  section.querySelectorAll('.verify-row input[type="number"]').forEach(inp => {
+    storeTotal += parseFloat(inp.value) || 0;
+  });
+  const storeEl = section.querySelector('.verify-store-total');
+  const msgEl   = section.querySelector('.verify-balance-msg');
+  if (storeEl) storeEl.textContent = storeTotal;
+  if (msgEl) {
+    const diff = storeTotal - prodTotal;
+    if (diff === 0) {
+      msgEl.textContent = '✓ Balanced';
+      msgEl.style.color = 'var(--green)';
+    } else if (diff > 0) {
+      msgEl.textContent = `▲ ${diff} over`;
+      msgEl.style.color = 'var(--red)';
+    } else {
+      msgEl.textContent = `▼ ${Math.abs(diff)} under`;
+      msgEl.style.color = 'var(--yellow)';
+    }
+  }
+}
+
+// addDispRow kept for legacy compatibility but no longer called from buildVerifyForm
 function addDispRow(btn) {
   const section  = btn.closest('div[style]');
   const dispRows = section.querySelector('.disp-rows');
+  if (!dispRows) return;
   const dispOpts = LF_DISPOSITIONS.map(d => `<option>${d}</option>`).join('');
   const row = document.createElement('div');
   row.style.cssText = 'display:grid;grid-template-columns:160px 80px 120px 1fr 24px;gap:6px;margin-bottom:6px;align-items:center';
@@ -9703,7 +9911,6 @@ function addDispRow(btn) {
   const noteInput= Object.assign(document.createElement('input'),  {className:'form-input', placeholder:'Notes', style:'font-size:11px'});
   const rmBtn    = Object.assign(document.createElement('button'),  {style:'width:24px;height:28px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px', innerHTML:'×'});
   rmBtn.onclick  = function(){ row.remove(); };
-  // Show/hide bin field based on disposition
   dispSel.onchange = function() { binInput.style.display = this.value === 'Quarantine' ? '' : 'none'; };
   binInput.style.display = 'none';
   [dispSel, qtyInput, binInput, noteInput, rmBtn].forEach(el => row.appendChild(el));
@@ -9712,38 +9919,73 @@ function addDispRow(btn) {
 
 async function submitVerification() {
   if (!currentFlushId || !currentFlushData) return;
+
+  // Collect dispositions from grouped verify form
   const dispositions = [];
-  const sections = document.querySelectorAll('#lf-verify-container .disp-rows');
-  let valid = true;
-  sections.forEach(section => {
-    const lineId   = section.dataset.lineId;
-    const partCode = section.dataset.partCode;
-    const partName = section.dataset.partName;
-    section.querySelectorAll('div[style*="grid"]').forEach(row => {
-      const els   = row.children;
-      const disp  = els[0]?.value;
-      const qty   = parseFloat(els[1]?.value) || 0;
-      const bin   = els[2]?.value?.trim() || null;
-      const notes = els[3]?.value?.trim() || null;
+  const balanceErrors = [];
+
+  document.querySelectorAll('.flush-verify-group').forEach(section => {
+    const partCode  = section.dataset.partCode;
+    const prodTotal = parseFloat(section.dataset.prodTotal) || 0;
+    let storeTotal  = 0;
+
+    section.querySelectorAll('.verify-row').forEach(row => {
+      const els      = row.children;
+      const lineId   = row.dataset.lineId;
+      const partName = row.dataset.partName;
+      const dispSel  = row.querySelector('select');
+      const qtyInput = row.querySelector('input[type="number"]');
+      const binInput = row.querySelector('input[placeholder="Bin"]');
+      const noteInput= row.querySelector('input[placeholder="Notes"]');
+      const qty      = parseFloat(qtyInput?.value) || 0;
+
       if (qty > 0) {
-        dispositions.push({ line_id: lineId, part_code: partCode, part_name: partName,
-          disposition: disp, qty, bin_code: bin, notes });
+        dispositions.push({
+          line_id:   lineId,
+          part_code: partCode,
+          part_name: partName,
+          disposition: dispSel?.value || 'Return to Stock',
+          qty,
+          bin_code: binInput?.style.display !== 'none' ? (binInput?.value?.trim() || null) : null,
+          notes:    noteInput?.value?.trim() || null,
+        });
+        storeTotal += qty;
       }
     });
+
+    if (storeTotal !== prodTotal) {
+      balanceErrors.push(`${partCode}: store total ${storeTotal} ≠ production total ${prodTotal}`);
+    }
   });
-  if (!dispositions.length) { toast('Add at least one disposition with qty', 'error'); return; }
+
+  if (balanceErrors.length) {
+    toast('Fix balances before submitting:\n' + balanceErrors.join('\n'), 'error');
+    // Highlight imbalanced groups
+    document.querySelectorAll('.flush-verify-group').forEach(section => {
+      const msg = section.querySelector('.verify-balance-msg');
+      if (msg && !msg.textContent.includes('✓')) {
+        section.style.borderColor = 'var(--red)';
+      } else {
+        section.style.borderColor = 'var(--border)';
+      }
+    });
+    return;
+  }
+
+  if (!dispositions.length) { toast('Enter at least one verified quantity', 'error'); return; }
+
   try {
     const res = await apiPost('verifyFlush', { data: {
       flush_id: currentFlushId, dispositions
     }});
     if (res.ok) {
-      const msg = `Verified · ${res.data.stock_returned} returned to stock · ${res.data.rework_wos} rework WO(s) created`;
+      const msg = `Verified · ${res.data.stock_returned} returned to stock · ${res.data.rework_wos} rework WO(s)`;
       toast(msg, 'success');
       openFlush(currentFlushId);
       loadFlushes();
       loadDashboard();
     } else toast(res.error || 'Verification failed', 'error');
-  } catch(e) { toast('Error', 'error'); }
+  } catch(e) { toast('Error submitting verification', 'error'); }
 }
 
 // ── QUARANTINE ────────────────────────────────────────────────
