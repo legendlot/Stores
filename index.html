@@ -804,6 +804,86 @@ tr:hover td { background:rgba(255,255,255,.02); }
   .content { padding:16px; }
   .kpi-grid { grid-template-columns:1fr 1fr; }
 }
+
+/* ── RETURNS SYSTEM ── */
+.ret-tabs {
+  display:flex; gap:2px; margin-bottom:20px;
+  border-bottom:1px solid var(--border);
+}
+.ret-tab {
+  padding:7px 16px; background:transparent; border:none;
+  border-radius:3px 3px 0 0; color:var(--text2);
+  font-family:var(--cond); font-weight:600; font-size:13px;
+  letter-spacing:.04em; cursor:pointer; transition:all .15s;
+  position:relative; bottom:-1px;
+  border-bottom:2px solid transparent;
+}
+.ret-tab:hover { color:var(--text); }
+.ret-tab.active { color:var(--yellow); border-bottom-color:var(--yellow); }
+.ret-tab .badge-count {
+  display:inline-block; background:var(--red); color:#fff;
+  font-size:9px; font-weight:700; padding:1px 5px;
+  border-radius:8px; margin-left:5px; vertical-align:middle;
+}
+.ret-section { display:none; }
+.ret-section.active { display:block; }
+.step-badge {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:50%;
+  background:var(--bg3); border:1px solid var(--border2);
+  font-family:var(--mono); font-size:10px; color:var(--text3);
+  flex-shrink:0;
+}
+.step-badge.done { background:rgba(34,197,94,.15); border-color:rgba(34,197,94,.3); color:var(--green); }
+.step-badge.active { background:rgba(242,205,26,.15); border-color:rgba(242,205,26,.3); color:var(--yellow); }
+.shipment-row { cursor:pointer; }
+.shipment-row:hover td { background:rgba(242,205,26,.04); }
+.shipment-row.selected td { background:rgba(242,205,26,.06); border-left:2px solid var(--yellow); }
+.unit-status-pill {
+  display:inline-block; padding:2px 8px; border-radius:10px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.04em;
+}
+.unit-status-pill.pending_inspection { background:rgba(80,80,80,.2); color:#888; border:1px solid rgba(80,80,80,.3); }
+.unit-status-pill.inspected          { background:rgba(33,60,226,.15); color:#7b93ff; border:1px solid rgba(33,60,226,.25); }
+.unit-status-pill.ready_for_production { background:rgba(242,205,26,.12); color:var(--yellow); border:1px solid rgba(242,205,26,.2); }
+.unit-status-pill.in_production      { background:rgba(255,140,0,.15); color:#ffaa33; border:1px solid rgba(255,140,0,.25); }
+.unit-status-pill.closed             { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+.unit-status-pill.loss_noted         { background:rgba(222,42,42,.12); color:#ff7070; border:1px solid rgba(222,42,42,.2); }
+.loss-note-row.pending td { background:rgba(222,42,42,.04); }
+.insp-modal-overlay {
+  display:none; position:fixed; inset:0; z-index:500;
+  background:rgba(0,0,0,.7); align-items:flex-end; justify-content:center;
+}
+.insp-modal-overlay.show { display:flex; }
+.insp-modal {
+  width:100%; max-width:680px; max-height:90vh;
+  background:var(--bg2); border-radius:8px 8px 0 0;
+  border-top:1px solid var(--border); overflow-y:auto;
+  animation:toastIn .2s ease;
+}
+.insp-modal-header {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; background:var(--bg2); z-index:1;
+}
+.insp-modal-title { font-family:var(--cond); font-weight:700; font-size:16px; letter-spacing:.04em; }
+.insp-modal-body { padding:20px; }
+.insp-close {
+  width:28px; height:28px; background:var(--bg3); border:1px solid var(--border);
+  border-radius:3px; color:var(--text2); cursor:pointer; font-size:14px;
+  display:flex; align-items:center; justify-content:center;
+}
+.disp-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.disp-opt {
+  padding:12px; border-radius:4px; border:2px solid var(--border);
+  background:var(--bg3); cursor:pointer; transition:all .15s;
+  text-align:center;
+}
+.disp-opt:hover { border-color:var(--border2); }
+.disp-opt.selected { border-color:var(--yellow); background:rgba(242,205,26,.06); }
+.disp-opt.selected.red { border-color:var(--red); background:rgba(222,42,42,.06); }
+.disp-opt-title { font-family:var(--cond); font-weight:700; font-size:13px; letter-spacing:.04em; }
+.disp-opt-sub { font-size:11px; color:var(--text3); margin-top:3px; }
 </style>
 </head>
 <body>
@@ -1927,94 +2007,378 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <div class="view" id="view-returns">
       <div class="page-header">
         <div class="page-title">RETURNS</div>
-        <div class="page-subtitle">RTO and RTV returns from all channels</div>
+        <div class="page-subtitle">Receive, inspect, and disposition returns from all channels</div>
       </div>
 
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-header"><div class="panel-title">Log Return</div></div>
-          <div class="panel-body">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">Return Date</label>
-                <input class="form-input" type="date" id="ret-date">
+      <!-- Sub-nav tabs -->
+      <div class="ret-tabs">
+        <button class="ret-tab active" id="ret-tab-shipments" onclick="switchReturnsTab('shipments')">Shipments</button>
+        <button class="ret-tab" id="ret-tab-process" onclick="switchReturnsTab('process')">Process Units</button>
+        <button class="ret-tab" id="ret-tab-lossnotes" onclick="switchReturnsTab('lossnotes')">Loss Notes <span class="badge-count" id="loss-notes-badge" style="display:none"></span></button>
+        <button class="ret-tab" id="ret-tab-channels" onclick="switchReturnsTab('channels')">Channels</button>
+      </div>
+
+      <!-- ── SHIPMENTS TAB ── -->
+      <div class="ret-section active" id="ret-section-shipments">
+        <div class="grid-2" style="align-items:start">
+
+          <!-- Create shipment form -->
+          <div class="panel">
+            <div class="panel-header"><div class="panel-title">Receive New Shipment</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Date Received</label>
+                  <input class="form-input" type="date" id="rs-date">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Channel</label>
+                  <select class="form-select" id="rs-channel">
+                    <option value="">Loading channels...</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Platform Reference <span style="color:var(--text3);font-size:10px">(AWB / Shipment ID)</span></label>
+                  <input class="form-input" id="rs-ref" placeholder="e.g. AWB1234567">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Units Expected</label>
+                  <input class="form-input" type="number" id="rs-expected" min="1" placeholder="How many units in shipment">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Units Received</label>
+                  <input class="form-input" type="number" id="rs-received" min="1" placeholder="Actual count on arrival">
+                </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Channel</label>
-                <select class="form-select" id="ret-channel">
-                  <option>Amazon</option><option>Flipkart</option><option>Website</option>
-                  <option>Blinkit</option><option>Zepto</option><option>Instamart</option><option>Other</option>
-                </select>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="rs-notes" placeholder="Optional notes">
               </div>
-              <div class="form-group">
-                <label class="form-label">Order ID</label>
-                <input class="form-input" id="ret-orderid" placeholder="Platform order ID">
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitReturnShipment()">RECEIVE SHIPMENT</button>
+                <button class="btn btn-secondary" onclick="clearShipmentForm()">CLEAR</button>
               </div>
-              <div class="form-group">
-                <label class="form-label">Product</label>
-                <select class="form-select" id="ret-product">
-                  <option value="">Select...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Variant</label>
-                <input class="form-input" id="ret-variant" placeholder="e.g. Track, Adventure">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Return Type</label>
-                <select class="form-select" id="ret-type">
-                  <option value="RTO">RTO — Untouched</option>
-                  <option value="RTV">RTV — Customer Return</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Condition</label>
-                <select class="form-select" id="ret-condition">
-                  <option>Sealed</option><option>Open Box</option>
-                  <option>Damaged</option><option>Faulty</option><option>Missing Parts</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Action</label>
-                <select class="form-select" id="ret-action">
-                  <option>RTD</option><option>Repair</option>
-                  <option>Scrap</option><option>Switcheroo Claim</option><option>Hold</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">QTY</label>
-                <input class="form-input" type="number" id="ret-qty" value="1" min="1">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Claim Filed?</label>
-                <select class="form-select" id="ret-claim">
-                  <option value="No">No</option>
-                  <option value="Yes">Yes</option>
-                  <option value="N/A">N/A</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group" style="margin-bottom:16px">
-              <label class="form-label">Notes</label>
-              <input class="form-input" id="ret-notes" placeholder="Any notes...">
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="submitReturn()">LOG RETURN</button>
-              <button class="btn btn-secondary" onclick="clearReturn()">CLEAR</button>
             </div>
           </div>
+
+          <!-- Shipments list -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">Recent Shipments</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="date" class="form-input" id="rs-from" style="width:130px;padding:5px 8px;font-size:11px" onchange="loadShipmentsTab()">
+                <input type="date" class="form-input" id="rs-to"   style="width:130px;padding:5px 8px;font-size:11px" onchange="loadShipmentsTab()">
+              </div>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>Date</th><th>Channel</th><th>Ref</th><th>Units</th><th>Status</th><th></th></tr></thead>
+                <tbody id="shipments-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── PROCESS UNITS TAB ── -->
+      <div class="ret-section" id="ret-section-process">
+
+        <!-- No shipment selected state -->
+        <div id="ret-no-shipment" style="padding:40px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px">
+          Select a shipment from the Shipments tab to start processing units
         </div>
 
+        <!-- Shipment selected state -->
+        <div id="ret-shipment-active" style="display:none">
+
+          <!-- Shipment header -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:12px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:4px">
+            <div>
+              <div style="font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:.08em">ACTIVE SHIPMENT</div>
+              <div style="font-family:var(--cond);font-weight:700;font-size:18px;color:var(--yellow)" id="proc-shipment-id">—</div>
+            </div>
+            <div style="margin-left:8px">
+              <div style="font-size:11px;color:var(--text2)" id="proc-shipment-channel">—</div>
+              <div style="font-size:11px;color:var(--text3)" id="proc-shipment-date">—</div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div style="font-family:var(--mono);font-size:18px" id="proc-shipment-counts">—</div>
+              <div style="font-size:10px;color:var(--text3)">units logged</div>
+            </div>
+            <button class="btn btn-secondary" style="font-size:11px;padding:6px 12px" onclick="switchReturnsTab('shipments')">← Back</button>
+          </div>
+
+          <div class="grid-2" style="align-items:start">
+
+            <!-- Add unit form -->
+            <div class="panel">
+              <div class="panel-header"><div class="panel-title">Log Return Unit</div></div>
+              <div class="panel-body">
+                <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                  <div class="form-group">
+                    <label class="form-label">Return Category</label>
+                    <select class="form-select" id="ru-category" onchange="onRuCategoryChange()">
+                      <option value="UDR">UDR — Undamaged Return</option>
+                      <option value="CXR">CXR — Customer Return</option>
+                      <option value="BRV">BRV — Bulk Return / Vendor</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Product</label>
+                    <select class="form-select" id="ru-product">
+                      <option value="">Select...</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="ru-batch-field">
+                    <label class="form-label">Batch Label <span style="color:var(--text3);font-size:10px">(on outside of box)</span></label>
+                    <input class="form-input" id="ru-batch" placeholder="e.g. LOT-00000042-E">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Platform Return ID <span style="color:var(--text3);font-size:10px">(optional)</span></label>
+                    <input class="form-input" id="ru-platform-id" placeholder="Platform's return reference">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:16px">
+                  <label class="form-label">Notes</label>
+                  <input class="form-input" id="ru-notes" placeholder="Optional">
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-primary" onclick="submitReturnUnit()">ADD UNIT</button>
+                  <button class="btn btn-secondary" onclick="clearUnitForm()">CLEAR</button>
+                </div>
+                <div id="ru-status" style="margin-top:10px;font-size:12px;min-height:18px;font-family:var(--mono)"></div>
+              </div>
+            </div>
+
+            <!-- Units list -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Units in This Shipment</div>
+                <button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="loadShipmentUnits(currentReturnsShipmentId)">↻</button>
+              </div>
+              <div class="tbl-wrap" id="ret-units-wrap">
+                <table>
+                  <thead><tr><th>ID</th><th>Category</th><th>Product</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="ret-units-tbody"><tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LOSS NOTES TAB ── -->
+      <div class="ret-section" id="ret-section-lossnotes">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary" id="ln-filter-pending" style="font-size:11px;padding:5px 12px;border-color:var(--yellow);color:var(--yellow)" onclick="setLossNotesFilter('pending')">Pending Approval</button>
+            <button class="btn btn-secondary" id="ln-filter-all" style="font-size:11px;padding:5px 12px" onclick="setLossNotesFilter('')">All</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-left:auto">
+            <input type="date" class="form-input" id="ln-from" style="width:130px;padding:5px 8px;font-size:11px" onchange="loadLossNotes()">
+            <input type="date" class="form-input" id="ln-to"   style="width:130px;padding:5px 8px;font-size:11px" onchange="loadLossNotes()">
+          </div>
+        </div>
         <div class="panel">
-          <div class="panel-header"><div class="panel-title">Returns Log</div></div>
+          <div class="panel-header"><div class="panel-title">Loss Notes</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Return ID</th><th>Date</th><th>Channel</th><th>Product</th><th>Type</th><th>Condition</th><th>Action</th></tr></thead>
-              <tbody id="returns-history">
-                <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
-              </tbody>
+              <thead><tr><th>Loss Note ID</th><th>Type</th><th>Unit / UPC</th><th>Description</th><th>Raised By</th><th>Status</th><th></th></tr></thead>
+              <tbody id="loss-notes-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- ── CHANNELS TAB ── -->
+      <div class="ret-section" id="ret-section-channels">
+        <div class="grid-2" style="align-items:start">
+
+          <div class="panel" id="channels-form-panel">
+            <div class="panel-header"><div class="panel-title">Add / Update Channel</div></div>
+            <div class="panel-body">
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="form-group">
+                  <label class="form-label">Channel ID <span style="color:var(--text3);font-size:10px">(e.g. AMZ-FLEX)</span></label>
+                  <input class="form-input" id="ch-id" placeholder="PLATFORM-TYPE">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Channel Name</label>
+                  <input class="form-input" id="ch-name" placeholder="e.g. Amazon Flex">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Platform</label>
+                  <input class="form-input" id="ch-platform" placeholder="e.g. Amazon">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Fulfilment Model</label>
+                  <select class="form-select" id="ch-model">
+                    <option value="d2c_marketplace">D2C Marketplace</option>
+                    <option value="b2b_wholesale">B2B Wholesale</option>
+                    <option value="quick_commerce">Quick Commerce</option>
+                    <option value="direct_website">Direct Website</option>
+                    <option value="offline_gt">Offline — General Trade</option>
+                    <option value="offline_mt">Offline — Modern Trade</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Return Behaviour</label>
+                  <select class="form-select" id="ch-return-behaviour">
+                    <option value="unsegregated">Unsegregated (mixes UDR + CXR)</option>
+                    <option value="segregated">Segregated (identifies type)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Status</label>
+                  <select class="form-select" id="ch-active">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="ch-notes" placeholder="Optional">
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" onclick="submitChannel()">SAVE CHANNEL</button>
+                <button class="btn btn-secondary" onclick="clearChannelForm()">CLEAR</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><div class="panel-title">All Channels</div></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Platform</th><th>Model</th><th>Returns</th><th>Status</th><th></th></tr></thead>
+                <tbody id="channels-tbody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── INSPECTION MODAL ── -->
+    <div class="insp-modal-overlay" id="insp-modal-overlay">
+      <div class="insp-modal">
+        <div class="insp-modal-header">
+          <div>
+            <div class="insp-modal-title">Inspect Return Unit</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px" id="insp-unit-meta">—</div>
+          </div>
+          <button class="insp-close" onclick="closeInspectionModal()">✕</button>
+        </div>
+        <div class="insp-modal-body">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+            <div class="form-group">
+              <label class="form-label">Box Condition</label>
+              <select class="form-select" id="insp-box-condition">
+                <option value="sealed">Sealed</option>
+                <option value="open">Open</option>
+                <option value="damaged">Damaged</option>
+                <option value="destroyed">Destroyed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Product Present?</label>
+              <select class="form-select" id="insp-product-present" onchange="onProductPresentChange()">
+                <option value="true">Yes — product is inside</option>
+                <option value="false">No — empty or wrong item</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="insp-product-fields">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
+              <div class="form-group">
+                <label class="form-label">Product Condition</label>
+                <select class="form-select" id="insp-product-condition">
+                  <option value="good">Good — fully functional</option>
+                  <option value="functional_issues">Functional Issues</option>
+                  <option value="physical_damage">Physical Damage</option>
+                  <option value="missing_parts">Missing Parts</option>
+                  <option value="wrong_product">Wrong Product (Switcheroo)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">UPC Found? <span style="color:var(--text3);font-size:10px">(if sticker readable)</span></label>
+                <input class="form-input" id="insp-upc-found" placeholder="LOT-XXXXXXXX (optional)">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label">What Was Found <span style="color:var(--text3);font-size:10px">(describe — critical for switcheroos)</span></label>
+            <textarea class="form-input" id="insp-what-found" rows="2" placeholder="Describe what you found inside the box..."></textarea>
+          </div>
+
+          <div class="section-label">Disposition</div>
+          <div class="disp-options" id="disp-options">
+            <div class="disp-opt" data-disp="rtd_direct" onclick="selectDisposition(this)">
+              <div class="disp-opt-title">📦 RTD Direct</div>
+              <div class="disp-opt-sub">Sealed, intact. Goes straight to dispatch stock.</div>
+            </div>
+            <div class="disp-opt" data-disp="wks_repair" onclick="selectDisposition(this)">
+              <div class="disp-opt-title">🔧 Send to Workshop</div>
+              <div class="disp-opt-sub">Product present, needs inspection or repair.</div>
+            </div>
+            <div class="disp-opt" data-disp="loss_damage" onclick="selectDisposition(this)">
+              <div class="disp-opt-title">💥 Loss — Damage</div>
+              <div class="disp-opt-sub">Beyond repair or destroyed. Raise damage note.</div>
+            </div>
+            <div class="disp-opt" data-disp="loss_rejection" onclick="selectDisposition(this)">
+              <div class="disp-opt-title">🚫 Loss — Rejection</div>
+              <div class="disp-opt-sub">Switcheroo, empty box, wrong product. Raise rejection note.</div>
+            </div>
+          </div>
+
+          <div class="form-group" id="insp-loss-desc-field" style="display:none;margin-top:12px">
+            <label class="form-label">Loss Description <span style="color:var(--red)">*</span></label>
+            <textarea class="form-input" id="insp-loss-description" rows="2" placeholder="Describe the loss — what was found, what was expected..."></textarea>
+          </div>
+
+          <div class="form-group" style="margin-top:12px">
+            <label class="form-label">Notes</label>
+            <input class="form-input" id="insp-notes" placeholder="Optional additional notes">
+          </div>
+
+          <div style="margin-top:20px" class="btn-row">
+            <button class="btn btn-primary" onclick="submitInspection()">SUBMIT INSPECTION</button>
+            <button class="btn btn-secondary" onclick="closeInspectionModal()">Cancel</button>
+          </div>
+          <div id="insp-err" style="margin-top:10px;font-size:12px;color:var(--red);min-height:16px;font-family:var(--mono)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOSS NOTE APPROVAL MODAL ── -->
+    <div class="insp-modal-overlay" id="ln-modal-overlay">
+      <div class="insp-modal" style="max-height:60vh">
+        <div class="insp-modal-header">
+          <div>
+            <div class="insp-modal-title" id="ln-modal-title">Loss Note</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px" id="ln-modal-meta">—</div>
+          </div>
+          <button class="insp-close" onclick="closeLnModal()">✕</button>
+        </div>
+        <div class="insp-modal-body">
+          <div style="padding:12px;background:var(--bg3);border-radius:4px;margin-bottom:16px;font-size:12px;line-height:1.6" id="ln-modal-desc">—</div>
+          <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label">Approval Notes <span style="color:var(--text3);font-size:10px">(optional)</span></label>
+            <textarea class="form-input" id="ln-approval-notes" rows="2" placeholder="Optional reason or notes for this decision"></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="submitLnDecision('approved')">APPROVE</button>
+            <button class="btn btn-danger"   onclick="submitLnDecision('rejected')">REJECT</button>
+            <button class="btn btn-secondary" onclick="closeLnModal()">Cancel</button>
+          </div>
+          <div id="ln-modal-err" style="margin-top:10px;font-size:12px;color:var(--red);min-height:16px;font-family:var(--mono)"></div>
         </div>
       </div>
     </div>
@@ -4102,7 +4466,7 @@ function showView(name) {
   if (name === 'lib-downloads') { initLibDownloads(); }
   if (name === 'lib-parts')     { initLibParts(); }
   if (name === 'users')         { loadUsers(); switchUsersTab('users'); }
-  if (name === 'procurement') { initProcurement(); }
+  if (name === 'returns') { initReturns(); }
 }
 
 function refreshCurrent() {
@@ -4116,7 +4480,7 @@ function refreshCurrent() {
     case 'prodruns':  initProdRuns(); done(); break;
     case 'workorder': loadWorkOrders().then(done); break;
     case 'issue':     done(); break;
-    case 'returns':   loadReturnsHistory().then(done); break;
+    case 'returns':   initReturns(); done(); break;
     default: done();
   }
 }
@@ -10876,6 +11240,515 @@ function clearPartsSearch() {
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderPartsDB();
 }
+
+// ══ RETURNS SYSTEM ════════════════════════════════════════════
+
+let currentReturnsShipmentId = null;
+let currentReturnsTab        = 'shipments';
+let pendingInspUnitId        = null;
+let pendingLnId              = null;
+let lossNotesFilter          = 'pending';
+let channelsCache            = [];
+
+async function initReturns() {
+  const today = new Date().toISOString().split('T')[0];
+  const d30   = new Date(); d30.setDate(d30.getDate()-30);
+  const from30 = d30.toISOString().split('T')[0];
+
+  ['rs-date','rs-from'].forEach(id => { const e = document.getElementById(id); if (e && !e.value) e.value = today; });
+  const rsTo = document.getElementById('rs-to'); if (rsTo && !rsTo.value) rsTo.value = today;
+  ['ln-from'].forEach(id => { const e = document.getElementById(id); if (e && !e.value) e.value = from30; });
+  const lnTo = document.getElementById('ln-to'); if (lnTo && !lnTo.value) lnTo.value = today;
+
+  await loadChannelsCache();
+  populateProductDropdown('ru-product');
+  switchReturnsTab(currentReturnsTab);
+}
+
+async function loadChannelsCache() {
+  try {
+    const res = await api('getChannels');
+    if (res.ok) {
+      channelsCache = res.data || [];
+      // Populate channel dropdowns
+      const sel = document.getElementById('rs-channel');
+      if (sel) {
+        sel.innerHTML = '<option value="">Select channel...</option>' +
+          channelsCache.map(c => `<option value="${c.channel_id}">${c.channel_name} (${c.platform})</option>`).join('');
+      }
+    }
+  } catch(e) {}
+}
+
+function populateProductDropdown(id) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product...</option>';
+  PRODUCTS.forEach(p => sel.innerHTML += `<option value="${p}">${p}</option>`);
+}
+
+function switchReturnsTab(tab) {
+  currentReturnsTab = tab;
+  ['shipments','process','lossnotes','channels'].forEach(t => {
+    document.getElementById('ret-tab-'+t)?.classList.toggle('active', t === tab);
+    document.getElementById('ret-section-'+t)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'shipments')  loadShipmentsTab();
+  if (tab === 'process')    renderProcessTab();
+  if (tab === 'lossnotes')  loadLossNotes();
+  if (tab === 'channels')   loadChannelsTab();
+}
+
+// ── SHIPMENTS TAB ──────────────────────────────────────────
+async function loadShipmentsTab() {
+  const from = document.getElementById('rs-from')?.value || new Date().toISOString().split('T')[0];
+  const to   = document.getElementById('rs-to')?.value   || new Date().toISOString().split('T')[0];
+  const tbody = document.getElementById('shipments-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getReturnShipments', { from, to });
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${res.error||'Error'}</td></tr>`; return; }
+    const rows = res.data || [];
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No shipments in this date range</td></tr>'; return; }
+    tbody.innerHTML = rows.map(s => {
+      const ch = channelsCache.find(c => c.channel_id === s.channel_id);
+      const statusColor = {open:'var(--yellow)', partially_processed:'var(--blue)', fully_processed:'var(--green)', closed:'var(--text3)'}[s.status] || 'var(--text3)';
+      const isSelected  = s.shipment_id === currentReturnsShipmentId;
+      return `<tr class="shipment-row${isSelected?' selected':''}" onclick="selectShipment('${s.shipment_id}')">
+        <td class="mono" style="color:var(--yellow)">${s.shipment_id}</td>
+        <td style="font-size:11px;color:var(--text2)">${s.received_date||'—'}</td>
+        <td>${ch ? ch.channel_name : (s.channel_id||'—')}</td>
+        <td class="mono" style="font-size:10px;color:var(--text3)">${s.platform_reference||'—'}</td>
+        <td class="mono">${s.total_units_received||'—'}${s.total_units_expected ? '/'+s.total_units_expected : ''}</td>
+        <td><span style="font-size:10px;color:${statusColor};letter-spacing:.06em">${(s.status||'').replace(/_/g,' ').toUpperCase()}</span></td>
+        <td><button class="btn btn-secondary" style="font-size:10px;padding:4px 8px" onclick="event.stopPropagation();selectShipment('${s.shipment_id}')">Process →</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Error loading shipments</td></tr>';
+  }
+}
+
+async function submitReturnShipment() {
+  const channelId = document.getElementById('rs-channel').value;
+  if (!channelId) { toast('Select a channel', 'error'); return; }
+  const data = {
+    received_date:         document.getElementById('rs-date').value,
+    channel_id:            channelId,
+    platform_reference:    document.getElementById('rs-ref').value    || null,
+    total_units_expected:  parseInt(document.getElementById('rs-expected').value) || null,
+    total_units_received:  parseInt(document.getElementById('rs-received').value) || null,
+    notes:                 document.getElementById('rs-notes').value  || null,
+  };
+  try {
+    const res = await apiPost('postReturnShipment', { data });
+    if (res.ok) {
+      toast(`Shipment ${res.data.shipment_id} created`, 'success');
+      clearShipmentForm();
+      await loadShipmentsTab();
+      selectShipment(res.data.shipment_id);
+    } else { toast(res.error || 'Error', 'error'); }
+  } catch(e) { toast('Error creating shipment', 'error'); }
+}
+
+function clearShipmentForm() {
+  ['rs-ref','rs-expected','rs-received','rs-notes'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+}
+
+function selectShipment(id) {
+  currentReturnsShipmentId = id;
+  switchReturnsTab('process');
+}
+
+// ── PROCESS TAB ──────────────────────────────────────────
+function renderProcessTab() {
+  if (!currentReturnsShipmentId) {
+    document.getElementById('ret-no-shipment').style.display  = '';
+    document.getElementById('ret-shipment-active').style.display = 'none';
+    return;
+  }
+  document.getElementById('ret-no-shipment').style.display     = 'none';
+  document.getElementById('ret-shipment-active').style.display = '';
+  loadShipmentDetail(currentReturnsShipmentId);
+  loadShipmentUnits(currentReturnsShipmentId);
+}
+
+async function loadShipmentDetail(id) {
+  try {
+    const res = await api('getReturnShipment', { id });
+    if (!res.ok) return;
+    const s  = res.data.shipment;
+    const ch = channelsCache.find(c => c.channel_id === s.channel_id);
+    document.getElementById('proc-shipment-id').textContent      = s.shipment_id;
+    document.getElementById('proc-shipment-channel').textContent = ch ? ch.channel_name : (s.channel_id||'—');
+    document.getElementById('proc-shipment-date').textContent    = s.received_date || '—';
+    document.getElementById('proc-shipment-counts').textContent  = (res.data.units||[]).length + ' units';
+  } catch(e) {}
+}
+
+async function loadShipmentUnits(shipmentId) {
+  if (!shipmentId) return;
+  const tbody = document.getElementById('ret-units-tbody');
+  tbody.innerHTML = '<tr><td colspan="5"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const res = await api('getReturnShipment', { id: shipmentId });
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${res.error||'Error'}</td></tr>`; return; }
+    const units = res.data.units || [];
+    document.getElementById('proc-shipment-counts').textContent = units.length + ' units';
+    if (!units.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No units logged yet</td></tr>'; return; }
+    tbody.innerHTML = units.map(u => `
+      <tr>
+        <td class="mono" style="color:var(--yellow);font-size:11px">${u.return_unit_id}</td>
+        <td><span class="badge ${u.return_category==='UDR'?'badge-green':u.return_category==='CXR'?'badge-yellow':'badge-blue'}" style="font-size:9px">${u.return_category||'—'}</span></td>
+        <td style="font-size:12px">${u.product||'—'}</td>
+        <td><span class="unit-status-pill ${u.status||''}">${(u.status||'').replace(/_/g,' ')}</span></td>
+        <td>${u.status === 'pending_inspection'
+          ? `<button class="btn btn-secondary" style="font-size:10px;padding:4px 8px" onclick="openInspectionModal('${u.return_unit_id}','${(u.product||'').replace(/'/g,"\\'")}','${u.return_category||''}')">Inspect</button>`
+          : `<span style="font-size:10px;color:var(--text3)">Done</span>`
+        }</td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Error loading units</td></tr>';
+  }
+}
+
+function onRuCategoryChange() {
+  const cat = document.getElementById('ru-category').value;
+  const batchField = document.getElementById('ru-batch-field');
+  batchField.style.display = cat === 'UDR' ? '' : 'none';
+}
+
+async function submitReturnUnit() {
+  const product = document.getElementById('ru-product').value;
+  if (!product) { toast('Select a product', 'error'); return; }
+  if (!currentReturnsShipmentId) { toast('No shipment selected', 'error'); return; }
+  const category = document.getElementById('ru-category').value;
+  const data = {
+    shipment_id:       currentReturnsShipmentId,
+    return_category:   category,
+    product,
+    batch_label:       category === 'UDR' ? (document.getElementById('ru-batch').value || null) : null,
+    platform_return_id: document.getElementById('ru-platform-id').value || null,
+    notes:             document.getElementById('ru-notes').value || null,
+  };
+  const statusEl = document.getElementById('ru-status');
+  statusEl.textContent = 'Logging...';
+  statusEl.style.color = 'var(--text3)';
+  try {
+    const res = await apiPost('postReturnUnit', { data });
+    if (res.ok) {
+      let msg = `✓ ${res.data.return_unit_id} logged`;
+      if (res.data.car_upc) msg += ` — Car: ${res.data.car_upc}`;
+      statusEl.textContent = msg;
+      statusEl.style.color = 'var(--green)';
+      clearUnitForm();
+      loadShipmentUnits(currentReturnsShipmentId);
+    } else {
+      statusEl.textContent = res.error || 'Error';
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Connection error';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+function clearUnitForm() {
+  ['ru-batch','ru-platform-id','ru-notes'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+}
+
+// ── INSPECTION MODAL ────────────────────────────────────────
+let selectedDisposition = null;
+
+function openInspectionModal(unitId, product, category) {
+  pendingInspUnitId  = unitId;
+  selectedDisposition = null;
+  document.getElementById('insp-unit-meta').textContent = `${unitId} · ${product} · ${category}`;
+  document.getElementById('insp-box-condition').value    = category === 'UDR' ? 'sealed' : 'open';
+  document.getElementById('insp-product-present').value  = 'true';
+  document.getElementById('insp-product-condition').value = 'good';
+  document.getElementById('insp-upc-found').value        = '';
+  document.getElementById('insp-what-found').value       = '';
+  document.getElementById('insp-notes').value            = '';
+  document.getElementById('insp-loss-description').value = '';
+  document.getElementById('insp-err').textContent        = '';
+  document.getElementById('insp-product-fields').style.display = '';
+  document.getElementById('insp-loss-desc-field').style.display = 'none';
+  document.querySelectorAll('.disp-opt').forEach(o => o.classList.remove('selected'));
+
+  // Pre-select disposition for UDR sealed
+  if (category === 'UDR') selectDispositionByValue('rtd_direct');
+
+  document.getElementById('insp-modal-overlay').classList.add('show');
+}
+
+function closeInspectionModal() {
+  pendingInspUnitId = null;
+  selectedDisposition = null;
+  document.getElementById('insp-modal-overlay').classList.remove('show');
+}
+
+function onProductPresentChange() {
+  const present = document.getElementById('insp-product-present').value === 'true';
+  document.getElementById('insp-product-fields').style.display = present ? '' : 'none';
+  if (!present) selectDispositionByValue('loss_rejection');
+}
+
+function selectDisposition(el) {
+  document.querySelectorAll('.disp-opt').forEach(o => o.classList.remove('selected','red'));
+  el.classList.add('selected');
+  selectedDisposition = el.dataset.disp;
+  const isLoss = selectedDisposition === 'loss_damage' || selectedDisposition === 'loss_rejection';
+  document.getElementById('insp-loss-desc-field').style.display = isLoss ? '' : 'none';
+  if (isLoss) el.classList.add('red');
+}
+
+function selectDispositionByValue(val) {
+  const el = document.querySelector(`.disp-opt[data-disp="${val}"]`);
+  if (el) selectDisposition(el);
+}
+
+async function submitInspection() {
+  const errEl = document.getElementById('insp-err');
+  errEl.textContent = '';
+  if (!selectedDisposition) { errEl.textContent = 'Select a disposition'; return; }
+  const isLoss = selectedDisposition === 'loss_damage' || selectedDisposition === 'loss_rejection';
+  const lossDesc = document.getElementById('insp-loss-description').value.trim();
+  if (isLoss && !lossDesc) { errEl.textContent = 'Loss description required'; return; }
+
+  const data = {
+    return_unit_id:   pendingInspUnitId,
+    box_condition:    document.getElementById('insp-box-condition').value,
+    product_present:  document.getElementById('insp-product-present').value === 'true',
+    product_condition: document.getElementById('insp-product-condition').value || null,
+    upc_found:        document.getElementById('insp-upc-found').value || null,
+    what_found:       document.getElementById('insp-what-found').value || null,
+    disposition:      selectedDisposition,
+    loss_description: lossDesc || null,
+    notes:            document.getElementById('insp-notes').value || null,
+  };
+
+  const btn = document.querySelector('#insp-modal-overlay .btn-primary');
+  btn.textContent = 'Saving...'; btn.disabled = true;
+  try {
+    const res = await apiPost('postReturnInspection', { data });
+    if (res.ok) {
+      toast(`Inspection logged — disposition: ${selectedDisposition.replace(/_/g,' ')}`, 'success');
+      closeInspectionModal();
+      loadShipmentUnits(currentReturnsShipmentId);
+      if (isLoss) {
+        // Refresh loss notes badge
+        loadLossNotesBadge();
+      }
+    } else {
+      errEl.textContent = res.error || 'Error submitting inspection';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error';
+  } finally {
+    btn.textContent = 'SUBMIT INSPECTION'; btn.disabled = false;
+  }
+}
+
+// ── LOSS NOTES TAB ──────────────────────────────────────────
+function setLossNotesFilter(f) {
+  lossNotesFilter = f;
+  document.getElementById('ln-filter-pending').style.borderColor = f === 'pending' ? 'var(--yellow)' : '';
+  document.getElementById('ln-filter-pending').style.color       = f === 'pending' ? 'var(--yellow)' : '';
+  document.getElementById('ln-filter-all').style.borderColor     = f === '' ? 'var(--yellow)' : '';
+  document.getElementById('ln-filter-all').style.color           = f === '' ? 'var(--yellow)' : '';
+  loadLossNotes();
+}
+
+async function loadLossNotesBadge() {
+  try {
+    const res = await api('getLossNotes', { status: 'pending',
+      from: '2020-01-01', to: new Date().toISOString().split('T')[0] });
+    const badge = document.getElementById('loss-notes-badge');
+    if (res.ok && res.data.length > 0) {
+      badge.textContent = res.data.length;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
+async function loadLossNotes() {
+  const from  = document.getElementById('ln-from')?.value || '2020-01-01';
+  const to    = document.getElementById('ln-to')?.value   || new Date().toISOString().split('T')[0];
+  const tbody = document.getElementById('loss-notes-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const params = { from, to };
+    if (lossNotesFilter) params.status = lossNotesFilter;
+    const res = await api('getLossNotes', params);
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${res.error||'Error'}</td></tr>`; return; }
+    const rows = res.data || [];
+
+    // Update badge
+    const badge = document.getElementById('loss-notes-badge');
+    const pending = rows.filter(r => r.status === 'pending').length;
+    if (pending > 0) { badge.textContent = pending; badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
+
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No loss notes found</td></tr>`; return; }
+
+    tbody.innerHTML = rows.map(r => {
+      const lossColor = {damage:'badge-orange', rejection:'badge-red', scrap:'badge-red'}[r.loss_type] || 'badge-gray';
+      const statusColor = {pending:'badge-yellow', approved:'badge-green', rejected:'badge-red'}[r.status] || 'badge-gray';
+      const ref = r.return_unit_id || r.production_upc || '—';
+      return `<tr class="loss-note-row ${r.status}">
+        <td class="mono" style="color:var(--yellow);font-size:11px">${r.loss_note_id}</td>
+        <td><span class="badge ${lossColor}" style="font-size:9px">${r.loss_type||'—'}</span></td>
+        <td class="mono" style="font-size:10px;color:var(--text2)">${ref}</td>
+        <td style="max-width:280px;white-space:normal;font-size:11px;line-height:1.4;color:var(--text2)">${r.description||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.raised_by||'—'}</td>
+        <td><span class="badge ${statusColor}" style="font-size:9px">${r.status||'—'}</span></td>
+        <td>${r.status === 'pending'
+          ? `<button class="btn btn-secondary" style="font-size:10px;padding:4px 8px" onclick="openLnModal('${r.loss_note_id}')">Review</button>`
+          : `<span style="font-size:10px;color:var(--text3)">${r.approved_by||''}</span>`
+        }</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Error loading loss notes</td></tr>';
+  }
+}
+
+function openLnModal(lnId) {
+  pendingLnId = lnId;
+  const row = document.querySelector(`#loss-notes-tbody tr`);
+  // Find the note from the DOM or re-fetch — use ID to find row
+  document.getElementById('ln-modal-title').textContent = `Loss Note — ${lnId}`;
+  document.getElementById('ln-modal-meta').textContent  = lnId;
+  document.getElementById('ln-modal-desc').textContent  = 'Loading...';
+  document.getElementById('ln-approval-notes').value    = '';
+  document.getElementById('ln-modal-err').textContent   = '';
+  document.getElementById('ln-modal-overlay').classList.add('show');
+
+  // Get description from table row
+  const allRows = document.querySelectorAll('#loss-notes-tbody tr');
+  allRows.forEach(tr => {
+    const idCell = tr.querySelector('td:first-child');
+    if (idCell && idCell.textContent.trim() === lnId) {
+      const desc = tr.querySelectorAll('td')[3]?.textContent || '—';
+      const type = tr.querySelectorAll('td')[1]?.textContent || '—';
+      const ref  = tr.querySelectorAll('td')[2]?.textContent || '—';
+      document.getElementById('ln-modal-meta').textContent = `Type: ${type.trim()} · Ref: ${ref.trim()}`;
+      document.getElementById('ln-modal-desc').textContent  = desc.trim();
+    }
+  });
+}
+
+function closeLnModal() {
+  pendingLnId = null;
+  document.getElementById('ln-modal-overlay').classList.remove('show');
+}
+
+async function submitLnDecision(decision) {
+  if (!pendingLnId) return;
+  const errEl = document.getElementById('ln-modal-err');
+  errEl.textContent = '';
+  const notes = document.getElementById('ln-approval-notes').value.trim();
+  const btns = document.querySelectorAll('#ln-modal-overlay .btn');
+  btns.forEach(b => b.disabled = true);
+  try {
+    const res = await apiPost('approveLossNote', { data: {
+      loss_note_id: pendingLnId, decision, notes: notes || null,
+    }});
+    if (res.ok) {
+      toast(`Loss note ${pendingLnId} ${decision}`, decision === 'approved' ? 'success' : 'info');
+      closeLnModal();
+      loadLossNotes();
+    } else {
+      errEl.textContent = res.error || 'Error';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error';
+  } finally {
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+// ── CHANNELS TAB ────────────────────────────────────────────
+async function loadChannelsTab() {
+  await loadChannelsCache();
+  const tbody = document.getElementById('channels-tbody');
+  if (!channelsCache.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No channels configured</td></tr>';
+    return;
+  }
+  const modelLabels = {
+    d2c_marketplace:'D2C Marketplace', b2b_wholesale:'B2B Wholesale',
+    quick_commerce:'Quick Commerce', direct_website:'Direct Website',
+    offline_gt:'Offline GT', offline_mt:'Offline MT',
+  };
+  tbody.innerHTML = channelsCache.map(c => `
+    <tr>
+      <td class="mono" style="font-size:10px;color:var(--yellow)">${c.channel_id}</td>
+      <td style="font-size:12px">${c.channel_name}</td>
+      <td style="font-size:12px;color:var(--text2)">${c.platform}</td>
+      <td><span class="badge badge-gray" style="font-size:9px">${modelLabels[c.fulfilment_model]||c.fulfilment_model}</span></td>
+      <td><span class="badge ${c.return_behaviour==='segregated'?'badge-green':'badge-yellow'}" style="font-size:9px">${c.return_behaviour}</span></td>
+      <td><span class="badge ${c.is_active?'badge-green':'badge-red'}" style="font-size:9px">${c.is_active?'Active':'Inactive'}</span></td>
+      <td><button class="btn btn-secondary" style="font-size:10px;padding:4px 8px" onclick="editChannel('${c.channel_id}')">Edit</button></td>
+    </tr>`).join('');
+
+  // Show/hide form based on permission
+  const formPanel = document.getElementById('channels-form-panel');
+  if (formPanel) formPanel.style.display = (currentPermissions?.channel_manage) ? '' : 'none';
+}
+
+function editChannel(id) {
+  const c = channelsCache.find(ch => ch.channel_id === id);
+  if (!c) return;
+  document.getElementById('ch-id').value       = c.channel_id;
+  document.getElementById('ch-name').value     = c.channel_name;
+  document.getElementById('ch-platform').value = c.platform;
+  document.getElementById('ch-model').value    = c.fulfilment_model;
+  document.getElementById('ch-return-behaviour').value = c.return_behaviour;
+  document.getElementById('ch-active').value   = String(c.is_active);
+  document.getElementById('ch-notes').value    = c.notes || '';
+  document.getElementById('ch-id').focus();
+}
+
+async function submitChannel() {
+  const channelId = document.getElementById('ch-id').value.trim().toUpperCase();
+  if (!channelId) { toast('Channel ID required', 'error'); return; }
+  const data = {
+    channel_id:       channelId,
+    channel_name:     document.getElementById('ch-name').value.trim(),
+    platform:         document.getElementById('ch-platform').value.trim(),
+    fulfilment_model: document.getElementById('ch-model').value,
+    return_behaviour: document.getElementById('ch-return-behaviour').value,
+    is_active:        document.getElementById('ch-active').value === 'true',
+    notes:            document.getElementById('ch-notes').value.trim() || null,
+  };
+  try {
+    const res = await apiPost('updateChannel', { data });
+    if (res.ok) {
+      toast(`Channel ${channelId} ${res.data.action}`, 'success');
+      clearChannelForm();
+      loadChannelsTab();
+    } else { toast(res.error || 'Error', 'error'); }
+  } catch(e) { toast('Connection error', 'error'); }
+}
+
+function clearChannelForm() {
+  ['ch-id','ch-name','ch-platform','ch-notes'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+}
+
+// Keep old submitReturn/clearReturn/loadReturnsHistory for backwards compat
+function clearReturn() { clearShipmentForm(); }
+async function loadReturnsHistory() { if (currentReturnsTab === 'shipments') await loadShipmentsTab(); }
+
 
 </script>
 </body>
