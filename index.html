@@ -2106,7 +2106,23 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div style="font-family:var(--mono);font-size:18px" id="proc-shipment-counts">—</div>
               <div style="font-size:10px;color:var(--text3)">units logged</div>
             </div>
+            <div id="proc-handover-wrap" style="display:none">
+              <button class="btn btn-primary" style="background:var(--green);border-color:var(--green);color:#000;font-size:11px;padding:8px 14px" onclick="openHandoverPanel()">HAND OVER TO PRODUCTION →</button>
+            </div>
+            <div id="proc-handed-over-badge" style="display:none;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--green);padding:6px 10px;border:1px solid var(--green);border-radius:4px">✓ HANDED OVER</div>
             <button class="btn btn-secondary" style="font-size:11px;padding:6px 12px" onclick="switchReturnsTab('shipments')">← Back</button>
+          </div>
+
+          <!-- Handover confirmation panel (hidden until triggered) -->
+          <div id="handover-panel" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg2);border:1px solid var(--green);border-radius:4px">
+            <div style="font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--green);margin-bottom:12px;text-transform:uppercase">Confirm Production Handover</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:12px">The following units will be handed over to production. Ensure physical units have been separated and are ready to move.</div>
+            <div id="handover-summary" style="margin-bottom:14px"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" style="background:var(--green);border-color:var(--green);color:#000" onclick="confirmHandover()">CONFIRM HANDOVER</button>
+              <button class="btn btn-secondary" onclick="closeHandoverPanel()">Cancel</button>
+            </div>
+            <div id="handover-err" style="margin-top:8px;font-size:11px;color:var(--red);min-height:16px"></div>
           </div>
 
           <div class="grid-2" style="align-items:start">
@@ -11385,7 +11401,91 @@ async function loadShipmentDetail(id) {
     document.getElementById('proc-shipment-channel').textContent = ch ? ch.channel_name : (s.channel_id||'—');
     document.getElementById('proc-shipment-date').textContent    = s.received_date || '—';
     document.getElementById('proc-shipment-counts').textContent  = (res.data.units||[]).length + ' units';
+
+    // Show handover button only when fully processed, badge when already handed over
+    const handoverWrap  = document.getElementById('proc-handover-wrap');
+    const handedBadge   = document.getElementById('proc-handed-over-badge');
+    const handoverPanel = document.getElementById('handover-panel');
+    if (s.status === 'fully_processed') {
+      handoverWrap.style.display  = '';
+      handedBadge.style.display   = 'none';
+      // Pre-build handover summary from units
+      buildHandoverSummary(res.data.units || []);
+    } else if (s.status === 'handed_over' || s.status === 'closed') {
+      handoverWrap.style.display  = 'none';
+      handedBadge.style.display   = '';
+      handoverPanel.style.display = 'none';
+    } else {
+      handoverWrap.style.display  = 'none';
+      handedBadge.style.display   = 'none';
+    }
   } catch(e) {}
+}
+
+// ── HANDOVER TO PRODUCTION ───────────────────────────────────
+
+function buildHandoverSummary(units) {
+  // Group non-loss units by product + disposition
+  const groups = {};
+  units.forEach(u => {
+    if (!u.disposition || u.disposition === 'loss_damage' || u.disposition === 'loss_rejection') return;
+    const key = (u.product || '—') + '||' + u.disposition;
+    if (!groups[key]) groups[key] = { product: u.product || '—', disposition: u.disposition, count: 0 };
+    groups[key].count++;
+  });
+  window._handoverGroups = Object.values(groups);
+}
+
+function openHandoverPanel() {
+  const groups = window._handoverGroups || [];
+  if (!groups.length) { toast('No units ready to hand over', 'error'); return; }
+
+  const rows = groups.map(g => {
+    const actionLabel = g.disposition === 'rtd_direct'
+      ? '<span style="color:var(--green);font-weight:700">RTD Direct</span>'
+      : '<span style="color:var(--orange);font-weight:700">Workshop Repair</span>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="font-size:12px">' + g.product + '</span>' +
+      '<span style="display:flex;align-items:center;gap:16px">' +
+        actionLabel +
+        '<span style="font-family:var(--mono);font-size:14px;font-weight:700">' + g.count + ' units</span>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('handover-summary').innerHTML = rows;
+  document.getElementById('handover-err').textContent = '';
+  document.getElementById('handover-panel').style.display = '';
+}
+
+function closeHandoverPanel() {
+  document.getElementById('handover-panel').style.display = 'none';
+}
+
+async function confirmHandover() {
+  const errEl = document.getElementById('handover-err');
+  errEl.textContent = '';
+  if (!currentReturnsShipmentId) { errEl.textContent = 'No shipment selected'; return; }
+
+  const btn = document.querySelector('#handover-panel .btn-primary');
+  btn.textContent = 'Handing over...'; btn.disabled = true;
+
+  try {
+    const res = await apiPost('postReturnHandover', { data: { shipment_id: currentReturnsShipmentId } });
+    if (res.ok) {
+      toast('✓ Handed over to production — ' + currentReturnsShipmentId, 'success');
+      closeHandoverPanel();
+      document.getElementById('proc-handover-wrap').style.display = 'none';
+      document.getElementById('proc-handed-over-badge').style.display = '';
+      loadShipmentUnits(currentReturnsShipmentId);
+    } else {
+      errEl.textContent = res.error || 'Handover failed';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error';
+  } finally {
+    btn.textContent = 'CONFIRM HANDOVER'; btn.disabled = false;
+  }
 }
 
 async function loadShipmentUnits(shipmentId) {
