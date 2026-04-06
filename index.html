@@ -1773,7 +1773,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Ref</th><th>Type</th><th>Product</th><th>Details</th><th>Units</th><th>Run Date</th><th>Submitted</th><th></th></tr></thead>
+            <thead><tr><th>Ref</th><th>Type</th><th>Line</th><th>Product</th><th>Details</th><th>Units</th><th>Run Date</th><th>Submitted</th><th></th></tr></thead>
             <tbody id="issue-queue-body">
               <tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>
             </tbody>
@@ -3306,7 +3306,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Run</th><th>Run Date</th><th>Submitted</th><th>Product</th><th>Variants</th><th>Units</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Run</th><th>Run Date</th><th>Submitted</th><th>Product</th><th>Variants</th><th>Units</th><th>Line</th><th>Status</th><th></th></tr></thead>
               <tbody id="pr-list">
                 <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
               </tbody>
@@ -6500,7 +6500,7 @@ let issueQueueSubmitting = false;
 async function loadIssueQueue() {
   const tbody = document.getElementById('issue-queue-body');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>';
   await ensureMaterialCache();
   let runsRes, wosRes;
   try {
@@ -6509,7 +6509,7 @@ async function loadIssueQueue() {
       api('getWorkOrders'),
     ]);
   } catch(e) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading queue — ' + e.message + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Error loading queue — ' + e.message + '</td></tr>';
     return;
   }
   let rows = [];
@@ -6546,7 +6546,7 @@ async function loadIssueQueue() {
   }
   const filteredRows = rows.filter(r => !rejectedRefs.has(r.ref));
   if (!filteredRows.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">No open requests — all clear ✓</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No open requests — all clear ✓</td></tr>';
     return;
   }
   tbody.innerHTML = filteredRows.map(r => {
@@ -6555,6 +6555,7 @@ async function loadIssueQueue() {
     return '<tr>'
       + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.ref + '</td>'
       + '<td>' + r.badge + '</td>'
+      + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + ((r.raw && r.raw.line_no)||'—') + '</td>'
       + '<td>' + r.product + '</td>'
       + '<td style="font-size:11px;color:var(--text3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + r.details + '">' + r.details + '</td>'
       + '<td style="font-family:var(--mono)">' + r.units + '</td>'
@@ -9209,6 +9210,7 @@ async function loadProductionRuns() {
       + '<td>' + (r.product||'') + '</td>'
       + '<td style="font-size:10px;color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + variantStr + '">' + (variantStr||'—') + '</td>'
       + '<td style="font-family:var(--mono)">' + (r.total_units||0) + '</td>'
+      + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + (r.line_no||'—') + '</td>'
       + '<td style="color:' + colour + ';font-family:var(--mono);font-size:10px">' + r.status + '</td>'
       + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" onclick="openProductionRun(\''+r.run_no+'\')">VIEW</button></td>'
       + '</tr>';
