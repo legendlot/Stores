@@ -7907,12 +7907,12 @@ function setPOLineMode(mode) {
 
 // ── BOM GROUP DEFINITIONS ────────────────────────────────────
 const PO_BOM_GROUPS = {
-  full:        { label: 'Full Product',  cats: ['Car','Remote','Remote/Car','Accessories'] },
+  full:        { label: 'Full Product',  cats: ['Car','Remote','Remote/Car','Accessories','Fastener','Battery','RC Battery','Charger Cable','Sticker'] },
   car:         { label: 'Car Parts',     cats: ['Car','Remote/Car'] },
   remote:      { label: 'Remote Only',   cats: ['Remote','Remote/Car'] },
   accessories: { label: 'Accessories',   cats: ['Accessories'] },
-  metal:       { label: 'Metal Parts',   cats: ['Metal'] },
-  packaging:   { label: 'Packaging',     cats: ['Packaging'] },
+  metal:       { label: 'Metal Parts',   types: ['Metal','Hardware'] },
+  packaging:   { label: 'Packaging',     cats: ['Packaging','Primary Packaging'] },
   para:        { label: 'Para',          cats: ['Para'] },
   consumables: { label: 'Consumables',   cats: ['Consumables'] },
 };
@@ -7956,14 +7956,18 @@ async function loadPOBOMGroup(group) {
     poBOMData = res.data || [];
   } catch(e) { toast('Error loading BOM', 'error'); return; }
 
-  const cats = PO_BOM_GROUPS[group]?.cats || [];
+  const groupDef = PO_BOM_GROUPS[group] || {};
   const variantData = variant
     ? poBOMData.filter(r =>
         r.variant_model === 'Common' ||
         r.variant_model === variant ||
         r.variant_model.startsWith(variant + ' '))
     : poBOMData;
-  const filtered = variantData.filter(r => cats.includes(r.part_category));
+  const filtered = variantData.filter(r => {
+    const catMatch  = groupDef.cats  ? groupDef.cats.includes(r.part_category) : false;
+    const typeMatch = groupDef.types ? groupDef.types.includes(r.part_type)    : false;
+    return catMatch || typeMatch;
+  });
 
   if (!filtered.length) {
     toast('No parts in this group for ' + product, 'info');
@@ -8141,6 +8145,11 @@ function addBOMLinesToPO() {
   const lines = tbody._lines || [];
   const rows  = tbody.querySelectorAll('tr');
   let added = 0;
+  let skipped = 0;
+  const existingCodes = new Set(
+    [...document.querySelectorAll('#po-lines-container input.mono')]
+      .map(el => el.value.trim().toUpperCase()).filter(Boolean)
+  );
 
   rows.forEach((row, i) => {
     const cb  = row.querySelector('.po-bom-cb');
@@ -8149,6 +8158,7 @@ function addBOMLinesToPO() {
     const r   = lines[i];
     const qty = parseFloat(qtyInput?.value) || 0;
     if (qty <= 0) return;
+    if (existingCodes.has((r.part_code || '').toUpperCase())) { skipped++; return; }
 
     // Add to manual lines container
     const container = document.getElementById('po-lines-container');
@@ -8200,7 +8210,9 @@ function addBOMLinesToPO() {
   // Switch to manual mode to show the added lines
   setPOLineMode('manual');
   recalcPOTotal();
-  toast(`${added} line${added !== 1 ? 's' : ''} added from BOM`, 'success');
+  const msg = `${added} line${added !== 1 ? 's' : ''} added from BOM` +
+              (skipped > 0 ? ` · ${skipped} duplicate${skipped !== 1 ? 's' : ''} skipped` : '');
+  toast(msg, 'success');
 }
 
 function addPOLine() {
