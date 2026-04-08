@@ -7956,7 +7956,13 @@ async function loadPOBOMGroup(group) {
   } catch(e) { toast('Error loading BOM', 'error'); return; }
 
   const cats = PO_BOM_GROUPS[group]?.cats || [];
-  const filtered = poBOMData.filter(r => cats.includes(r.part_category));
+  const variantData = variant
+    ? poBOMData.filter(r =>
+        r.variant_model === 'Common' ||
+        r.variant_model === variant ||
+        r.variant_model.startsWith(variant + ' '))
+    : poBOMData;
+  const filtered = variantData.filter(r => cats.includes(r.part_category));
 
   if (!filtered.length) {
     toast('No parts in this group for ' + product, 'info');
