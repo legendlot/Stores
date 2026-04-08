@@ -11111,6 +11111,8 @@ async function onLibProductChange() {
     if (!res.ok || !res.data?.length) {
       previewText.textContent = 'No BOM data found for ' + product;
       preview.style.display = '';
+      btn.disabled = false;
+      btn.textContent = '↓ DOWNLOAD BOM';
       return;
     }
     libBOMCache[product] = res.data;
