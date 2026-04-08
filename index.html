@@ -2822,6 +2822,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div style="display:flex;gap:6px;align-items:center">
               <button class="btn btn-secondary" id="po-mode-bom" onclick="setPOLineMode('bom')" style="padding:3px 10px;font-size:10px">📋 FROM BOM</button>
               <button class="btn btn-secondary" id="po-mode-manual" onclick="setPOLineMode('manual')" style="padding:3px 10px;font-size:10px">✏ MANUAL</button>
+              <button class="btn btn-secondary" id="po-mode-units" onclick="setPOLineMode('units')" style="padding:3px 10px;font-size:10px">🚗 BY UNITS</button>
               <button class="btn btn-secondary" id="po-add-line-btn" onclick="addPOLine()" style="padding:3px 10px;font-size:10px;display:none">+ ADD LINE</button>
             </div>
           </div>
@@ -2885,6 +2886,26 @@ tr:hover td { background:rgba(255,255,255,.02); }
                   <tbody id="po-bom-checklist-body"></tbody>
                 </table>
               </div>
+            </div>
+          </div>
+
+          <!-- Units mode selector -->
+          <div id="po-units-selector" style="display:none">
+            <div style="padding:12px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+                <div class="form-group" style="flex:0 0 220px">
+                  <label class="form-label">Product</label>
+                  <select class="form-select" id="po-units-product" onchange="loadUnitsGrid()">
+                    <option value="">Select product...</option>
+                  </select>
+                </div>
+              </div>
+              <div id="po-units-grid" style="margin-bottom:16px"></div>
+              <button class="btn btn-primary" onclick="addUnitsToQueue()" style="padding:5px 16px;font-size:11px">+ ADD TO ORDER</button>
+            </div>
+            <div id="po-units-queue-wrap" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase">Added to this PO</div>
+              <div id="po-units-queue"></div>
             </div>
           </div>
 
@@ -4347,7 +4368,7 @@ async function launchApp() {
 
   // Populate product dropdowns
   PRODUCTS.forEach(p => {
-    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product','po-bom-product'].forEach(id => {
+    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product','po-bom-product','po-units-product'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
     });
@@ -7858,17 +7879,29 @@ function showNewPOForm() {
   setPOLineMode('bom');
   // Clear manual lines container for when user switches to manual mode
   document.getElementById('po-lines-container').innerHTML = '';
+  // Reset units mode state
+  poUnitsLines = [];
+  const upSel = document.getElementById('po-units-product');
+  if (upSel) upSel.value = '';
+  const ugrid = document.getElementById('po-units-grid');
+  if (ugrid) ugrid.innerHTML = '';
+  renderUnitsQueue();
 }
 
 // ── PO LINE MODE ─────────────────────────────────────────────
 function setPOLineMode(mode) {
-  const isBOM = mode === 'bom';
-  document.getElementById('po-bom-selector').style.display    = isBOM  ? '' : 'none';
-  document.getElementById('po-lines-container').style.display = !isBOM ? '' : 'none';
-  document.getElementById('po-add-line-btn').style.display    = !isBOM ? '' : 'none';
-  document.getElementById('po-mode-bom').className    = 'btn ' + (isBOM  ? 'btn-primary' : 'btn-secondary');
-  document.getElementById('po-mode-manual').className = 'btn ' + (!isBOM ? 'btn-primary' : 'btn-secondary');
-  if (!isBOM && document.getElementById('po-lines-container').children.length === 0) addPOLine();
+  currentPOLineMode = mode;
+  const isBOM    = mode === 'bom';
+  const isManual = mode === 'manual';
+  const isUnits  = mode === 'units';
+  document.getElementById('po-bom-selector').style.display    = isBOM    ? '' : 'none';
+  document.getElementById('po-units-selector').style.display  = isUnits  ? '' : 'none';
+  document.getElementById('po-lines-container').style.display = isManual ? '' : 'none';
+  document.getElementById('po-add-line-btn').style.display    = isManual ? '' : 'none';
+  document.getElementById('po-mode-bom').className    = 'btn ' + (isBOM    ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('po-mode-manual').className = 'btn ' + (isManual ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('po-mode-units').className  = 'btn ' + (isUnits  ? 'btn-primary' : 'btn-secondary');
+  if (isManual && document.getElementById('po-lines-container').children.length === 0) addPOLine();
 }
 
 // ── BOM GROUP DEFINITIONS ────────────────────────────────────
@@ -7885,6 +7918,8 @@ const PO_BOM_GROUPS = {
 
 let poBOMData = []; // full BOM for current product/variant
 let poBOMGroup = ''; // current active group
+let currentPOLineMode = 'bom'; // 'bom' | 'manual' | 'units'
+let poUnitsLines = []; // accumulated lines from units mode
 
 async function loadPOBOMVariants() {
   const product = document.getElementById('po-bom-product').value;
@@ -7984,6 +8019,114 @@ function updatePOBOMCheckAll() {
   const cbs = [...document.querySelectorAll('.po-bom-cb')];
   const checkAll = document.getElementById('po-bom-check-all');
   if (checkAll) checkAll.checked = cbs.length > 0 && cbs.every(cb => cb.checked);
+}
+
+// ── BY UNITS MODE ─────────────────────────────────────────────
+
+function loadUnitsGrid() {
+  const product   = document.getElementById('po-units-product').value;
+  const container = document.getElementById('po-units-grid');
+  if (!product) { container.innerHTML = ''; return; }
+
+  const variants    = PRODUCT_VARIANTS[product]    || [];
+  const subvariants = PRODUCT_SUBVARIANTS[product] || {};
+
+  if (!variants.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:4px 0">No variants configured for this product yet.</div>';
+    return;
+  }
+
+  let html = '';
+  variants.forEach(v => {
+    const colors = subvariants[v] || [];
+    html += `<div style="margin-bottom:14px">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;
+                  padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:6px">${product} — ${v}</div>`;
+
+    if (colors.length) {
+      colors.forEach(c => {
+        html += `<div style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
+          <div style="font-size:12px;color:var(--text2);padding-left:8px">${c}</div>
+          <input type="number" value="" placeholder="0" min="0"
+                 data-product="${product}" data-variant="${v}" data-color="${c}"
+                 class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px">
+          <div style="font-size:11px;color:var(--text3)">pcs</div>
+        </div>`;
+      });
+    } else {
+      html += `<div style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
+        <div style="font-size:12px;color:var(--text2);padding-left:8px">—</div>
+        <input type="number" value="" placeholder="0" min="0"
+               data-product="${product}" data-variant="${v}" data-color=""
+               class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px">
+        <div style="font-size:11px;color:var(--text3)">pcs</div>
+      </div>`;
+    }
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function addUnitsToQueue() {
+  const inputs = document.querySelectorAll('.po-units-qty');
+  let added = 0;
+  inputs.forEach(inp => {
+    const qty = parseInt(inp.value) || 0;
+    if (qty <= 0) return;
+    const product = inp.dataset.product;
+    const variant = inp.dataset.variant;
+    const color   = inp.dataset.color || null;
+    const desc    = [product, variant, color].filter(Boolean).join(' ');
+    poUnitsLines.push({
+      product, variant, color: color || null,
+      description: desc, item_type: 'RC Car',
+      qty_ordered: qty, unit: 'pcs', unit_price: null, part_code: null,
+    });
+    inp.value = '';
+    added++;
+  });
+  if (!added) { toast('Enter at least one quantity', 'error'); return; }
+  renderUnitsQueue();
+  toast(`${added} line${added !== 1 ? 's' : ''} added`, 'success');
+}
+
+function removeUnitLine(idx) {
+  poUnitsLines.splice(idx, 1);
+  renderUnitsQueue();
+}
+
+function renderUnitsQueue() {
+  const wrap = document.getElementById('po-units-queue-wrap');
+  const el   = document.getElementById('po-units-queue');
+  if (!poUnitsLines.length) {
+    wrap.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  wrap.style.display = '';
+  el.innerHTML = `<table style="width:100%;font-size:11px">
+    <thead><tr>
+      <th style="width:28px">#</th>
+      <th>Product</th><th>Model</th><th>Color</th>
+      <th style="text-align:right">Qty</th>
+      <th style="text-align:right">Unit</th>
+      <th style="width:28px"></th>
+    </tr></thead>
+    <tbody>
+      ${poUnitsLines.map((l, i) => `<tr>
+        <td class="mono" style="font-size:10px;color:var(--text3)">${i + 1}</td>
+        <td>${l.product}</td>
+        <td>${l.variant || '—'}</td>
+        <td>${l.color || '—'}</td>
+        <td class="mono" style="text-align:right;font-weight:700;color:var(--yellow)">${l.qty_ordered}</td>
+        <td style="text-align:right;color:var(--text3)">${l.unit}</td>
+        <td><button onclick="removeUnitLine(${i})"
+              style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:0 2px"
+              title="Remove">×</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
 function addBOMLinesToPO() {
@@ -8138,22 +8281,27 @@ async function submitNewPO() {
   if (!vendor)    { toast('Enter vendor name', 'error'); return; }
 
   const lines = [];
-  document.querySelectorAll('.po-line-item').forEach((div) => {
-    const allInputs  = div.querySelectorAll('input');
-    const numInputs  = div.querySelectorAll('input[type=number]');
-    const allSelects = div.querySelectorAll('select');
-    const partCode   = allInputs[0]?.value?.trim() || '';
-    const partName   = allInputs[1]?.value?.trim() || '';
-    const itemType   = allSelects[0]?.value || 'Other';
-    const qty        = parseFloat(numInputs[0]?.value) || 0;
-    const unitPrice  = parseFloat(numInputs[1]?.value) || null;
-    const leadOverride = parseInt(numInputs[2]?.value) || null;
-    const unit       = allSelects[1]?.value || 'pcs';
-    if (partCode || qty > 0) {
-      lines.push({ part_code: partCode, description: partName, item_type: itemType,
-        qty_ordered: qty, unit_price: unitPrice, lead_time_override: leadOverride, unit });
-    }
-  });
+  if (currentPOLineMode === 'units') {
+    if (!poUnitsLines.length) { toast('Add at least one line to the order', 'error'); return; }
+    poUnitsLines.forEach(l => lines.push(l));
+  } else {
+    document.querySelectorAll('.po-line-item').forEach((div) => {
+      const allInputs  = div.querySelectorAll('input');
+      const numInputs  = div.querySelectorAll('input[type=number]');
+      const allSelects = div.querySelectorAll('select');
+      const partCode   = allInputs[0]?.value?.trim() || '';
+      const partName   = allInputs[1]?.value?.trim() || '';
+      const itemType   = allSelects[0]?.value || 'Other';
+      const qty        = parseFloat(numInputs[0]?.value) || 0;
+      const unitPrice  = parseFloat(numInputs[1]?.value) || null;
+      const leadOverride = parseInt(numInputs[2]?.value) || null;
+      const unit       = allSelects[1]?.value || 'pcs';
+      if (partCode || qty > 0) {
+        lines.push({ part_code: partCode, description: partName, item_type: itemType,
+          qty_ordered: qty, unit_price: unitPrice, lead_time_override: leadOverride, unit });
+      }
+    });
+  }
 
   const data = {
     order_type:        orderType,
@@ -8270,7 +8418,7 @@ function renderPODetail({ po, lines, revisions }) {
         const rcvColor = rcvPct >= 100 ? 'var(--green)' : rcvPct > 0 ? 'var(--yellow)' : 'var(--text3)';
         return `<tr>
           <td class="mono" style="font-size:11px">${l.line_no}</td>
-          <td style="font-size:11px">${l.product||'—'} ${l.variant||''}</td>
+          <td style="font-size:11px">${l.product||'—'}${l.variant ? ' '+l.variant : ''}${l.color ? ' '+l.color : ''}</td>
           <td><span class="badge badge-gray" style="font-size:9px">${l.item_type}</span></td>
           <td style="font-size:11px">${l.description||'—'}</td>
           <td class="mono" style="font-size:10px">${l.part_code||'—'}</td>
