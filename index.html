@@ -1161,9 +1161,14 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <div class="view" id="view-stock">
       <div class="page-header">
         <div class="page-title">STOCK LEDGER</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-primary"   id="stock-tab-components" onclick="switchStockTab('components')" style="padding:3px 12px;font-size:11px">COMPONENTS</button>
+          <button class="btn btn-secondary" id="stock-tab-fbu"        onclick="switchStockTab('fbu')"        style="padding:3px 12px;font-size:11px">FBU UNITS</button>
+        </div>
         <div class="page-subtitle">Live inventory position per part code</div>
       </div>
 
+      <div id="stock-components-section">
       <div class="panel" style="margin-bottom:12px">
         <div class="panel-body" style="padding:12px">
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
@@ -1234,6 +1239,24 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </table>
         </div>
       </div>
+    </div><!-- /stock-components-section -->
+
+      <!-- FBU Stock Section (hidden by default, shown via switchStockTab) -->
+      <div id="stock-fbu-section" style="display:none;margin-top:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">FBU UNITS — Finished Stock</div>
+            <input type="text" id="fbu-stock-filter" class="form-input" placeholder="Filter..."
+              oninput="renderFbuStock()" style="width:200px;padding:3px 8px;font-size:11px">
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Product</th><th>Variant</th><th>Colour</th><th>On Hand</th></tr></thead>
+              <tbody id="fbu-stock-body"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── GRN ── -->
@@ -1247,6 +1270,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
       <div style="display:flex;gap:8px;margin-bottom:16px">
         <button class="btn btn-primary" id="grn-mode-bulk" onclick="setGRNMode('bulk')" style="flex:1">
           📦 BULK GRN — Full Product Shipment
+        </button>
+        <button class="btn btn-secondary" id="grn-mode-fbu" onclick="setGRNMode('fbu')" style="flex:1">
+          🚗 FBU GRN — Receive Finished Units
         </button>
         <button class="btn btn-secondary" id="grn-mode-parts" onclick="setGRNMode('parts')" style="flex:1">
           🔩 PARTS GRN — Specific Parts Top-up
@@ -1340,6 +1366,56 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
             <div id="bulk-bom-empty" style="padding:24px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:12px">
               Select a product and enter units received to auto-generate BOM lines
+            </div>
+          </div>
+        </div>
+
+        <!-- FBU GRN Panel -->
+        <div id="grn-fbu-panel" class="panel" style="display:none">
+          <div class="panel-header"><div class="panel-title">FBU GRN — Receive Finished Units</div></div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="fbu-grn-product" onchange="loadVariants('fbu-grn');loadSubVariants('fbu-grn')">
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant (Model)</label>
+                <select class="form-select" id="fbu-grn-variant" onchange="loadSubVariants('fbu-grn')">
+                  <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group" id="fbu-grn-color-group" style="display:none">
+                <label class="form-label">Colour</label>
+                <select class="form-select" id="fbu-grn-subvariant">
+                  <option value="">All / Common</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Units Received</label>
+                <input class="form-input" type="number" id="fbu-grn-units" placeholder="e.g. 100" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">GRN Date</label>
+                <input class="form-input" type="date" id="fbu-grn-date">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Supplier</label>
+                <input class="form-input" id="fbu-grn-supplier" placeholder="Supplier name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PO Reference</label>
+                <input class="form-input" id="fbu-grn-po" placeholder="PO-XXX">
+              </div>
+            </div>
+            <div style="padding:10px 12px;background:rgba(33,60,226,.07);border:1px solid rgba(33,60,226,.2);border-radius:3px;font-size:11px;color:var(--text2);margin-bottom:12px">
+              ℹ FBU units received as complete finished cars — stock tracked at unit level, no BOM explosion.
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitFbuGRN()">SUBMIT FBU GRN</button>
+              <button class="btn btn-secondary" onclick="clearFbuGRN()">CLEAR</button>
             </div>
           </div>
         </div>
@@ -4362,13 +4438,13 @@ async function launchApp() {
 
   // Init dates
   const today = new Date().toISOString().split('T')[0];
-  ['bulk-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date','lf-date'].forEach(id => {
+  ['bulk-grn-date','fbu-grn-date','grn-date','wo-date','iss-date','ret-date','mp-date','lf-date'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = today;
   });
 
   // Populate product dropdowns
   PRODUCTS.forEach(p => {
-    ['bulk-grn-product','grn-product','wo-product','iss-product','ret-product','po-bom-product','po-units-product'].forEach(id => {
+    ['bulk-grn-product','fbu-grn-product','grn-product','wo-product','iss-product','ret-product','po-bom-product','po-units-product'].forEach(id => {
       const sel = document.getElementById(id);
       if (sel) sel.innerHTML += `<option value="${p}">${p}</option>`;
     });
@@ -4383,6 +4459,7 @@ async function launchApp() {
   // Load initial data
   loadDashboard();
   loadStock();
+  loadFbuStock();
   loadGRNHistory();
   loadWorkOrders();
   loadIssueHistory();
@@ -4513,7 +4590,7 @@ function refreshCurrent() {
   const done = () => btn.classList.remove('spinning');
   switch(currentView) {
     case 'dashboard': loadDashboard().then(done); break;
-    case 'stock':     loadStock().then(done); break;
+    case 'stock':     loadStock().then(() => { loadFbuStock(); done(); }); break;
     case 'grn':       loadGRNHistory().then(done); break;
     case 'prodruns':  initProdRuns(); done(); break;
     case 'workorder': loadWorkOrders().then(done); break;
@@ -4979,6 +5056,16 @@ function clearDashboardLoadingStates() {
 }
 
 // ══ STOCK ════════════════════════════════════════════════════
+function switchStockTab(tab) {
+  const isComp = tab === 'components';
+  document.getElementById('stock-tab-components').className = 'btn ' + (isComp  ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('stock-tab-fbu').className        = 'btn ' + (!isComp ? 'btn-primary' : 'btn-secondary');
+  const compSection = document.getElementById('stock-components-section');
+  const fbuSection  = document.getElementById('stock-fbu-section');
+  if (compSection) compSection.style.display = isComp  ? '' : 'none';
+  if (fbuSection)  fbuSection.style.display  = !isComp ? '' : 'none';
+}
+
 async function loadStock() {
   const tbody = document.getElementById('stock-table-body');
   tbody.innerHTML = '<tr><td colspan="13"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>';
@@ -5159,8 +5246,10 @@ let bulkBOMData = [];
 function setGRNMode(mode) {
   grnMode = mode;
   document.getElementById('grn-bulk-panel').style.display  = mode === 'bulk'  ? '' : 'none';
+  document.getElementById('grn-fbu-panel').style.display   = mode === 'fbu'   ? '' : 'none';
   document.getElementById('grn-parts-panel').style.display = mode === 'parts' ? '' : 'none';
   document.getElementById('grn-mode-bulk').className  = 'btn ' + (mode === 'bulk'  ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('grn-mode-fbu').className   = 'btn ' + (mode === 'fbu'   ? 'btn-primary' : 'btn-secondary');
   document.getElementById('grn-mode-parts').className = 'btn ' + (mode === 'parts' ? 'btn-primary' : 'btn-secondary');
 }
 
@@ -5280,6 +5369,74 @@ function clearBulkGRN() {
   document.getElementById('bulk-bom-section').style.display = 'none';
   document.getElementById('bulk-bom-empty').style.display = '';
   bulkBOMData = [];
+}
+
+// ── FBU GRN ─────────────────────────────────────────────────
+async function submitFbuGRN() {
+  const product  = document.getElementById('fbu-grn-product').value;
+  const variant  = document.getElementById('fbu-grn-variant').value;
+  const color    = document.getElementById('fbu-grn-subvariant')?.value || '';
+  const units    = parseInt(document.getElementById('fbu-grn-units').value) || 0;
+  const grn_date = formatDateForAPI(document.getElementById('fbu-grn-date').value);
+  const supplier = document.getElementById('fbu-grn-supplier').value;
+  const po_ref   = document.getElementById('fbu-grn-po').value;
+  if (!product)       { toast('Select a product', 'error'); return; }
+  if (units <= 0)     { toast('Enter units received', 'error'); return; }
+  if (!grn_date)      { toast('Select GRN date', 'error'); return; }
+  const btn = document.querySelector('#grn-fbu-panel .btn-primary');
+  const orig = btn ? btn.textContent : '';
+  try {
+    if (btn) { btn.textContent = 'SUBMITTING...'; btn.disabled = true; }
+    const res = await apiPost('postFbuGRN', { data: {
+      product, variant: variant || null, color: color || null,
+      qty_received: units, grn_date, supplier, po_ref,
+    }});
+    if (res.ok) {
+      toast(`FBU GRN ${res.data.grn_no} created — ${units} units`, 'success');
+      clearFbuGRN();
+      loadGRNHistory();
+      loadFbuStock();
+    } else { toast(res.error || 'FBU GRN failed', 'error'); }
+  } catch(e) { toast('Error submitting FBU GRN', 'error'); }
+  finally { if (btn) { btn.textContent = orig; btn.disabled = false; } }
+}
+
+function clearFbuGRN() {
+  document.getElementById('fbu-grn-product').value  = '';
+  document.getElementById('fbu-grn-variant').innerHTML = '<option value="">Common only</option>';
+  document.getElementById('fbu-grn-units').value    = '';
+  document.getElementById('fbu-grn-supplier').value = '';
+  document.getElementById('fbu-grn-po').value       = '';
+}
+
+// ── FBU Stock ────────────────────────────────────────────────
+let fbuStockData = [];
+async function loadFbuStock() {
+  const res = await api('getFbuStock');
+  fbuStockData = res.ok ? (res.data || []) : [];
+  renderFbuStock();
+}
+
+function renderFbuStock() {
+  const tbody = document.getElementById('fbu-stock-body');
+  if (!tbody) return;
+  const filter = (document.getElementById('fbu-stock-filter')?.value || '').toLowerCase();
+  const rows = fbuStockData.filter(r =>
+    !filter ||
+    (r.product||'').toLowerCase().includes(filter) ||
+    (r.variant||'').toLowerCase().includes(filter) ||
+    (r.color||'').toLowerCase().includes(filter)
+  );
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">No FBU stock on hand</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${r.product}</td>
+    <td style="color:var(--text2)">${r.variant||'—'}</td>
+    <td style="color:var(--text2)">${r.color||'—'}</td>
+    <td style="font-family:var(--mono);font-weight:700;color:${r.qty_on_hand>0?'var(--green)':'var(--text3)'}">${r.qty_on_hand}</td>
+  </tr>`).join('');
 }
 
 let bulkGRNSubmitting = false;
@@ -6645,7 +6802,7 @@ async function openIssueQueueItem(type, ref) {
     const res = await api('getProductionRun', { run_no: ref });
     if (!res.ok) { toast('Failed to load run', 'error'); return; }
     const { run, wos, pick_list } = res.data;
-    issueQueueData = { type: 'run', ref, run, wos, lines: pick_list };
+    issueQueueData = { type: 'run', ref, run, wos, lines: pick_list, fbu_lines: res.data.fbu_lines || [] };
 
     title.textContent = `${ref} — ${run.product} — Production Run`;
 
@@ -6661,7 +6818,33 @@ async function openIssueQueueItem(type, ref) {
         <span style="color:var(--text3)">Total: </span><strong>${wos.reduce((s,w)=>s+(w.qty||0),0)} units</strong>
       </div>`;
 
-    tbody.innerHTML = renderPickListGrouped(pick_list, 6, function(p) {
+    // FBU lines section
+    const fbuLines = res.data.fbu_lines || [];
+    let fbuHtml = '';
+    if (fbuLines.length) {
+      fbuHtml = '<tr style="background:rgba(33,60,226,.08);border-top:2px solid var(--blue)">'
+        + '<td colspan="6" style="padding:6px 10px 4px;font-family:var(--cond);font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--blue)">&#9658; FBU UNITS</td></tr>'
+        + fbuLines.map(f => {
+            const label = [f.product, f.variant, f.color].filter(Boolean).join(' ');
+            const avail = f.available || 0;
+            const short = f.shortfall > 0;
+            return '<tr style="background:rgba(33,60,226,.04)">'
+              + '<td style="font-family:var(--mono);font-size:10px;color:var(--blue)">FBU</td>'
+              + '<td style="font-size:11px;font-weight:600">' + label + '</td>'
+              + '<td><span class="badge badge-blue" style="font-size:9px">FBU Unit</span></td>'
+              + '<td style="font-family:var(--mono)">' + f.qty + '</td>'
+              + '<td style="font-family:var(--mono);color:' + (short ? '#ff5252' : 'var(--green)') + '">' + avail + '</td>'
+              + '<td><input class="form-input iss-fbu-qty" type="number" min="0"'
+              + ' value="' + f.qty + '" data-planned="' + f.qty + '"'
+              + ' data-fbu-product="' + f.product + '"'
+              + ' data-fbu-variant="' + (f.variant||'') + '"'
+              + ' data-fbu-color="'   + (f.color||'')   + '"'
+              + ' style="width:90px;padding:3px 6px;font-size:11px;font-family:var(--mono)"></td>'
+              + '</tr>';
+          }).join('');
+    }
+
+    tbody.innerHTML = fbuHtml + renderPickListGrouped(pick_list, 6, function(p) {
       return '<tr>' +
         '<td style="font-family:var(--mono);font-size:10px">' + p.part_code + '</td>' +
         '<td style="font-size:11px">' + p.part_name + '</td>' +
@@ -6866,8 +7049,16 @@ async function submitQueueIssue() {
   try {
     let res;
     if (issueQueueData.type === 'run') {
+      // Collect FBU unit lines
+      const fbuInputs = document.querySelectorAll('.iss-fbu-qty');
+      const fbuLines  = Array.from(fbuInputs).map(inp => ({
+        product:        inp.dataset.fbuProduct,
+        variant:        inp.dataset.fbuVariant || null,
+        color:          inp.dataset.fbuColor   || null,
+        actual_issued:  parseFloat(inp.value)  || 0,
+      })).filter(f => f.actual_issued > 0);
       res = await apiPost('issueAgainstRun', {
-        data: { run_no: issueQueueData.ref, lines }
+        data: { run_no: issueQueueData.ref, lines, fbu_lines: fbuLines }
       });
     } else if (issueQueueData.type === 'short-issue') {
       const siLines = lines.filter(l => (parseFloat(l.actual_issued)||0) > 0).map(l => ({
@@ -7921,6 +8112,15 @@ let poBOMData = []; // full BOM for current product/variant
 let poBOMGroup = ''; // current active group
 let currentPOLineMode = 'bom'; // 'bom' | 'manual' | 'units'
 let poUnitsLines = []; // accumulated lines from units mode
+let receiveFormatCache = {}; // product → 'FBU'|'CKD'|'SKD'|null
+
+async function ensureReceiveFormatCache() {
+  if (Object.keys(receiveFormatCache).length) return;
+  try {
+    const res = await api('getProductReceiveFormats');
+    if (res.ok) receiveFormatCache = res.data || {};
+  } catch(e) {}
+}
 
 async function loadPOBOMVariants() {
   const product = document.getElementById('po-bom-product').value;
@@ -8034,10 +8234,22 @@ function updatePOBOMCheckAll() {
 
 // ── BY UNITS MODE ─────────────────────────────────────────────
 
-function loadUnitsGrid() {
+async function loadUnitsGrid() {
   const product   = document.getElementById('po-units-product').value;
   const container = document.getElementById('po-units-grid');
   if (!product) { container.innerHTML = ''; return; }
+  await ensureReceiveFormatCache();
+  const fmt = receiveFormatCache[product] || null;
+  const fmtBadge = fmt
+    ? `<span style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:2px;
+         background:${fmt==='FBU'?'rgba(33,60,226,.15)':'rgba(242,205,26,.12)'};
+         color:${fmt==='FBU'?'var(--blue)':'var(--yellow)'};margin-left:8px">${fmt}</span>`
+    : '<span style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-left:6px">FORMAT NOT SET</span>';
+  const fmtNote = fmt === 'FBU'
+    ? '<div style="font-size:10px;color:var(--blue);margin-bottom:8px">📦 FBU — units ordered as finished cars. PO line saved at unit level.</div>'
+    : fmt === 'CKD'
+    ? '<div style="font-size:10px;color:var(--yellow);margin-bottom:8px">🔩 CKD — BOM will be exploded into components on PO save.</div>'
+    : '';
 
   const variants    = PRODUCT_VARIANTS[product]    || [];
   const subvariants = PRODUCT_SUBVARIANTS[product] || {};
@@ -8076,7 +8288,7 @@ function loadUnitsGrid() {
     html += '</div>';
   });
 
-  container.innerHTML = html;
+  container.innerHTML = (fmtNote || '') + html;
 }
 
 function addUnitsToQueue() {
@@ -8093,6 +8305,7 @@ function addUnitsToQueue() {
       product, variant, color: color || null,
       description: desc, item_type: 'RC Car',
       qty_ordered: qty, unit: 'pcs', unit_price: null, part_code: null,
+      _receive_format: receiveFormatCache[product] || null,
     });
     inp.value = '';
     added++;
@@ -8302,7 +8515,40 @@ async function submitNewPO() {
   const lines = [];
   if (currentPOLineMode === 'units') {
     if (!poUnitsLines.length) { toast('Add at least one line to the order', 'error'); return; }
-    poUnitsLines.forEach(l => lines.push(l));
+    // CKD lines: explode BOM. FBU lines: keep as unit line.
+    for (const l of poUnitsLines) {
+      if (l._receive_format === 'CKD' || l._receive_format === 'SKD') {
+        // BOM explosion
+        try {
+          const kitRes = await api('calcKit', {
+            product: l.product, variant: l.variant || '', colour: l.color || '', qty: l.qty_ordered,
+          });
+          if (!kitRes.ok) { toast(`BOM fetch failed for ${l.product}`, 'error'); return; }
+          (kitRes.data.kit || []).forEach(part => {
+            const catMap = {
+              'Car':'Part','Remote':'Part','Accessories':'Other',
+              'Packaging':'Ecom Packaging','Para':'Comic','Fastener':'Part',
+            };
+            lines.push({
+              part_code:   part.part_code,
+              description: part.part_name,
+              item_type:   catMap[part.category] || 'Part',
+              qty_ordered: part.total_qty,
+              unit:        'pcs',
+              unit_price:  null,
+              product:     l.product,
+              variant:     l.variant || null,
+              color:       l.color   || null,
+              receive_format: l._receive_format,
+            });
+          });
+        } catch(e) { toast(`Error exploding BOM for ${l.product}`, 'error'); return; }
+      } else {
+        // FBU or unset — unit-level line
+        const { _receive_format, ...cleanLine } = l;
+        lines.push({ ...cleanLine, receive_format: _receive_format || null });
+      }
+    }
   } else {
     document.querySelectorAll('.po-line-item').forEach((div) => {
       const allInputs  = div.querySelectorAll('input');
@@ -9209,7 +9455,8 @@ function prProductChanged() {
   addPRVariantRow();
 }
 
-function addPRVariantRow() {
+async function addPRVariantRow() {
+  await ensureReceiveFormatCache();
   const product = document.getElementById('pr-product').value;
   const container = document.getElementById('pr-variant-rows');
   const idx = container.children.length;
@@ -9227,6 +9474,18 @@ function addPRVariantRow() {
     ? `<select class="form-select" onchange="prVariantRowChanged(this)" style="font-size:11px"><option value="">Common</option>${variantOpts}</select>`
     : `<select class="form-select" disabled style="font-size:11px;opacity:.5"><option>Common</option></select>`;
 
+  const productFmt = receiveFormatCache[product] || null;
+  const showFbuToggle = productFmt === 'FBU';
+  const fbuToggle = showFbuToggle
+    ? `<div class="form-group" style="margin:0">
+        <label class="form-label" style="font-size:9px">ISSUE AS</label>
+        <select class="form-select pr-issue-mode" style="font-size:11px">
+          <option value="fbu">FBU Unit</option>
+          <option value="components">Components</option>
+        </select>
+       </div>`
+    : '';
+
   row.innerHTML = `
     <div class="form-group" style="margin:0">
       <label class="form-label" style="font-size:9px">VARIANT</label>
@@ -9236,6 +9495,7 @@ function addPRVariantRow() {
       <label class="form-label" style="font-size:9px">COLOUR</label>
       <select class="form-select pr-colour-sel" style="font-size:11px"><option value="">All</option></select>
     </div>
+    ${fbuToggle}
     <div class="form-group" style="margin:0">
       <label class="form-label" style="font-size:9px">E-COMM</label>
       <input class="form-input pr-qty-ecomm" type="number" placeholder="0" min="0"
@@ -9296,12 +9556,14 @@ async function createProductionRun() {
     const qtyRetail   = parseInt(row.querySelector('.pr-qty-retail')?.value) || 0;
     const totalQty    = qtyEcomm + qtyRetail;
     if (!totalQty) continue;
+    const issueModeSel = row.querySelector('.pr-issue-mode');
     variants.push({
       variant:    variantSel?.value || '',
       colour:     colourSel?.value  || '',
       qty:        totalQty,
       qty_ecomm:  qtyEcomm,
       qty_retail: qtyRetail,
+      issue_mode: issueModeSel?.value || 'components',
     });
   }
   if (!variants.length) return toast('Add at least one variant with a quantity', 'error');
