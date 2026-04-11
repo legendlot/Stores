@@ -1760,6 +1760,39 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </div>
           </div>
 
+          <!-- Inline add-box form (FBU) -->
+          <div id="add-box-form" style="display:none;padding:12px;border-bottom:1px solid var(--border);background:rgba(33,60,226,.04)">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--blue);margin-bottom:8px;letter-spacing:.08em">ADD BOX ENTRY — <span id="add-box-line-label"></span></div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Shipping Mark (Box)</label>
+                <select class="form-select" id="box-mark-select">
+                  <option value="">— select mark —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty in this box</label>
+                <input class="form-input" type="number" id="box-qty" placeholder="0" min="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Condition</label>
+                <select class="form-select" id="box-condition">
+                  <option value="OK">OK</option>
+                  <option value="Short">Short</option>
+                  <option value="Damaged">Damaged</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="box-notes" placeholder="e.g. 2 units cracked">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitBoxEntry()">SAVE BOX ENTRY</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('add-box-form').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+
           <div class="tbl-wrap">
             <table>
               <thead>
@@ -7655,10 +7688,11 @@ function toast(msg, type = 'info') {
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
 }
 // ══ RECEIVING ════════════════════════════════════════════════
-let currentShipmentId   = null;
-let currentShipmentData = null;
-let isFbuShipment       = false;
+let currentShipmentId     = null;
+let currentShipmentData   = null;
+let isFbuShipment         = false;
 let shipmentReceiveFormat = 'parts';
+let expandedLines         = new Set();
 
 function showNewShipmentForm() {
   const f = document.getElementById('new-shipment-form');
@@ -7785,6 +7819,8 @@ async function openShipment(id) {
   document.getElementById('bags-panel').style.display = 'none';
   document.getElementById('add-line-form').style.display = 'none';
   document.getElementById('add-fbu-line-form').style.display = 'none';
+  document.getElementById('add-box-form').style.display = 'none';
+  expandedLines.clear();
   await refreshShipmentDetail();
 }
 async function refreshShipmentDetail() {
@@ -7792,8 +7828,18 @@ async function refreshShipmentDetail() {
   try {
     const res = await api('getShipment', { id: currentShipmentId });
     if (!res.ok) return;
-    currentShipmentData = res.data;
-    renderShipmentDetail(res.data);
+    const data = res.data;
+    // Fetch entries for all lines in parallel
+    if (data.lines && data.lines.length) {
+      const entryResults = await Promise.all(
+        data.lines.map(l => api('getReceivingEntries', { line_id: l.line_id }).catch(() => ({ ok: false })))
+      );
+      data.lines.forEach((l, i) => {
+        l._entries = entryResults[i].ok ? (entryResults[i].data || []) : [];
+      });
+    }
+    currentShipmentData = data;
+    renderShipmentDetail(data);
   } catch(e) {}
 }
 function renderShipmentDetail(data) {
@@ -7852,17 +7898,41 @@ function renderShipmentDetail(data) {
     const vs = diff===0?'':diff>0?'<span style="color:var(--yellow);font-size:10px">+'+diff+'</span>':'<span style="color:var(--red);font-size:10px">'+diff+'</span>';
     const mc = marks.find(m => m.mark_id === l.mark_id)?.mark_code || '—';
     if (isFbuShipment) {
+      const isExpanded = expandedLines.has(l.line_id);
+      const entryRows  = (l._entries || []).map(e => {
+        const mcode = marks.find(m => m.mark_id === e.mark_id)?.mark_code || '—';
+        const condColor = e.condition === 'OK' ? 'var(--green)' : e.condition === 'Damaged' ? 'var(--red)' : 'var(--yellow)';
+        return '<tr style="background:rgba(255,255,255,.02)">'
+          +'<td colspan="2" style="font-size:10px;color:var(--text3);padding-left:24px">↳ '+e.entry_id+'</td>'
+          +'<td style="font-size:10px;color:var(--text3)">'+mcode+'</td>'
+          +'<td></td>'
+          +'<td class="mono" style="text-align:right;font-size:11px">'+e.qty+'</td>'
+          +'<td style="font-size:10px" colspan="2"><span style="color:'+condColor+'">'+e.condition+'</span>'+(e.notes?' <span style="color:var(--text3)">'+e.notes+'</span>':'')+'</td>'
+          +'<td colspan="2"></td>'
+          +'</tr>';
+      }).join('');
+      const addBoxBtn = l.status==='In Progress' || l.status==='Counted'
+        ? '<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px;margin-left:4px" onclick="showAddBoxForm(\''+l.line_id+'\')">+ BOX</button>'
+        : '';
+      const markCompleteBtn = l.status==='In Progress' && (l._entries||[]).length > 0
+        ? '<button class="btn btn-primary" style="padding:1px 8px;font-size:10px;margin-left:4px" onclick="markLineComplete(\''+l.line_id+'\')">✓ DONE</button>'
+        : '';
       return '<tr data-line-id="'+l.line_id+'">'
         +'<td style="font-size:12px">'+( l.product||l.part_name||'—')+'</td>'
         +'<td style="font-size:11px;color:var(--text2)">'+(l.variant||'—')+'</td>'
         +'<td style="font-size:11px;color:var(--text2)">'+(l.color||'—')+'</td>'
-        +'<td style="font-size:11px;color:var(--text3)">'+mc+'</td>'
+        +'<td style="font-size:11px;color:var(--text3)">—</td>'
         +'<td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td>'
         +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
         +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
         +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
-        +'<td>'+(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="editFbuLine(\''+l.line_id+'\',\''+l.product+'\',\''+l.variant+'\',\''+l.color+'\','+l.qty_expected+','+l.qty_counted+',\''+l.mark_id+'\')">EDIT</button>':'')+'</td>'
-        +'</tr>';
+        +'<td style="white-space:nowrap">'
+          +'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="toggleEntries(\''+l.line_id+'\')">'+(isExpanded?'▼':'▶')+' '+((l._entries||[]).length)+'</button>'
+          +addBoxBtn
+          +markCompleteBtn
+        +'</td>'
+        +'</tr>'
+        +(isExpanded ? entryRows : '');
     } else {
       const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
       return '<tr data-line-id="'+l.line_id+'" data-part-code="'+l.part_code+'">'
@@ -7961,6 +8031,69 @@ function editFbuLine(lineId, product, variant, color, qtyExp, qtyCnt, markId) {
   // Change button label to indicate edit mode
   const btn = document.querySelector('#add-fbu-line-form .btn-primary');
   if (btn) btn.textContent = 'UPDATE UNIT COUNT';
+}
+
+let pendingBoxLineId = null;
+
+function toggleEntries(lineId) {
+  if (expandedLines.has(lineId)) expandedLines.delete(lineId);
+  else expandedLines.add(lineId);
+  renderShipmentDetail(currentShipmentData);
+}
+
+function showAddBoxForm(lineId) {
+  pendingBoxLineId = lineId;
+  const line = currentShipmentData?.lines?.find(l => l.line_id === lineId);
+  const label = line ? [line.product, line.variant, line.color].filter(Boolean).join(' ') : lineId;
+  document.getElementById('add-box-line-label').textContent = label;
+  // Populate mark select
+  const marks = currentShipmentData?.marks || [];
+  const markOpts = '<option value="">— select mark —</option>'
+    + marks.map(m => '<option value="'+m.mark_id+'">'+m.mark_code+'</option>').join('');
+  document.getElementById('box-mark-select').innerHTML = markOpts;
+  document.getElementById('box-qty').value = '';
+  document.getElementById('box-condition').value = 'OK';
+  document.getElementById('box-notes').value = '';
+  document.getElementById('add-box-form').style.display = '';
+  // Expand the line so entries are visible
+  expandedLines.add(lineId);
+}
+
+async function submitBoxEntry() {
+  if (!pendingBoxLineId || !currentShipmentId) return;
+  const qty = parseInt(document.getElementById('box-qty').value) || 0;
+  if (qty <= 0) { toast('Enter qty', 'error'); return; }
+  const btn = document.querySelector('#add-box-form .btn-primary');
+  try {
+    if (btn) { btn.textContent = 'SAVING...'; btn.disabled = true; }
+    const res = await apiPost('postReceivingEntry', { data: {
+      line_id:    pendingBoxLineId,
+      shipment_id: currentShipmentId,
+      mark_id:    document.getElementById('box-mark-select').value || null,
+      qty,
+      condition:  document.getElementById('box-condition').value,
+      notes:      document.getElementById('box-notes').value.trim() || null,
+    }});
+    if (res.ok) {
+      toast('Box entry saved — total: ' + res.data.new_total, 'success');
+      document.getElementById('add-box-form').style.display = 'none';
+      await refreshShipmentDetail();
+    } else { toast(res.error || 'Failed', 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+  finally { if (btn) { btn.textContent = 'SAVE BOX ENTRY'; btn.disabled = false; } }
+}
+
+async function markLineComplete(lineId) {
+  const btn = event.target;
+  try {
+    btn.textContent = '...'; btn.disabled = true;
+    const res = await apiPost('updateReceivingLine', { data: {
+      line_id: lineId, qty_counted: null, bags_of: 0, status: 'Counted', notes: null,
+    }});
+    if (res.ok) { toast('Line marked complete', 'success'); await refreshShipmentDetail(); }
+    else { toast(res.error || 'Failed', 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+  finally { btn.textContent = '✓ DONE'; btn.disabled = false; }
 }
 
 async function submitFbuReceivingLine() {
