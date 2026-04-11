@@ -7818,7 +7818,7 @@ function renderShipmentDetail(data) {
   // Table headers
   const thead = document.getElementById('lines-thead');
   if (isFbuShipment) {
-    thead.innerHTML = '<th>Product</th><th>Variant</th><th>Color</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th>GRN</th><th>Status</th>';
+    thead.innerHTML = '<th>Product</th><th>Variant</th><th>Color</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th>GRN</th><th>Status</th><th></th>';
   } else {
     thead.innerHTML = '<th>Part Code</th><th>Part Name</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th style="text-align:right">Bags</th><th>Bag Size</th><th>GRN</th><th>Status</th><th></th>';
   }
@@ -7843,7 +7843,7 @@ function renderShipmentDetail(data) {
   const lt = document.getElementById('lines-list');
   if (!lines.length) {
     const emptyMsg = isFbuShipment ? 'No units counted yet' : 'No parts counted yet';
-    lt.innerHTML = '<tr><td colspan="'+(isFbuShipment?8:10)+'" class="empty">'+emptyMsg+'</td></tr>';
+    lt.innerHTML = '<tr><td colspan="'+(isFbuShipment?9:10)+'" class="empty">'+emptyMsg+'</td></tr>';
     return;
   }
   lt.innerHTML = lines.map(l => {
@@ -7861,6 +7861,7 @@ function renderShipmentDetail(data) {
         +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
         +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
         +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
+        +'<td>'+(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="editFbuLine(\''+l.line_id+'\',\''+l.product+'\',\''+l.variant+'\',\''+l.color+'\','+l.qty_expected+','+l.qty_counted+',\''+l.mark_id+'\')">EDIT</button>':'')+'</td>'
         +'</tr>';
     } else {
       const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
@@ -7936,6 +7937,32 @@ async function submitReceivingLine() {
   } catch(e) { toast('Error','error'); }
   finally { if (btn) { btn.textContent='SAVE COUNT'; btn.disabled=false; } }
 }
+let pendingFbuEditLineId = null;
+
+function editFbuLine(lineId, product, variant, color, qtyExp, qtyCnt, markId) {
+  pendingFbuEditLineId = lineId;
+  document.getElementById('add-fbu-line-form').style.display = '';
+  const prodSel = document.getElementById('rcv-fbu-product');
+  prodSel.value = product || '';
+  loadVariants('rcv-fbu');
+  // Set variant after variants load
+  setTimeout(() => {
+    const varSel = document.getElementById('rcv-fbu-variant');
+    if (varSel && variant) { varSel.value = variant; loadSubVariants('rcv-fbu'); }
+    setTimeout(() => {
+      const subSel = document.getElementById('rcv-fbu-subvariant');
+      if (subSel && color) subSel.value = color;
+    }, 50);
+  }, 50);
+  const markSel = document.getElementById('rcv-fbu-mark-select');
+  if (markSel && markId && markId !== 'null') markSel.value = markId;
+  document.getElementById('rcv-fbu-qty-exp').value = qtyExp || 0;
+  document.getElementById('rcv-fbu-qty-cnt').value = qtyCnt || 0;
+  // Change button label to indicate edit mode
+  const btn = document.querySelector('#add-fbu-line-form .btn-primary');
+  if (btn) btn.textContent = 'UPDATE UNIT COUNT';
+}
+
 async function submitFbuReceivingLine() {
   if (!currentShipmentId) return;
   const product = document.getElementById('rcv-fbu-product').value;
@@ -7950,18 +7977,32 @@ async function submitFbuReceivingLine() {
   const btn = document.querySelector('#add-fbu-line-form .btn-primary');
   try {
     if (btn) { btn.textContent = 'SAVING...'; btn.disabled = true; }
-    const res = await apiPost('postReceivingLine', { data: {
-      shipment_id: currentShipmentId, mark_id: markId,
-      line_type: 'fbu', product, variant, color,
-      qty_expected: qtyExp, qty_counted: qtyCnt, notes: notes || null,
-    }});
+    let res;
+    if (pendingFbuEditLineId) {
+      // Update existing line — set status to Counted
+      res = await apiPost('updateReceivingLine', { data: {
+        line_id: pendingFbuEditLineId,
+        qty_counted: qtyCnt, bags_of: 0, status: 'Counted', notes: notes || null,
+      }});
+    } else {
+      // Insert new line
+      res = await apiPost('postReceivingLine', { data: {
+        shipment_id: currentShipmentId, mark_id: markId,
+        line_type: 'fbu', product, variant, color,
+        qty_expected: qtyExp, qty_counted: qtyCnt, notes: notes || null,
+      }});
+    }
     if (res.ok) {
-      toast('Unit count saved', 'success');
+      toast(pendingFbuEditLineId ? 'Unit count updated' : 'Unit count saved', 'success');
+      pendingFbuEditLineId = null;
       ['rcv-fbu-qty-exp','rcv-fbu-qty-cnt','rcv-fbu-notes'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+      document.getElementById('add-fbu-line-form').style.display = 'none';
+      const btn2 = document.querySelector('#add-fbu-line-form .btn-primary');
+      if (btn2) btn2.textContent = 'SAVE UNIT COUNT';
       await refreshShipmentDetail();
     } else { toast(res.error || 'Failed', 'error'); }
   } catch(e) { toast('Error', 'error'); }
-  finally { if (btn) { btn.textContent = 'SAVE UNIT COUNT'; btn.disabled = false; } }
+  finally { if (btn) { btn.disabled = false; } }
 }
 async function generateBagsForLine(lineId) {
   const marks = currentShipmentData?.marks||[];
