@@ -1568,6 +1568,26 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </table>
           </div>
         </div>
+
+        <!-- Upcoming from POs -->
+        <div style="margin-top:24px">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:12px">UPCOMING — FROM PURCHASE ORDERS</div>
+          <div class="panel">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>PO Number</th><th>Supplier</th><th>Expected Delivery</th>
+                    <th>Format</th><th>Outstanding Lines</th><th>Total Qty</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="upcoming-shipments-list">
+                  <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Shipment Detail View -->
@@ -7787,6 +7807,67 @@ async function loadShipments() {
         +'</tr>';
     }).join('') : '<tr><td colspan="8" class="empty">No shipments yet</td></tr>';
   } catch(e) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Error</td></tr>'; }
+  // Load upcoming in parallel
+  loadUpcomingShipments();
+}
+
+async function loadUpcomingShipments() {
+  const tbody = document.getElementById('upcoming-shipments-list');
+  if (!tbody) return;
+  try {
+    const res = await api('getUpcomingShipments');
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Error loading upcoming</td></tr>'; return; }
+    const rows = res.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No upcoming shipments — all POs have shipments created</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const lines    = r.outstanding_lines || [];
+      const totalQty = lines.reduce((s, l) => s + ((l.qty_ordered||0) - (l.qty_received||0)), 0);
+      const allFbu   = lines.length > 0 && lines.every(l => l.receive_format === 'FBU');
+      const fmt      = allFbu ? '<span class="badge badge-blue" style="font-size:9px">FBU</span>'
+                               : '<span class="badge badge-yellow" style="font-size:9px">PARTS</span>';
+      const daysUntil = r.expected_delivery
+        ? Math.ceil((new Date(r.expected_delivery) - new Date()) / 86400000)
+        : null;
+      const dateColor = daysUntil !== null
+        ? (daysUntil <= 3 ? 'var(--red)' : daysUntil <= 7 ? 'var(--yellow)' : 'var(--text3)')
+        : 'var(--text3)';
+      const dateStr = r.expected_delivery
+        ? formatDisplayDate(r.expected_delivery) + (daysUntil !== null ? ' <span style="font-size:10px;color:'+dateColor+'">('+(daysUntil >= 0 ? 'in '+daysUntil+'d' : Math.abs(daysUntil)+'d overdue')+')</span>' : '')
+        : '—';
+      return '<tr>'
+        +'<td class="mono" style="color:var(--yellow);font-size:11px">'+r.po_number+'</td>'
+        +'<td style="font-size:12px">'+(r.vendor_name||'—')+'</td>'
+        +'<td style="font-size:11px">'+dateStr+'</td>'
+        +'<td>'+fmt+'</td>'
+        +'<td class="mono" style="font-size:11px">'+lines.length+' lines</td>'
+        +'<td class="mono" style="font-size:11px;font-weight:700">'+totalQty+' pcs</td>'
+        +'<td><button class="btn btn-primary" style="padding:2px 10px;font-size:10px" onclick="createShipmentFromPO(\''+r.po_number+'\',\''+( r.vendor_name||'')+'\',\''+( r.source||'China')+'\',\''+( r.expected_delivery||'')+'\','+(allFbu?'true':'false')+')">+ CREATE SHIPMENT</button></td>'
+        +'</tr>';
+    }).join('');
+  } catch(e) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Error</td></tr>'; }
+}
+
+function createShipmentFromPO(poNumber, vendor, source, deliveryDate, isFbu) {
+  // Pre-fill and open the new shipment form
+  document.getElementById('new-shipment-form').style.display = '';
+  document.getElementById('shp-supplier').value  = vendor;
+  document.getElementById('shp-po').value        = poNumber;
+  document.getElementById('shp-origin').value    = source;
+  document.getElementById('shp-date').value      = deliveryDate;
+  // Set PO link dropdown to match
+  const sel = document.getElementById('shp-po-link');
+  if (sel) {
+    for (const opt of sel.options) {
+      if (opt.value === poNumber) { sel.value = poNumber; break; }
+    }
+  }
+  // Auto-select format
+  setShipmentFormat(isFbu ? 'fbu' : 'parts');
+  // Scroll to form
+  document.getElementById('new-shipment-form').scrollIntoView({ behavior: 'smooth' });
 }
 async function submitNewShipment() {
   const supplier = document.getElementById('shp-supplier').value.trim();
