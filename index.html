@@ -7851,14 +7851,33 @@ function renderShipmentDetail(data) {
   const totalExpected = lines.reduce((s, l) => s + (parseInt(l.qty_expected)||0), 0);
   document.getElementById('rcv-sum-parts').textContent = totalCounted + ' / ' + totalExpected;
 
+  // Build per-mark entry totals from loaded entries
+  const markTotals = {};
+  lines.forEach(l => {
+    (l._entries || []).forEach(e => {
+      if (!e.mark_id) return;
+      if (!markTotals[e.mark_id]) markTotals[e.mark_id] = { ok: 0, damaged: 0 };
+      if (e.condition === 'Damaged') markTotals[e.mark_id].damaged += (parseInt(e.qty)||0);
+      else markTotals[e.mark_id].ok += (parseInt(e.qty)||0);
+    });
+  });
+
   // Marks table with OPEN BOX button
   const mt = document.getElementById('marks-list');
   mt.innerHTML = marks.length ? marks.map(m => {
     const sc       = m.status==='Received'?'badge-green':m.status==='Missing'||m.status==='Damaged'?'badge-red':'badge-gray';
     const wt       = m.weight_actual!=null ? m.weight_actual+'kg' : (m.weight_expected ? 'exp: '+m.weight_expected+'kg' : '—');
     const isActive = currentBoxIntakeMarkId === m.mark_id;
+    const mt2      = markTotals[m.mark_id];
+    let countBadge = '';
+    if (mt2 && (mt2.ok + mt2.damaged) > 0) {
+      countBadge = ' <span style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:2px;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.2)">'
+        + mt2.ok + ' ok'
+        + (mt2.damaged > 0 ? ' · <span style="color:var(--red)">'+mt2.damaged+' dmg</span>' : '')
+        + '</span>';
+    }
     return '<tr>'
-      +'<td class="mono" style="font-size:12px">'+(isActive?'<span style="color:#7b93ff">▶ </span>':'')+m.mark_code+'</td>'
+      +'<td class="mono" style="font-size:12px">'+(isActive?'<span style="color:#7b93ff">▶ </span>':'')+m.mark_code+countBadge+'</td>'
       +'<td class="mono">'+(m.box_count_received||0)+' / '+(m.box_count_expected||1)+'</td>'
       +'<td style="font-size:11px">'+wt+'</td>'
       +'<td><span class="badge '+sc+'" style="font-size:9px">'+m.status+'</span></td>'
