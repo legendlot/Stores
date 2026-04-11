@@ -1759,6 +1759,17 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
+        <!-- Box Contents Panel -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header" style="cursor:pointer" onclick="toggleBoxContents()">
+            <div class="panel-title">BOX CONTENTS</div>
+            <span id="box-contents-toggle-icon" style="font-size:11px;color:var(--text3)">▶ SHOW</span>
+          </div>
+          <div id="box-contents-body" style="display:none;padding:16px">
+            <div id="box-contents-grid"></div>
+          </div>
+        </div>
+
         <!-- Bags Panel -->
         <div class="panel" id="bags-panel" style="display:none;margin-top:16px">
           <div class="panel-header">
@@ -7646,6 +7657,7 @@ let isFbuShipment          = false;
 let shipmentReceiveFormat  = 'parts';
 let currentBoxIntakeMarkId = null;
 let reconciliationExpanded = false;
+let boxContentsExpanded    = false;
 
 // ── SHIPMENT LIST ─────────────────────────────────────────────────
 function showNewShipmentForm() {
@@ -7806,14 +7818,17 @@ async function openShipment(id) {
   currentShipmentId      = id;
   currentBoxIntakeMarkId = null;
   reconciliationExpanded = false;
+  boxContentsExpanded    = false;
   document.getElementById('rcv-list-view').style.display   = 'none';
   document.getElementById('rcv-detail-view').style.display = '';
   document.getElementById('rcv-detail-title').textContent  = id;
   document.getElementById('bags-panel').style.display      = 'none';
   document.getElementById('mark-entry-form').style.display = 'none';
   document.getElementById('box-intake-panel').style.display= 'none';
-  document.getElementById('reconciliation-body').style.display = 'none';
+  document.getElementById('reconciliation-body').style.display      = 'none';
   document.getElementById('reconciliation-toggle-icon').textContent = '▶ SHOW';
+  document.getElementById('box-contents-body').style.display        = 'none';
+  document.getElementById('box-contents-toggle-icon').textContent   = '▶ SHOW';
   await refreshShipmentDetail();
 }
 
@@ -7832,6 +7847,7 @@ async function refreshShipmentDetail() {
     currentShipmentData = data;
     renderShipmentDetail(data);
     if (currentBoxIntakeMarkId) renderBoxIntakeGrid();
+    if (boxContentsExpanded) renderBoxContents(data);
   } catch(e) {}
 }
 
@@ -7938,6 +7954,73 @@ function renderReconciliation(data) {
       +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
       +'<td><span class="badge '+statusClass+'" style="font-size:9px">'+statusBadge+'</span></td>'
       +'</tr>';
+  }).join('');
+}
+
+function toggleBoxContents() {
+  boxContentsExpanded = !boxContentsExpanded;
+  document.getElementById('box-contents-body').style.display      = boxContentsExpanded ? '' : 'none';
+  document.getElementById('box-contents-toggle-icon').textContent = boxContentsExpanded ? '▼ HIDE' : '▶ SHOW';
+  if (boxContentsExpanded) renderBoxContents(currentShipmentData);
+}
+
+function renderBoxContents(data) {
+  const { marks, lines } = data;
+  const container = document.getElementById('box-contents-grid');
+  if (!container) return;
+
+  // Build a lookup: mark_id → list of { skuLabel, ok, damaged }
+  const markContents = {};
+  marks.forEach(m => { markContents[m.mark_id] = { mark_code: m.mark_code, items: {} }; });
+
+  lines.forEach(l => {
+    const skuLabel = isFbuShipment
+      ? [l.product, l.variant, l.color].filter(Boolean).join(' ')
+      : (l.part_code ? l.part_code+' — '+(l.part_name||'') : l.part_name||'—');
+    (l._entries || []).forEach(e => {
+      if (!e.mark_id || !markContents[e.mark_id]) return;
+      const items = markContents[e.mark_id].items;
+      if (!items[skuLabel]) items[skuLabel] = { ok: 0, damaged: 0 };
+      if (e.condition === 'Damaged') items[skuLabel].damaged += (parseInt(e.qty)||0);
+      else                           items[skuLabel].ok      += (parseInt(e.qty)||0);
+    });
+  });
+
+  if (!marks.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px">No marks yet.</div>';
+    return;
+  }
+
+  container.innerHTML = marks.map(m => {
+    const mc      = markContents[m.mark_id];
+    const items   = mc ? Object.entries(mc.items) : [];
+    const total   = items.reduce((s, [, v]) => s + v.ok + v.damaged, 0);
+    const hasData = items.length > 0;
+
+    const itemRows = hasData
+      ? items.map(([label, v]) =>
+          '<div style="display:grid;grid-template-columns:1fr 60px 60px;gap:8px;padding:4px 0;border-bottom:1px solid rgba(42,42,42,.4)">'
+          +'<div style="font-size:11px">'+label+'</div>'
+          +'<div class="mono" style="text-align:right;font-size:11px;color:var(--green)">'+v.ok+'</div>'
+          +'<div class="mono" style="text-align:right;font-size:11px;color:'+(v.damaged>0?'var(--red)':'var(--text3)')+'">'+v.damaged+'</div>'
+          +'</div>'
+        ).join('')
+      : '<div style="font-size:11px;color:var(--text3);padding:4px 0">No items recorded</div>';
+
+    return '<div style="margin-bottom:14px">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">'
+        +'<span class="mono" style="font-size:12px;font-weight:700">'+m.mark_code+'</span>'
+        +(hasData
+          ? '<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">'+total+' units</span>'
+          : '<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">empty</span>')
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 60px 60px;gap:8px;padding:0 0 4px 0;margin-bottom:2px">'
+        +'<div class="form-label">SKU</div>'
+        +'<div class="form-label" style="text-align:right;color:var(--green)">OK</div>'
+        +'<div class="form-label" style="text-align:right;color:var(--red)">Dmg</div>'
+      +'</div>'
+      +itemRows
+      +'</div>';
   }).join('');
 }
 
