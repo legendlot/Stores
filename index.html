@@ -1647,7 +1647,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
                   <div style="font-weight:700;font-size:14px" id="rcv-sum-boxes">0 / 0</div>
                 </div>
                 <div style="background:var(--bg3);padding:12px;border-radius:3px">
-                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">PARTS COUNTED</div>
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="rcv-sum-parts-label">PARTS COUNTED</div>
                   <div style="font-weight:700;font-size:14px" id="rcv-sum-parts">0</div>
                 </div>
               </div>
@@ -7845,6 +7845,7 @@ async function refreshShipmentDetail() {
 function renderShipmentDetail(data) {
   const { shipment, marks, lines } = data;
   isFbuShipment = (shipment.receive_format === 'fbu');
+  document.getElementById('rcv-sum-parts-label').textContent = isFbuShipment ? 'UNITS COUNTED' : 'PARTS COUNTED';
 
   const scMap = { Arriving:'badge-yellow', 'In Progress':'badge-blue', Complete:'badge-green', Closed:'badge-gray' };
   const sb = document.getElementById('rcv-detail-status');
@@ -7852,9 +7853,16 @@ function renderShipmentDetail(data) {
   document.getElementById('rcv-sum-supplier').textContent = shipment.supplier;
   document.getElementById('rcv-sum-date').textContent = formatDisplayDate(shipment.arrival_date);
   document.getElementById('rcv-sum-boxes').textContent = (shipment.total_boxes_received||0)+' / '+(shipment.total_boxes_expected||0);
-  const counted = lines.filter(l => l.status !== 'In Progress').length;
-  const countLabel = isFbuShipment ? ' units counted' : ' / '+lines.length+' counted';
-  document.getElementById('rcv-sum-parts').textContent = counted + countLabel;
+  let countedDisplay;
+  if (isFbuShipment) {
+    const totalUnits = lines.reduce((s, l) => s + (parseInt(l.qty_counted) || 0), 0);
+    const countedLines = lines.filter(l => l.status !== 'In Progress').length;
+    countedDisplay = totalUnits + ' units · ' + countedLines + '/' + lines.length + ' SKUs';
+  } else {
+    const counted = lines.filter(l => l.status !== 'In Progress').length;
+    countedDisplay = counted + ' / ' + lines.length + ' counted';
+  }
+  document.getElementById('rcv-sum-parts').textContent = countedDisplay;
 
   // Panel chrome — FBU vs parts
   document.getElementById('counts-panel-title').textContent = isFbuShipment ? 'UNIT COUNTS' : 'PART COUNTS';
