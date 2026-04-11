@@ -7663,6 +7663,11 @@ let shipmentReceiveFormat = 'parts';
 function showNewShipmentForm() {
   const f = document.getElementById('new-shipment-form');
   f.style.display = f.style.display === 'none' ? '' : 'none';
+  if (f.style.display !== 'none') {
+    shipmentReceiveFormat = 'parts';
+    document.getElementById('shp-fmt-parts').className = 'btn btn-primary';
+    document.getElementById('shp-fmt-fbu').className   = 'btn btn-secondary';
+  }
 }
 function showShipmentsList() {
   document.getElementById('rcv-list-view').style.display = '';
@@ -7778,6 +7783,8 @@ async function openShipment(id) {
   document.getElementById('rcv-detail-view').style.display = '';
   document.getElementById('rcv-detail-title').textContent = id;
   document.getElementById('bags-panel').style.display = 'none';
+  document.getElementById('add-line-form').style.display = 'none';
+  document.getElementById('add-fbu-line-form').style.display = 'none';
   await refreshShipmentDetail();
 }
 async function refreshShipmentDetail() {
