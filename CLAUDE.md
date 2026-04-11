@@ -1,63 +1,29 @@
 # CLAUDE.md — LOT OPS ERP
-# Repo: legendlot/stores
-# Live: store.legendoftoys.com
 
-## What this is
-An internal operations ERP for Legend of Toys store and production management.
-Handles raw material inwarding, daily issue to production, returns, and reporting.
-Do not introduce paid infrastructure without asking. Keep costs at zero where possible.
+## Project Context
+This is the Legend of Toys (LOT) operations system, built by the co-founder Afshaan. The system is built and maintained using the following workflow:
 
-## Architecture
-- Frontend: Cloudflare Workers (deployed via Wrangler)
-- Backend: Google Apps Script (Apps Script URL called via fetch)
-- Data store: Google Sheets (master store sheet)
-- Deploy command: wrangler deploy
-- Local dev: wrangler dev
+- **Claude Chat** acts as the orchestrator and designer — it handles strategy, system design, and produces specific change instructions for each component.
+- **Four Claude Code agents** run in separate terminal tabs, each responsible for edits to files in their own folder/repo. This agent is one of those four.
+- **Database edits** are handled directly by the co-founder based on instructions from Claude Chat — there is no separate agent for database interaction.
+- Development happens across two laptops (office and home) with a similar setup on both.
 
-## Access levels (strictly enforce these)
-- Reann (store manager): data entry only, no costs visible
-- Afshaan (owner): full access to everything
-- Vinay (co-founder): read-only + financials + CSV/Excel report downloads
+The build comprises three separate but connected systems:
 
-## Store team
-- 4 unskilled operators, 1 supervisor, Reann (acting store manager)
-- Reann is the primary daily user — UI must be simple, unambiguous, mobile-friendly
+1. **Store system** (`legendlot/Stores`) — handles everything to do with store operations for Legend of Toys, including raw materials, procurement, POs, GRN receiving, inventory management, and issuing raw material to production. **This agent is responsible for this system.**
+2. **Production system** — contains two sub-systems:
+   - **Scanner app** (`legendlot/production`) — used by people on the factory floor to scan inventory.
+   - **Dashboard** (`legendlot/dashboard`) — used for reporting and general admin of the production system.
+3. **Cloudflare Worker** (`legendlot/Cloudfare`) — the single backend API layer that all three frontend systems route through to communicate with Supabase.
 
-## Google Sheets structure
-- inventory — current stock levels
-- transactions — all movements (inward, issue, return)
-- issue_calculator — BOM-based daily issue calculator
-- returns_log — RTO and RTV return records
+## Session start
+- Always pull from remote (`git pull`) and sync the local folder before doing anything else.
 
-## Bagging system
-- Parts are stored in bags of 25
-- Stock is weight-counted, not individually counted
+## Editing rules
+- Only edit `index.html`. No other files.
+- If instructions require editing any other file, highlight the request and ignore it — do not make the edit.
+- No unnecessary edits. Be careful and precise with every change.
 
-## Features — Phase 1 (build these first)
-1. Apps Script API layer
-2. GRN entry (goods received note — raw material inward)
-3. Work Order / Kit Calculator (BOM-based daily issue to production)
-4. Ad hoc issue
-5. Live dashboard (current stock levels)
-6. Returns entry (RTO and RTV)
-7. Report downloads (CSV/Excel, Vinay-facing)
-8. Vinay finance view
-
-## Immediate priority
-Kit Calculator tab in Store Master Control — this is the next thing to build.
-
-## Returns context
-- RTO: customer didn't open product — goes straight back to RTD stock unless box is damaged
-- RTV: customer return — needs repair/refurbishment before restock
-- Both come from Amazon, Flipkart, website, Blinkit, Zepto, Instamart
-
-## Coding rules
-- Cloudflare Worker frontend is the shell — keep it thin, logic lives in Apps Script
-- All data calls go through the Apps Script web app URL (store in a config/env variable)
-- LockService is already implemented in Apps Script — do not remove it
-- Access level gating must be enforced on the frontend (check role before rendering sections)
-- UI must work on both desktop and mobile
-
-## Deploy
-- wrangler deploy from the repo root
-- Confirm on store.legendoftoys.com after deploy
+## After edits
+- Commit and push to remote automatically after any edit — do not ask for confirmation.
+- If there are merge conflicts or other issues, highlight them before proceeding.
