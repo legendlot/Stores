@@ -1538,6 +1538,13 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <label class="form-label">Notes</label>
               <input class="form-input" id="shp-notes" placeholder="Any notes about this shipment">
             </div>
+              <div class="form-group" style="margin-bottom:4px">
+                <label class="form-label">Receive Format</label>
+                <div style="display:flex;gap:8px">
+                  <button type="button" id="shp-fmt-parts" class="btn btn-primary" onclick="setShipmentFormat('parts')" style="flex:1;padding:6px">PARTS</button>
+                  <button type="button" id="shp-fmt-fbu"   class="btn btn-secondary" onclick="setShipmentFormat('fbu')"   style="flex:1;padding:6px">🚗 FBU — FINISHED UNITS</button>
+                </div>
+              </div>
             <div class="btn-row">
               <button class="btn btn-primary" onclick="submitNewShipment()">CREATE SHIPMENT</button>
               <button class="btn btn-secondary" onclick="document.getElementById('new-shipment-form').style.display='none'">CANCEL</button>
@@ -1651,9 +1658,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <!-- Receiving Lines -->
         <div class="panel">
           <div class="panel-header">
-            <div class="panel-title">PART COUNTS</div>
+            <div class="panel-title" id="counts-panel-title">PART COUNTS</div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-secondary" onclick="showAddLineForm()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
+              <button class="btn btn-secondary" id="add-line-btn" onclick="showAddLineForm()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
               <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT ALL LABELS</button>
               <button class="btn btn-primary" id="raise-grn-btn" onclick="raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN FOR COUNTED</button>
             </div>
@@ -1707,10 +1714,56 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </div>
           </div>
 
+          <!-- FBU unit entry form -->
+          <div id="add-fbu-line-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">Product</label>
+                <select class="form-select" id="rcv-fbu-product" onchange="loadVariants('rcv-fbu');loadSubVariants('rcv-fbu');rcvFbuPopulateProduct()">
+                  <option value="">Select product...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Variant</label>
+                <select class="form-select" id="rcv-fbu-variant" onchange="loadSubVariants('rcv-fbu')">
+                  <option value="">Common only</option>
+                </select>
+              </div>
+              <div class="form-group" id="rcv-fbu-subvariant-group" style="display:none">
+                <label class="form-label">Color</label>
+                <select class="form-select" id="rcv-fbu-subvariant">
+                  <option value="">All colours</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Shipping Mark</label>
+                <select class="form-select" id="rcv-fbu-mark-select">
+                  <option value="">— select mark —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty Expected</label>
+                <input class="form-input" type="number" id="rcv-fbu-qty-exp" placeholder="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Qty Counted</label>
+                <input class="form-input" type="number" id="rcv-fbu-qty-cnt" placeholder="0" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="rcv-fbu-notes" placeholder="e.g. short count, damaged">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="submitFbuReceivingLine()">SAVE UNIT COUNT</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('add-fbu-line-form').style.display='none'">CANCEL</button>
+            </div>
+          </div>
+
           <div class="tbl-wrap">
             <table>
               <thead>
-                <tr>
+                <tr id="lines-thead">
                   <th>Part Code</th><th>Part Name</th><th>Mark</th>
                   <th style="text-align:right">Expected</th>
                   <th style="text-align:right">Counted</th>
@@ -7602,8 +7655,10 @@ function toast(msg, type = 'info') {
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
 }
 // ══ RECEIVING ════════════════════════════════════════════════
-let currentShipmentId = null;
+let currentShipmentId   = null;
 let currentShipmentData = null;
+let isFbuShipment       = false;
+let shipmentReceiveFormat = 'parts';
 
 function showNewShipmentForm() {
   const f = document.getElementById('new-shipment-form');
@@ -7620,8 +7675,50 @@ function showAddMarkForm() {
   f.style.display = f.style.display === 'none' ? '' : 'none';
 }
 function showAddLineForm() {
-  const f = document.getElementById('add-line-form');
-  f.style.display = f.style.display === 'none' ? '' : 'none';
+  if (isFbuShipment) {
+    const f = document.getElementById('add-fbu-line-form');
+    f.style.display = f.style.display === 'none' ? '' : 'none';
+  } else {
+    const f = document.getElementById('add-line-form');
+    f.style.display = f.style.display === 'none' ? '' : 'none';
+  }
+}
+
+function setShipmentFormat(fmt) {
+  shipmentReceiveFormat = fmt;
+  document.getElementById('shp-fmt-parts').className = fmt === 'parts' ? 'btn btn-primary' : 'btn btn-secondary';
+  document.getElementById('shp-fmt-fbu').className   = fmt === 'fbu'   ? 'btn btn-primary' : 'btn btn-secondary';
+  if (fmt === 'fbu') {
+    document.getElementById('shp-fmt-parts').style.flex = '1';
+    document.getElementById('shp-fmt-fbu').style.flex   = '1';
+  }
+}
+
+async function rcvFbuPopulateProduct() {
+  // No extra action needed — loadVariants/loadSubVariants handle the rest
+}
+
+async function populateFbuProductDropdown() {
+  await ensureReceiveFormatCache();
+  const sel = document.getElementById('rcv-fbu-product');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select product...</option>';
+  const allProducts = Object.keys(PRODUCT_VARIANTS);
+  // FBU products first, then rest
+  const fbuProducts   = allProducts.filter(p => receiveFormatCache[p] === 'FBU');
+  const otherProducts = allProducts.filter(p => receiveFormatCache[p] !== 'FBU');
+  if (fbuProducts.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = '— FBU Products —';
+    fbuProducts.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p+' ★'; grp.appendChild(o); });
+    sel.appendChild(grp);
+  }
+  if (otherProducts.length) {
+    const grp = document.createElement('optgroup');
+    grp.label = '— All Other Products —';
+    otherProducts.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; grp.appendChild(o); });
+    sel.appendChild(grp);
+  }
 }
 async function loadShipments() {
   const tbody = document.getElementById('shipments-list');
@@ -7642,7 +7739,7 @@ async function loadShipments() {
         +'<td>'+r.supplier+'</td>'
         +'<td style="font-size:11px;color:var(--text3)">'+formatDisplayDate(r.arrival_date)+'</td>'
         +'<td class="mono">'+(r.total_boxes_received||0)+' / '+(r.total_boxes_expected||0)+'</td>'
-        +'<td class="mono">'+(r.parts_total||0)+' parts</td>'
+        +'<td class="mono">'+(r.receive_format==='fbu'?'<span class="badge badge-blue" style="font-size:9px">FBU</span>':((r.parts_total||0)+' parts'))+'</td>'
         +'<td><div style="font-size:11px;color:var(--text3)">'+progress+'</div>'
         +(r.parts_total>0?'<div style="background:var(--bg3);border-radius:2px;height:4px;margin-top:3px"><div style="background:var(--green);height:4px;border-radius:2px;width:'+pct+'%"></div></div>':'')
         +'</td>'
@@ -7664,6 +7761,7 @@ async function submitNewShipment() {
       total_boxes: parseInt(document.getElementById('shp-boxes').value)||0,
       total_weight: parseFloat(document.getElementById('shp-weight').value)||null,
       origin: document.getElementById('shp-origin').value,
+      receive_format: shipmentReceiveFormat,
       notes: document.getElementById('shp-notes').value.trim(),
     }});
     if (res.ok) {
@@ -7693,6 +7791,8 @@ async function refreshShipmentDetail() {
 }
 function renderShipmentDetail(data) {
   const { shipment, marks, lines } = data;
+  isFbuShipment = (shipment.receive_format === 'fbu');
+
   const scMap = { Arriving:'badge-yellow', 'In Progress':'badge-blue', Complete:'badge-green', Closed:'badge-gray' };
   const sb = document.getElementById('rcv-detail-status');
   sb.textContent = shipment.status; sb.className = 'badge '+(scMap[shipment.status]||'badge-gray');
@@ -7700,28 +7800,78 @@ function renderShipmentDetail(data) {
   document.getElementById('rcv-sum-date').textContent = formatDisplayDate(shipment.arrival_date);
   document.getElementById('rcv-sum-boxes').textContent = (shipment.total_boxes_received||0)+' / '+(shipment.total_boxes_expected||0);
   const counted = lines.filter(l => l.status !== 'In Progress').length;
-  document.getElementById('rcv-sum-parts').textContent = counted+' / '+lines.length+' counted';
+  const countLabel = isFbuShipment ? ' units counted' : ' / '+lines.length+' counted';
+  document.getElementById('rcv-sum-parts').textContent = counted + countLabel;
+
+  // Panel chrome — FBU vs parts
+  document.getElementById('counts-panel-title').textContent = isFbuShipment ? 'UNIT COUNTS' : 'PART COUNTS';
+  document.getElementById('add-line-btn').textContent = isFbuShipment ? '+ ADD UNIT' : '+ ADD PART';
+  if (isFbuShipment) populateFbuProductDropdown();
+
+  // Table headers
+  const thead = document.getElementById('lines-thead');
+  if (isFbuShipment) {
+    thead.innerHTML = '<th>Product</th><th>Variant</th><th>Color</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th>GRN</th><th>Status</th>';
+  } else {
+    thead.innerHTML = '<th>Part Code</th><th>Part Name</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th style="text-align:right">Bags</th><th>Bag Size</th><th>GRN</th><th>Status</th><th></th>';
+  }
+
   const mt = document.getElementById('marks-list');
   mt.innerHTML = marks.length ? marks.map(m => {
     const sc = m.status==='Received'?'badge-green':m.status==='Missing'||m.status==='Damaged'?'badge-red':'badge-gray';
     const wt = m.weight_actual!=null ? m.weight_actual+'kg' : (m.weight_expected ? 'exp: '+m.weight_expected+'kg' : '—');
     return '<tr><td class="mono">'+m.mark_code+'</td><td class="mono">'+(m.box_count_received||0)+' / '+(m.box_count_expected||1)+'</td><td style="font-size:11px">'+wt+'</td><td><span class="badge '+sc+'">'+m.status+'</span></td><td style="font-size:11px;color:var(--text3)">'+(m.notes||'')+'</td></tr>';
   }).join('') : '<tr><td colspan="5" class="empty">No marks yet</td></tr>';
-  const ms = document.getElementById('rcv-mark-select');
-  ms.innerHTML = '<option value="">— select mark —</option>';
-  marks.forEach(m => { ms.innerHTML += '<option value="'+m.mark_id+'">'+m.mark_code+'</option>'; });
+
+  // Populate mark selects (both parts and FBU forms)
+  const markOpts = '<option value="">— select mark —</option>' + marks.map(m => '<option value="'+m.mark_id+'">'+m.mark_code+'</option>').join('');
+  document.getElementById('rcv-mark-select').innerHTML = markOpts;
+  const fbuMarkSel = document.getElementById('rcv-fbu-mark-select');
+  if (fbuMarkSel) fbuMarkSel.innerHTML = markOpts;
+
   const hasCounted = lines.some(l => l.status === 'Counted' || l.status === 'GRN Raised');
   document.getElementById('raise-grn-btn').style.display = lines.some(l => l.status === 'Counted') ? '' : 'none';
-  document.getElementById('print-all-shipment-btn').style.display = hasCounted ? '' : 'none';
+  document.getElementById('print-all-shipment-btn').style.display = (!isFbuShipment && hasCounted) ? '' : 'none';
+
   const lt = document.getElementById('lines-list');
-  lt.innerHTML = lines.length ? lines.map(l => {
+  if (!lines.length) {
+    const emptyMsg = isFbuShipment ? 'No units counted yet' : 'No parts counted yet';
+    lt.innerHTML = '<tr><td colspan="'+(isFbuShipment?8:10)+'" class="empty">'+emptyMsg+'</td></tr>';
+    return;
+  }
+  lt.innerHTML = lines.map(l => {
     const lsc = l.status==='GRN Raised'?'badge-green':l.status==='Counted'?'badge-blue':'badge-yellow';
     const diff = l.qty_expected>0 ? l.qty_counted-l.qty_expected : 0;
     const vs = diff===0?'':diff>0?'<span style="color:var(--yellow);font-size:10px">+'+diff+'</span>':'<span style="color:var(--red);font-size:10px">'+diff+'</span>';
     const mc = marks.find(m => m.mark_id === l.mark_id)?.mark_code || '—';
-    const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
-    return '<tr data-line-id="'+l.line_id+'" data-part-code="'+l.part_code+'"><td class="mono" style="font-size:11px">'+l.part_code+'</td><td style="font-size:12px">'+l.part_name+'</td><td style="font-size:11px;color:var(--text3)">'+mc+'</td><td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td><td class="mono" style="text-align:right">'+bc+'</td><td style="font-size:11px;color:var(--text3)">'+l.bags_of+' per bag</td><td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td><td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td><td>'+(l.status==='Counted'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="viewBagsBtn(this)">BAGS</button>':'')+(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="generateBagsForLineBtn(this)">DONE →</button>':'')+'</td></tr>';
-  }).join('') : '<tr><td colspan="10" class="empty">No parts counted yet</td></tr>';
+    if (isFbuShipment) {
+      return '<tr data-line-id="'+l.line_id+'">'
+        +'<td style="font-size:12px">'+( l.product||l.part_name||'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--text2)">'+(l.variant||'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--text2)">'+(l.color||'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--text3)">'+mc+'</td>'
+        +'<td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td>'
+        +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
+        +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
+        +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
+        +'</tr>';
+    } else {
+      const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
+      return '<tr data-line-id="'+l.line_id+'" data-part-code="'+l.part_code+'">'
+        +'<td class="mono" style="font-size:11px">'+l.part_code+'</td>'
+        +'<td style="font-size:12px">'+l.part_name+'</td>'
+        +'<td style="font-size:11px;color:var(--text3)">'+mc+'</td>'
+        +'<td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td>'
+        +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
+        +'<td class="mono" style="text-align:right">'+bc+'</td>'
+        +'<td style="font-size:11px;color:var(--text3)">'+l.bags_of+' per bag</td>'
+        +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
+        +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
+        +'<td>'+(l.status==='Counted'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="viewBagsBtn(this)">BAGS</button>':'')
+              +(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="generateBagsForLineBtn(this)">DONE →</button>':'')
+        +'</td></tr>';
+    }
+  }).join('');
 }
 function lookupRcvPart(input) {
   const code = input.value.trim().toUpperCase();
@@ -7778,6 +7928,33 @@ async function submitReceivingLine() {
     } else { toast(res.error||'Failed','error'); }
   } catch(e) { toast('Error','error'); }
   finally { if (btn) { btn.textContent='SAVE COUNT'; btn.disabled=false; } }
+}
+async function submitFbuReceivingLine() {
+  if (!currentShipmentId) return;
+  const product = document.getElementById('rcv-fbu-product').value;
+  if (!product) { toast('Select a product', 'error'); return; }
+  const variant  = document.getElementById('rcv-fbu-variant').value || null;
+  const color    = document.getElementById('rcv-fbu-subvariant')?.value || null;
+  const markId   = document.getElementById('rcv-fbu-mark-select').value || null;
+  const qtyExp   = parseInt(document.getElementById('rcv-fbu-qty-exp').value) || 0;
+  const qtyCnt   = parseInt(document.getElementById('rcv-fbu-qty-cnt').value) || 0;
+  const notes    = document.getElementById('rcv-fbu-notes').value.trim();
+  if (qtyCnt <= 0) { toast('Enter qty counted', 'error'); return; }
+  const btn = document.querySelector('#add-fbu-line-form .btn-primary');
+  try {
+    if (btn) { btn.textContent = 'SAVING...'; btn.disabled = true; }
+    const res = await apiPost('postReceivingLine', { data: {
+      shipment_id: currentShipmentId, mark_id: markId,
+      line_type: 'fbu', product, variant, color,
+      qty_expected: qtyExp, qty_counted: qtyCnt, notes: notes || null,
+    }});
+    if (res.ok) {
+      toast('Unit count saved', 'success');
+      ['rcv-fbu-qty-exp','rcv-fbu-qty-cnt','rcv-fbu-notes'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+      await refreshShipmentDetail();
+    } else { toast(res.error || 'Failed', 'error'); }
+  } catch(e) { toast('Error', 'error'); }
+  finally { if (btn) { btn.textContent = 'SAVE UNIT COUNT'; btn.disabled = false; } }
 }
 async function generateBagsForLine(lineId) {
   const marks = currentShipmentData?.marks||[];
