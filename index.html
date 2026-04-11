@@ -2930,12 +2930,13 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div class="form-grid" style="grid-template-columns:repeat(3,1fr)">
               <div class="form-group">
                 <label class="form-label">Order Type</label>
-                <select class="form-select" id="po-order-type">
+                <select class="form-select" id="po-order-type" onchange="document.getElementById('po-order-type-auto-label').style.display='none';this.style.borderColor=''">
                   <option value="">Select...</option>
                   <option>Product</option><option>Packaging</option><option>Para</option>
                   <option>Consumable</option><option>Component</option>
                   <option>Tools</option><option>Machines</option>
                 </select>
+                <div id="po-order-type-auto-label" style="display:none;font-size:9px;color:var(--yellow);font-family:var(--mono);margin-top:3px;letter-spacing:.05em">auto-detected</div>
               </div>
               <div class="form-group">
                 <label class="form-label">Source</label>
@@ -8493,6 +8494,10 @@ function showNewPOForm() {
   ['po-vendor','po-port','po-notes','po-delivery'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  const autoLabel = document.getElementById('po-order-type-auto-label');
+  if (autoLabel) { autoLabel.style.display = 'none'; }
+  const otSel = document.getElementById('po-order-type');
+  if (otSel) otSel.style.borderColor = '';
   ['po-order-type','po-payment-terms','po-incoterms'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
@@ -8794,6 +8799,7 @@ function addUnitsToQueue() {
   });
   if (!added) { toast('Enter at least one quantity', 'error'); return; }
   renderUnitsQueue();
+  detectAndSetOrderType();
   toast(`${added} line${added !== 1 ? 's' : ''} added`, 'success');
 }
 
@@ -8888,7 +8894,7 @@ function addBOMLinesToPO() {
     pc2.onblur   = function(){ lookupPOLinePart(this); };
     const nm2    = Object.assign(document.createElement('input'),  {className:'form-input', value:r.part_name, readOnly:true, style:'font-size:11px;color:var(--green)'});
     const ts2    = Object.assign(document.createElement('select'), {className:'form-select', style:'font-size:11px', innerHTML:itemOptions2});
-    ts2.onchange = recalcPOTotal;
+    ts2.onchange = function() { recalcPOTotal(); detectAndSetOrderType(); };
     const qt2    = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', value:String(qty), min:'0', style:'font-size:12px;text-align:right'});
     qt2.oninput  = recalcPOTotal;
     const pr2    = Object.assign(document.createElement('input'),  {className:'form-input', type:'number', placeholder:'0.00', min:'0', step:'0.01', style:'font-size:12px;text-align:right'});
@@ -8911,6 +8917,7 @@ function addBOMLinesToPO() {
   // Switch to manual mode to show the added lines
   setPOLineMode('manual');
   recalcPOTotal();
+  detectAndSetOrderType();
   const msg = `${added} line${added !== 1 ? 's' : ''} added from BOM` +
               (skipped > 0 ? ` · ${skipped} duplicate${skipped !== 1 ? 's' : ''} skipped` : '');
   toast(msg, 'success');
@@ -8991,6 +8998,56 @@ function recalcPOTotal() {
   const currency = document.getElementById('po-currency')?.value || '';
   const el = document.getElementById('po-total-value');
   if (el) el.textContent = total > 0 ? `${currency} ${total.toLocaleString('en-IN', {minimumFractionDigits:2})}` : '—';
+}
+
+const ITEM_TYPE_TO_ORDER_TYPE = {
+  'RC Car':               'Product',
+  'Construction Toy':     'Product',
+  'Part':                 'Component',
+  'Tie Screw':            'Component',
+  'Ecom Packaging':       'Packaging',
+  'Retail Packaging':     'Packaging',
+  'Tray':                 'Packaging',
+  'Shrink Wrap':          'Packaging',
+  'Elastic Band':         'Packaging',
+  'Comic':                'Para',
+  'Manual':               'Para',
+  'Licence Card':         'Para',
+  'Sticker (product)':    'Para',
+  'Sticker (packaging)':  'Para',
+  'Other':                'Consumable',
+  'Tools':                'Tools',
+  'Machines':             'Machines',
+};
+
+function detectAndSetOrderType() {
+  const sel   = document.getElementById('po-order-type');
+  const label = document.getElementById('po-order-type-auto-label');
+  if (!sel) return;
+
+  let detectedType = null;
+
+  if (currentPOLineMode === 'units' && poUnitsLines.length > 0) {
+    // BY UNITS — always Product
+    detectedType = 'Product';
+  } else {
+    // FROM BOM / manual — derive from item_type values in DOM lines
+    const itemTypeSels = document.querySelectorAll('#po-lines-container .po-line-item select:first-of-type');
+    const counts = {};
+    itemTypeSels.forEach(s => {
+      const ot = ITEM_TYPE_TO_ORDER_TYPE[s.value] || null;
+      if (ot) counts[ot] = (counts[ot] || 0) + 1;
+    });
+    if (Object.keys(counts).length > 0) {
+      detectedType = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+  }
+
+  if (detectedType) {
+    sel.value = detectedType;
+    sel.style.borderColor = 'var(--yellow)';
+    if (label) { label.textContent = 'auto-detected'; label.style.display = ''; }
+  }
 }
 
 async function submitNewPO() {
