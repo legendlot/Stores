@@ -1592,6 +1592,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
       <!-- Shipment Detail View -->
       <div id="rcv-detail-view" style="display:none">
+        <!-- Header -->
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
           <button class="btn btn-secondary" onclick="showShipmentsList()" style="padding:4px 12px">← Back</button>
           <div style="font-family:var(--cond);font-weight:700;font-size:20px" id="rcv-detail-title">SHP-001</div>
@@ -1603,56 +1604,85 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel">
             <div class="panel-header">
               <div class="panel-title">SHIPPING MARKS</div>
-              <button class="btn btn-secondary" onclick="showAddMarkForm()" style="padding:2px 10px;font-size:10px">+ ADD MARK</button>
+              <button class="btn btn-secondary" onclick="showMarkForm()" style="padding:2px 10px;font-size:10px">+ ADD MARKS</button>
             </div>
-            <div id="add-mark-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
-              <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
-                <div class="form-group">
-                  <label class="form-label">Mark Code</label>
-                  <input class="form-input" id="mark-code" placeholder="e.g. Kai DH-01">
+            <!-- Mark entry form -->
+            <div id="mark-entry-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;gap:6px;margin-bottom:10px">
+                <button id="mark-tab-range"  class="btn btn-primary"   onclick="setMarkTab('range')"  style="padding:4px 12px;font-size:11px">RANGE</button>
+                <button id="mark-tab-single" class="btn btn-secondary" onclick="setMarkTab('single')" style="padding:4px 12px;font-size:11px">SINGLE</button>
+              </div>
+              <!-- Range -->
+              <div id="mark-range-fields">
+                <div class="form-grid" style="grid-template-columns:1fr 80px 80px 1fr">
+                  <div class="form-group">
+                    <label class="form-label">Prefix (e.g. da-Kai-)</label>
+                    <input class="form-input mono" id="mark-range-prefix" placeholder="da-Kai-">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">From</label>
+                    <input class="form-input" type="number" id="mark-range-from" value="1" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">To</label>
+                    <input class="form-input" type="number" id="mark-range-to" value="1" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Skip (e.g. 3,7,8)</label>
+                    <input class="form-input mono" id="mark-range-skip" placeholder="optional">
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Boxes Expected</label>
-                  <input class="form-input" type="number" id="mark-boxes-exp" value="1" min="1">
+                <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                  <div class="form-group">
+                    <label class="form-label">Weight per box (kg, optional)</label>
+                    <input class="form-input" type="number" id="mark-range-weight" placeholder="0.0" step="0.1">
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Boxes Received</label>
-                  <input class="form-input" type="number" id="mark-boxes-rcv" value="0" min="0">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Weight Expected (kg)</label>
-                  <input class="form-input" type="number" id="mark-wt-exp" placeholder="0.0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Weight Actual (kg)</label>
-                  <input class="form-input" type="number" id="mark-wt-act" placeholder="0.0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Status</label>
-                  <select class="form-select" id="mark-status">
-                    <option>Received</option><option>Pending</option>
-                    <option>Damaged</option><option>Missing</option>
-                  </select>
+                <div class="btn-row">
+                  <button class="btn btn-primary" onclick="submitMarkRange()">GENERATE MARKS</button>
+                  <button class="btn btn-secondary" onclick="document.getElementById('mark-entry-form').style.display='none'">CANCEL</button>
                 </div>
               </div>
-              <input class="form-input" id="mark-notes" placeholder="Notes (damage, discrepancy...)" style="margin-bottom:8px">
-              <div class="btn-row">
-                <button class="btn btn-primary" onclick="submitMark()">ADD MARK</button>
-                <button class="btn btn-secondary" onclick="document.getElementById('add-mark-form').style.display='none'">CANCEL</button>
+              <!-- Single -->
+              <div id="mark-single-fields" style="display:none">
+                <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+                  <div class="form-group">
+                    <label class="form-label">Mark Code</label>
+                    <input class="form-input mono" id="mark-single-code" placeholder="e.g. MJ-GH-4-1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Weight (kg)</label>
+                    <input class="form-input" type="number" id="mark-single-weight" placeholder="0.0" step="0.1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="mark-single-status">
+                      <option>Received</option><option>Pending</option>
+                      <option>Damaged</option><option>Missing</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:8px">
+                  <input class="form-input" id="mark-single-notes" placeholder="Notes">
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn-primary" onclick="submitMarkSingle()">ADD MARK</button>
+                  <button class="btn btn-secondary" onclick="document.getElementById('mark-entry-form').style.display='none'">CANCEL</button>
+                </div>
               </div>
             </div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Mark Code</th><th>Boxes</th><th>Weight (kg)</th><th>Status</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Mark</th><th>Boxes</th><th>Weight</th><th>Status</th><th></th></tr></thead>
                 <tbody id="marks-list"></tbody>
               </table>
             </div>
           </div>
 
-          <!-- Shipment summary -->
+          <!-- Shipment Summary -->
           <div class="panel">
             <div class="panel-header"><div class="panel-title">SHIPMENT SUMMARY</div></div>
-            <div class="panel-body" id="rcv-summary-body">
+            <div class="panel-body">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div style="background:var(--bg3);padding:12px;border-radius:3px">
                   <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">SUPPLIER</div>
@@ -1667,7 +1697,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
                   <div style="font-weight:700;font-size:14px" id="rcv-sum-boxes">0 / 0</div>
                 </div>
                 <div style="background:var(--bg3);padding:12px;border-radius:3px">
-                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="rcv-sum-parts-label">PARTS COUNTED</div>
+                  <div style="font-size:10px;color:var(--text3);font-family:var(--mono)" id="rcv-sum-parts-label">COUNTED</div>
                   <div style="font-weight:700;font-size:14px" id="rcv-sum-parts">0</div>
                 </div>
               </div>
@@ -1675,161 +1705,61 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
-        <!-- Receiving Lines -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title" id="counts-panel-title">PART COUNTS</div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-secondary" id="add-line-btn" onclick="showAddLineForm()" style="padding:2px 10px;font-size:10px">+ ADD PART</button>
-              <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT ALL LABELS</button>
-              <button class="btn btn-primary" id="raise-grn-btn" onclick="raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN FOR COUNTED</button>
+        <!-- Box Intake Panel -->
+        <div id="box-intake-panel" style="display:none;margin-bottom:16px">
+          <div class="panel">
+            <div class="panel-header" style="background:rgba(33,60,226,.08)">
+              <div>
+                <div class="panel-title" style="color:#7b93ff">BOX INTAKE — <span id="box-intake-mark-label"></span></div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Enter what was found inside this box. Leave at 0 to skip.</div>
+              </div>
+              <button class="btn btn-secondary" onclick="closeBoxIntake()" style="padding:2px 10px;font-size:10px">✕ CLOSE</button>
             </div>
-          </div>
-
-          <!-- Add part line form -->
-          <div id="add-line-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">Part Code</label>
-                <input class="form-input mono" id="rcv-part-code" placeholder="e.g. FL-EL-01"
-                       style="text-transform:uppercase"
-                       oninput="this.value=this.value.toUpperCase()"
-                       onblur="lookupRcvPart(this)">
+            <div class="panel-body">
+              <div id="box-intake-grid"></div>
+              <div style="margin-top:10px">
+                <button class="btn btn-secondary" onclick="addUnexpectedRow()" style="padding:3px 10px;font-size:10px">+ ADD UNEXPECTED ITEM</button>
               </div>
-              <div class="form-group">
-                <label class="form-label">Part Name</label>
-                <input class="form-input" id="rcv-part-name" placeholder="Auto-fills from code">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Shipping Mark</label>
-                <select class="form-select" id="rcv-mark-select">
-                  <option value="">— select mark —</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty Expected</label>
-                <input class="form-input" type="number" id="rcv-qty-exp" placeholder="0" min="0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty Counted</label>
-                <input class="form-input" type="number" id="rcv-qty-cnt" placeholder="0" min="0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Bag Size</label>
-                <select class="form-select" id="rcv-bag-size">
-                  <option value="25">25 per bag</option>
-                  <option value="50">50 per bag</option>
-                  <option value="100">100 per bag</option>
-                  <option value="1">No bagging (1 each)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Notes</label>
-                <input class="form-input" id="rcv-line-notes" placeholder="e.g. short count, damaged">
-              </div>
+              <div id="box-intake-unexpected" style="margin-top:8px"></div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="submitReceivingLine()">SAVE COUNT</button>
-              <button class="btn btn-secondary" onclick="document.getElementById('add-line-form').style.display='none'">CANCEL</button>
+            <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+              <button class="btn btn-primary" onclick="submitBoxIntake()" id="box-intake-submit-btn">SUBMIT BOX</button>
+              <button class="btn btn-secondary" onclick="closeBoxIntake()">CANCEL</button>
             </div>
-          </div>
-
-          <!-- FBU unit entry form -->
-          <div id="add-fbu-line-form" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">Product</label>
-                <select class="form-select" id="rcv-fbu-product" onchange="loadVariants('rcv-fbu');loadSubVariants('rcv-fbu');rcvFbuPopulateProduct()">
-                  <option value="">Select product...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Variant</label>
-                <select class="form-select" id="rcv-fbu-variant" onchange="loadSubVariants('rcv-fbu')">
-                  <option value="">Common only</option>
-                </select>
-              </div>
-              <div class="form-group" id="rcv-fbu-subvariant-group" style="display:none">
-                <label class="form-label">Color</label>
-                <select class="form-select" id="rcv-fbu-subvariant">
-                  <option value="">All colours</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Shipping Mark</label>
-                <select class="form-select" id="rcv-fbu-mark-select">
-                  <option value="">— select mark —</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty Expected</label>
-                <input class="form-input" type="number" id="rcv-fbu-qty-exp" placeholder="0" min="0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty Counted</label>
-                <input class="form-input" type="number" id="rcv-fbu-qty-cnt" placeholder="0" min="0">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Notes</label>
-                <input class="form-input" id="rcv-fbu-notes" placeholder="e.g. short count, damaged">
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="submitFbuReceivingLine()">SAVE UNIT COUNT</button>
-              <button class="btn btn-secondary" onclick="document.getElementById('add-fbu-line-form').style.display='none'">CANCEL</button>
-            </div>
-          </div>
-
-          <!-- Inline add-box form (FBU) -->
-          <div id="add-box-form" style="display:none;padding:12px;border-bottom:1px solid var(--border);background:rgba(33,60,226,.04)">
-            <div style="font-family:var(--mono);font-size:10px;color:var(--blue);margin-bottom:8px;letter-spacing:.08em">ADD BOX ENTRY — <span id="add-box-line-label"></span></div>
-            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">Shipping Mark (Box)</label>
-                <select class="form-select" id="box-mark-select">
-                  <option value="">— select mark —</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Qty in this box</label>
-                <input class="form-input" type="number" id="box-qty" placeholder="0" min="1">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Condition</label>
-                <select class="form-select" id="box-condition">
-                  <option value="OK">OK</option>
-                  <option value="Short">Short</option>
-                  <option value="Damaged">Damaged</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Notes</label>
-                <input class="form-input" id="box-notes" placeholder="e.g. 2 units cracked">
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" onclick="submitBoxEntry()">SAVE BOX ENTRY</button>
-              <button class="btn btn-secondary" onclick="document.getElementById('add-box-form').style.display='none'">CANCEL</button>
-            </div>
-          </div>
-
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr id="lines-thead">
-                  <th>Part Code</th><th>Part Name</th><th>Mark</th>
-                  <th style="text-align:right">Expected</th>
-                  <th style="text-align:right">Counted</th>
-                  <th style="text-align:right">Bags</th>
-                  <th>Bag Size</th><th>GRN</th><th>Status</th><th></th>
-                </tr>
-              </thead>
-              <tbody id="lines-list"></tbody>
-            </table>
           </div>
         </div>
 
-        <!-- Bags / Label printing -->
+        <!-- Reconciliation Panel -->
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-header" style="cursor:pointer" onclick="toggleReconciliation()">
+            <div class="panel-title">RECONCILIATION</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span id="reconciliation-toggle-icon" style="font-size:11px;color:var(--text3)">▶ SHOW</span>
+              <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="event.stopPropagation();printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT LABELS</button>
+              <button class="btn btn-primary"   id="raise-grn-btn" onclick="event.stopPropagation();raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN</button>
+            </div>
+          </div>
+          <div id="reconciliation-body" style="display:none">
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr id="reconciliation-thead">
+                    <th>SKU</th>
+                    <th style="text-align:right">Expected</th>
+                    <th style="text-align:right;color:var(--green)">OK</th>
+                    <th style="text-align:right;color:var(--red)">Damaged</th>
+                    <th style="text-align:right">Total</th>
+                    <th style="text-align:right">Short / Over</th>
+                    <th>GRN</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="lines-list"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bags Panel -->
         <div class="panel" id="bags-panel" style="display:none;margin-top:16px">
           <div class="panel-header">
             <div class="panel-title">BAGS — <span id="bags-panel-title"></span></div>
@@ -7709,12 +7639,15 @@ function toast(msg, type = 'info') {
   setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
 }
 // ══ RECEIVING ════════════════════════════════════════════════
-let currentShipmentId     = null;
-let currentShipmentData   = null;
-let isFbuShipment         = false;
-let shipmentReceiveFormat = 'parts';
-let expandedLines         = new Set();
+// ── RECEIVING STATE ──────────────────────────────────────────────
+let currentShipmentId      = null;
+let currentShipmentData    = null;
+let isFbuShipment          = false;
+let shipmentReceiveFormat  = 'parts';
+let currentBoxIntakeMarkId = null;
+let reconciliationExpanded = false;
 
+// ── SHIPMENT LIST ─────────────────────────────────────────────────
 function showNewShipmentForm() {
   const f = document.getElementById('new-shipment-form');
   f.style.display = f.style.display === 'none' ? '' : 'none';
@@ -7725,57 +7658,32 @@ function showNewShipmentForm() {
   }
 }
 function showShipmentsList() {
-  document.getElementById('rcv-list-view').style.display = '';
+  document.getElementById('rcv-list-view').style.display  = '';
   document.getElementById('rcv-detail-view').style.display = 'none';
   currentShipmentId = null;
   loadShipments();
 }
-function showAddMarkForm() {
-  const f = document.getElementById('add-mark-form');
-  f.style.display = f.style.display === 'none' ? '' : 'none';
-}
-function showAddLineForm() {
-  if (isFbuShipment) {
-    const f = document.getElementById('add-fbu-line-form');
-    f.style.display = f.style.display === 'none' ? '' : 'none';
-  } else {
-    const f = document.getElementById('add-line-form');
-    f.style.display = f.style.display === 'none' ? '' : 'none';
-  }
-}
-
 function setShipmentFormat(fmt) {
   shipmentReceiveFormat = fmt;
   document.getElementById('shp-fmt-parts').className = fmt === 'parts' ? 'btn btn-primary' : 'btn btn-secondary';
   document.getElementById('shp-fmt-fbu').className   = fmt === 'fbu'   ? 'btn btn-primary' : 'btn btn-secondary';
-  if (fmt === 'fbu') {
-    document.getElementById('shp-fmt-parts').style.flex = '1';
-    document.getElementById('shp-fmt-fbu').style.flex   = '1';
-  }
 }
-
-async function rcvFbuPopulateProduct() {
-  // No extra action needed — loadVariants/loadSubVariants handle the rest
-}
-
+async function rcvFbuPopulateProduct() {}
 async function populateFbuProductDropdown() {
   await ensureReceiveFormatCache();
   const sel = document.getElementById('rcv-fbu-product');
   if (!sel) return;
   sel.innerHTML = '<option value="">Select product...</option>';
-  const allProducts = Object.keys(PRODUCT_VARIANTS);
-  // FBU products first, then rest
-  const fbuProducts   = allProducts.filter(p => receiveFormatCache[p] === 'FBU');
-  const otherProducts = allProducts.filter(p => receiveFormatCache[p] !== 'FBU');
+  const allProducts  = Object.keys(PRODUCT_VARIANTS);
+  const fbuProducts  = allProducts.filter(p => receiveFormatCache[p] === 'FBU');
+  const otherProducts= allProducts.filter(p => receiveFormatCache[p] !== 'FBU');
   if (fbuProducts.length) {
-    const grp = document.createElement('optgroup');
-    grp.label = '— FBU Products —';
+    const grp = document.createElement('optgroup'); grp.label = '— FBU Products —';
     fbuProducts.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p+' ★'; grp.appendChild(o); });
     sel.appendChild(grp);
   }
   if (otherProducts.length) {
-    const grp = document.createElement('optgroup');
-    grp.label = '— All Other Products —';
+    const grp = document.createElement('optgroup'); grp.label = '— All Other Products —';
     otherProducts.forEach(p => { const o = document.createElement('option'); o.value=p; o.textContent=p; grp.appendChild(o); });
     sel.appendChild(grp);
   }
@@ -7893,37 +7801,40 @@ async function submitNewShipment() {
   } catch(e) { toast('Error','error'); }
   finally { if (btn) { btn.textContent = 'CREATE SHIPMENT'; btn.disabled = false; } }
 }
+// ── SHIPMENT DETAIL ───────────────────────────────────────────────
 async function openShipment(id) {
-  currentShipmentId = id;
-  document.getElementById('rcv-list-view').style.display = 'none';
+  currentShipmentId      = id;
+  currentBoxIntakeMarkId = null;
+  reconciliationExpanded = false;
+  document.getElementById('rcv-list-view').style.display   = 'none';
   document.getElementById('rcv-detail-view').style.display = '';
-  document.getElementById('rcv-detail-title').textContent = id;
-  document.getElementById('bags-panel').style.display = 'none';
-  document.getElementById('add-line-form').style.display = 'none';
-  document.getElementById('add-fbu-line-form').style.display = 'none';
-  document.getElementById('add-box-form').style.display = 'none';
-  expandedLines.clear();
+  document.getElementById('rcv-detail-title').textContent  = id;
+  document.getElementById('bags-panel').style.display      = 'none';
+  document.getElementById('mark-entry-form').style.display = 'none';
+  document.getElementById('box-intake-panel').style.display= 'none';
+  document.getElementById('reconciliation-body').style.display = 'none';
+  document.getElementById('reconciliation-toggle-icon').textContent = '▶ SHOW';
   await refreshShipmentDetail();
 }
+
 async function refreshShipmentDetail() {
   if (!currentShipmentId) return;
   try {
     const res = await api('getShipment', { id: currentShipmentId });
     if (!res.ok) return;
     const data = res.data;
-    // Fetch entries for all lines in parallel
     if (data.lines && data.lines.length) {
       const entryResults = await Promise.all(
         data.lines.map(l => api('getReceivingEntries', { line_id: l.line_id }).catch(() => ({ ok: false })))
       );
-      data.lines.forEach((l, i) => {
-        l._entries = entryResults[i].ok ? (entryResults[i].data || []) : [];
-      });
+      data.lines.forEach((l, i) => { l._entries = entryResults[i].ok ? (entryResults[i].data || []) : []; });
     }
     currentShipmentData = data;
     renderShipmentDetail(data);
+    if (currentBoxIntakeMarkId) renderBoxIntakeGrid();
   } catch(e) {}
 }
+
 function renderShipmentDetail(data) {
   const { shipment, marks, lines } = data;
   isFbuShipment = (shipment.receive_format === 'fbu');
@@ -7933,341 +7844,297 @@ function renderShipmentDetail(data) {
   const sb = document.getElementById('rcv-detail-status');
   sb.textContent = shipment.status; sb.className = 'badge '+(scMap[shipment.status]||'badge-gray');
   document.getElementById('rcv-sum-supplier').textContent = shipment.supplier;
-  document.getElementById('rcv-sum-date').textContent = formatDisplayDate(shipment.arrival_date);
-  document.getElementById('rcv-sum-boxes').textContent = (shipment.total_boxes_received||0)+' / '+(shipment.total_boxes_expected||0);
-  let countedDisplay;
-  if (isFbuShipment) {
-    const totalUnits = lines.reduce((s, l) => s + (parseInt(l.qty_counted) || 0), 0);
-    const countedLines = lines.filter(l => l.status !== 'In Progress').length;
-    countedDisplay = totalUnits + ' units · ' + countedLines + '/' + lines.length + ' SKUs';
-  } else {
-    const counted = lines.filter(l => l.status !== 'In Progress').length;
-    countedDisplay = counted + ' / ' + lines.length + ' counted';
-  }
-  document.getElementById('rcv-sum-parts').textContent = countedDisplay;
+  document.getElementById('rcv-sum-date').textContent     = formatDisplayDate(shipment.arrival_date);
+  document.getElementById('rcv-sum-boxes').textContent    = (shipment.total_boxes_received||0)+' / '+(shipment.total_boxes_expected||0);
 
-  // Panel chrome — FBU vs parts
-  document.getElementById('counts-panel-title').textContent = isFbuShipment ? 'UNIT COUNTS' : 'PART COUNTS';
-  document.getElementById('add-line-btn').textContent = isFbuShipment ? '+ ADD UNIT' : '+ ADD PART';
-  if (isFbuShipment) populateFbuProductDropdown();
+  const totalCounted  = lines.reduce((s, l) => s + (parseInt(l.qty_counted)||0), 0);
+  const totalExpected = lines.reduce((s, l) => s + (parseInt(l.qty_expected)||0), 0);
+  document.getElementById('rcv-sum-parts').textContent = totalCounted + ' / ' + totalExpected;
 
-  // Table headers
-  const thead = document.getElementById('lines-thead');
-  if (isFbuShipment) {
-    thead.innerHTML = '<th>Product</th><th>Variant</th><th>Color</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th>GRN</th><th>Status</th><th></th>';
-  } else {
-    thead.innerHTML = '<th>Part Code</th><th>Part Name</th><th>Mark</th><th style="text-align:right">Expected</th><th style="text-align:right">Counted</th><th style="text-align:right">Bags</th><th>Bag Size</th><th>GRN</th><th>Status</th><th></th>';
-  }
-
+  // Marks table with OPEN BOX button
   const mt = document.getElementById('marks-list');
   mt.innerHTML = marks.length ? marks.map(m => {
-    const sc = m.status==='Received'?'badge-green':m.status==='Missing'||m.status==='Damaged'?'badge-red':'badge-gray';
-    const wt = m.weight_actual!=null ? m.weight_actual+'kg' : (m.weight_expected ? 'exp: '+m.weight_expected+'kg' : '—');
-    return '<tr><td class="mono">'+m.mark_code+'</td><td class="mono">'+(m.box_count_received||0)+' / '+(m.box_count_expected||1)+'</td><td style="font-size:11px">'+wt+'</td><td><span class="badge '+sc+'">'+m.status+'</span></td><td style="font-size:11px;color:var(--text3)">'+(m.notes||'')+'</td></tr>';
-  }).join('') : '<tr><td colspan="5" class="empty">No marks yet</td></tr>';
+    const sc       = m.status==='Received'?'badge-green':m.status==='Missing'||m.status==='Damaged'?'badge-red':'badge-gray';
+    const wt       = m.weight_actual!=null ? m.weight_actual+'kg' : (m.weight_expected ? 'exp: '+m.weight_expected+'kg' : '—');
+    const isActive = currentBoxIntakeMarkId === m.mark_id;
+    return '<tr>'
+      +'<td class="mono" style="font-size:12px">'+(isActive?'<span style="color:#7b93ff">▶ </span>':'')+m.mark_code+'</td>'
+      +'<td class="mono">'+(m.box_count_received||0)+' / '+(m.box_count_expected||1)+'</td>'
+      +'<td style="font-size:11px">'+wt+'</td>'
+      +'<td><span class="badge '+sc+'" style="font-size:9px">'+m.status+'</span></td>'
+      +'<td><button class="btn '+(isActive?'btn-blue':'btn-secondary')+'" style="padding:2px 8px;font-size:10px" onclick="openBoxIntake(\''+m.mark_id+'\')">'+( isActive?'✎ EDITING':'OPEN BOX')+'</button></td>'
+      +'</tr>';
+  }).join('') : '<tr><td colspan="5" class="empty">No marks yet — add marks above</td></tr>';
 
-  // Populate mark selects (both parts and FBU forms)
-  const markOpts = '<option value="">— select mark —</option>' + marks.map(m => '<option value="'+m.mark_id+'">'+m.mark_code+'</option>').join('');
-  document.getElementById('rcv-mark-select').innerHTML = markOpts;
-  const fbuMarkSel = document.getElementById('rcv-fbu-mark-select');
-  if (fbuMarkSel) fbuMarkSel.innerHTML = markOpts;
+  renderReconciliation(data);
 
-  const hasCounted = lines.some(l => l.status === 'Counted' || l.status === 'GRN Raised');
-  document.getElementById('raise-grn-btn').style.display = lines.some(l => l.status === 'Counted') ? '' : 'none';
-  document.getElementById('print-all-shipment-btn').style.display = (!isFbuShipment && hasCounted) ? '' : 'none';
+  const hasQty = lines.some(l => (parseInt(l.qty_counted)||0) > 0 && !l.grn_no);
+  document.getElementById('raise-grn-btn').style.display = hasQty ? '' : 'none';
+  document.getElementById('print-all-shipment-btn').style.display =
+    (!isFbuShipment && lines.some(l => l.status==='Counted'||l.status==='GRN Raised')) ? '' : 'none';
+}
 
+function renderReconciliation(data) {
+  const { marks, lines } = data;
   const lt = document.getElementById('lines-list');
   if (!lines.length) {
-    const emptyMsg = isFbuShipment ? 'No units counted yet' : 'No parts counted yet';
-    lt.innerHTML = '<tr><td colspan="'+(isFbuShipment?9:10)+'" class="empty">'+emptyMsg+'</td></tr>';
+    lt.innerHTML = '<tr><td colspan="8" class="empty">No expected items — link a PO when creating shipment</td></tr>';
     return;
   }
   lt.innerHTML = lines.map(l => {
-    const lsc = l.status==='GRN Raised'?'badge-green':l.status==='Counted'?'badge-blue':'badge-yellow';
-    const diff = l.qty_expected>0 ? l.qty_counted-l.qty_expected : 0;
-    const vs = diff===0?'':diff>0?'<span style="color:var(--yellow);font-size:10px">+'+diff+'</span>':'<span style="color:var(--red);font-size:10px">'+diff+'</span>';
-    const mc = marks.find(m => m.mark_id === l.mark_id)?.mark_code || '—';
-    if (isFbuShipment) {
-      const isExpanded = expandedLines.has(l.line_id);
-      const entryRows  = (l._entries || []).map(e => {
-        const mcode = marks.find(m => m.mark_id === e.mark_id)?.mark_code || '—';
-        const condColor = e.condition === 'OK' ? 'var(--green)' : e.condition === 'Damaged' ? 'var(--red)' : 'var(--yellow)';
-        return '<tr style="background:rgba(255,255,255,.02)">'
-          +'<td colspan="2" style="font-size:10px;color:var(--text3);padding-left:24px">↳ '+e.entry_id+'</td>'
-          +'<td style="font-size:10px;color:var(--text3)">'+mcode+'</td>'
-          +'<td></td>'
-          +'<td class="mono" style="text-align:right;font-size:11px">'+e.qty+'</td>'
-          +'<td style="font-size:10px" colspan="2"><span style="color:'+condColor+'">'+e.condition+'</span>'+(e.notes?' <span style="color:var(--text3)">'+e.notes+'</span>':'')+'</td>'
-          +'<td colspan="2"></td>'
-          +'</tr>';
-      }).join('');
-      const addBoxBtn = l.status==='In Progress' || l.status==='Counted'
-        ? '<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px;margin-left:4px" onclick="showAddBoxForm(\''+l.line_id+'\')">+ BOX</button>'
-        : '';
-      const markCompleteBtn = l.status==='In Progress' && (l._entries||[]).length > 0
-        ? '<button class="btn btn-primary" style="padding:1px 8px;font-size:10px;margin-left:4px" onclick="markLineComplete(\''+l.line_id+'\')">✓ DONE</button>'
-        : '';
-      return '<tr data-line-id="'+l.line_id+'">'
-        +'<td style="font-size:12px">'+( l.product||l.part_name||'—')+'</td>'
-        +'<td style="font-size:11px;color:var(--text2)">'+(l.variant||'—')+'</td>'
-        +'<td style="font-size:11px;color:var(--text2)">'+(l.color||'—')+'</td>'
-        +'<td style="font-size:11px;color:var(--text3)">—</td>'
-        +'<td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td>'
-        +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
-        +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
-        +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
-        +'<td style="white-space:nowrap">'
-          +'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="toggleEntries(\''+l.line_id+'\')">'+(isExpanded?'▼':'▶')+' '+((l._entries||[]).length)+'</button>'
-          +addBoxBtn
-          +markCompleteBtn
-        +'</td>'
-        +'</tr>'
-        +(isExpanded ? entryRows : '');
-    } else {
-      const bc = l.bags_of>0 ? Math.ceil(l.qty_counted/l.bags_of) : 0;
-      return '<tr data-line-id="'+l.line_id+'" data-part-code="'+l.part_code+'">'
-        +'<td class="mono" style="font-size:11px">'+l.part_code+'</td>'
-        +'<td style="font-size:12px">'+l.part_name+'</td>'
-        +'<td style="font-size:11px;color:var(--text3)">'+mc+'</td>'
-        +'<td class="mono" style="text-align:right;color:var(--text3)">'+(l.qty_expected||'—')+'</td>'
-        +'<td class="mono" style="text-align:right;font-weight:700">'+l.qty_counted+' '+vs+'</td>'
-        +'<td class="mono" style="text-align:right">'+bc+'</td>'
-        +'<td style="font-size:11px;color:var(--text3)">'+l.bags_of+' per bag</td>'
-        +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
-        +'<td><span class="badge '+lsc+'" style="font-size:9px">'+l.status+'</span></td>'
-        +'<td>'+(l.status==='Counted'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="viewBagsBtn(this)">BAGS</button>':'')
-              +(l.status==='In Progress'?'<button class="btn btn-secondary" style="padding:1px 8px;font-size:10px" onclick="generateBagsForLineBtn(this)">DONE →</button>':'')
-        +'</td></tr>';
-    }
+    const entries      = l._entries || [];
+    const okQty        = entries.filter(e => e.condition==='OK').reduce((s,e) => s+(parseInt(e.qty)||0), 0);
+    const damagedQty   = entries.filter(e => e.condition==='Damaged').reduce((s,e) => s+(parseInt(e.qty)||0), 0);
+    const totalCounted = okQty + damagedQty;
+    const expected     = parseInt(l.qty_expected) || 0;
+    const short        = Math.max(0, expected - totalCounted);
+    const over         = Math.max(0, totalCounted - expected);
+
+    const skuLabel = isFbuShipment
+      ? [l.product, l.variant, l.color].filter(Boolean).join(' ')
+      : (l.part_code ? '<span class="mono" style="font-size:10px;color:var(--yellow)">'+l.part_code+'</span> '+( l.part_name||'') : l.part_name||'—');
+
+    let statusBadge, statusClass;
+    if (l.grn_no)          { statusBadge='GRN Raised';  statusClass='badge-green'; }
+    else if (totalCounted===0) { statusBadge='Pending';  statusClass='badge-gray'; }
+    else if (short>0)      { statusBadge='Short';        statusClass='badge-red'; }
+    else if (over>0)       { statusBadge='Over';         statusClass='badge-orange'; }
+    else if (damagedQty>0) { statusBadge='Has Damage';   statusClass='badge-orange'; }
+    else                   { statusBadge='Matched';      statusClass='badge-green'; }
+
+    const variance = short>0 ? '<span style="color:var(--red)">-'+short+'</span>'
+                   : over>0  ? '<span style="color:var(--yellow)">+'+over+'</span>'
+                   : '<span style="color:var(--text3)">—</span>';
+
+    const unexpectedTag = l.line_type==='unexpected'
+      ? ' <span class="badge badge-orange" style="font-size:8px">UNEXPECTED</span>' : '';
+
+    return '<tr>'
+      +'<td style="font-size:11px">'+skuLabel+unexpectedTag+'</td>'
+      +'<td class="mono" style="text-align:right;color:var(--text3)">'+(expected||'—')+'</td>'
+      +'<td class="mono" style="text-align:right;color:var(--green)">'+okQty+'</td>'
+      +'<td class="mono" style="text-align:right;color:'+(damagedQty>0?'var(--red)':'var(--text3)')+'">'+damagedQty+'</td>'
+      +'<td class="mono" style="text-align:right;font-weight:700">'+totalCounted+'</td>'
+      +'<td class="mono" style="text-align:right">'+variance+'</td>'
+      +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
+      +'<td><span class="badge '+statusClass+'" style="font-size:9px">'+statusBadge+'</span></td>'
+      +'</tr>';
   }).join('');
 }
-function lookupRcvPart(input) {
-  const code = input.value.trim().toUpperCase();
-  const ni = document.getElementById('rcv-part-name');
-  const part = materialCache[code];
-  if (part) { ni.value=part.part_name||''; ni.style.color='var(--green)'; input.style.borderColor='var(--green)'; }
-  else if (code.length>=4) { ni.value='⚠ Not in material master'; ni.style.color='var(--red)'; input.style.borderColor='var(--red)'; }
+
+function toggleReconciliation() {
+  reconciliationExpanded = !reconciliationExpanded;
+  document.getElementById('reconciliation-body').style.display        = reconciliationExpanded ? '' : 'none';
+  document.getElementById('reconciliation-toggle-icon').textContent   = reconciliationExpanded ? '▼ HIDE' : '▶ SHOW';
 }
-async function submitMark() {
+
+// ── MARK ENTRY ────────────────────────────────────────────────────
+function showMarkForm() {
+  const f = document.getElementById('mark-entry-form');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+  if (f.style.display !== 'none') setMarkTab('range');
+}
+
+function setMarkTab(tab) {
+  document.getElementById('mark-range-fields').style.display  = tab==='range'  ? '' : 'none';
+  document.getElementById('mark-single-fields').style.display = tab==='single' ? '' : 'none';
+  document.getElementById('mark-tab-range').className  = 'btn '+(tab==='range'  ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('mark-tab-single').className = 'btn '+(tab==='single' ? 'btn-primary' : 'btn-secondary');
+}
+
+async function submitMarkRange() {
   if (!currentShipmentId) return;
-  const code = document.getElementById('mark-code').value.trim();
+  const prefix = document.getElementById('mark-range-prefix').value.trim();
+  if (!prefix) { toast('Enter a prefix', 'error'); return; }
+  const from    = parseInt(document.getElementById('mark-range-from').value) || 1;
+  const to      = parseInt(document.getElementById('mark-range-to').value)   || 1;
+  if (to < from) { toast('To must be ≥ From', 'error'); return; }
+  const skipStr = document.getElementById('mark-range-skip').value.trim();
+  const skip    = skipStr ? skipStr.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+  const weight  = parseFloat(document.getElementById('mark-range-weight').value) || null;
+  const btn     = document.querySelector('#mark-range-fields .btn-primary');
+  try {
+    if (btn) { btn.textContent='GENERATING...'; btn.disabled=true; }
+    const res = await apiPost('postMarkRange', { data: {
+      shipment_id: currentShipmentId, prefix, from, to, skip, weight_per_box: weight,
+    }});
+    if (res.ok) {
+      toast(res.data.created+' marks generated', 'success');
+      document.getElementById('mark-entry-form').style.display = 'none';
+      ['mark-range-prefix','mark-range-skip','mark-range-weight'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
+      await refreshShipmentDetail();
+    } else { toast(res.error||'Failed','error'); }
+  } catch(e) { toast('Error','error'); }
+  finally { if (btn) { btn.textContent='GENERATE MARKS'; btn.disabled=false; } }
+}
+
+async function submitMarkSingle() {
+  if (!currentShipmentId) return;
+  const code = document.getElementById('mark-single-code').value.trim();
   if (!code) { toast('Enter mark code','error'); return; }
-  const btn = document.querySelector('#add-mark-form .btn-primary');
+  const btn = document.querySelector('#mark-single-fields .btn-primary');
   try {
     if (btn) { btn.textContent='ADDING...'; btn.disabled=true; }
     const res = await apiPost('postShippingMark', { data: {
       shipment_id: currentShipmentId, mark_code: code,
-      box_count_expected: parseInt(document.getElementById('mark-boxes-exp').value)||1,
-      box_count_received: parseInt(document.getElementById('mark-boxes-rcv').value)||0,
-      weight_expected: parseFloat(document.getElementById('mark-wt-exp').value)||null,
-      weight_actual: parseFloat(document.getElementById('mark-wt-act').value)||null,
-      status: document.getElementById('mark-status').value,
-      notes: document.getElementById('mark-notes').value.trim(),
-    }});
-    if (res.ok) { toast('Mark added','success'); document.getElementById('add-mark-form').style.display='none'; document.getElementById('mark-code').value=''; await refreshShipmentDetail(); }
-    else { toast(res.error||'Failed','error'); }
-  } catch(e) { toast('Error','error'); }
-  finally { if (btn) { btn.textContent='ADD MARK'; btn.disabled=false; } }
-}
-async function submitReceivingLine() {
-  if (!currentShipmentId) return;
-  ensureMaterialCache();
-  const pc = document.getElementById('rcv-part-code').value.trim().toUpperCase();
-  const pn = document.getElementById('rcv-part-name').value.trim().replace('⚠ Not in material master','').trim();
-  if (!pc) { toast('Enter part code','error'); return; }
-  if (!pn || pn.startsWith('⚠')) { toast('Invalid part code','error'); return; }
-  const btn = document.querySelector('#add-line-form .btn-primary');
-  try {
-    if (btn) { btn.textContent='SAVING...'; btn.disabled=true; }
-    const res = await apiPost('postReceivingLine', { data: {
-      shipment_id: currentShipmentId,
-      mark_id: document.getElementById('rcv-mark-select').value||null,
-      part_code: pc, part_name: pn,
-      product: (materialCache[pc]?.product)||'',
-      qty_expected: parseInt(document.getElementById('rcv-qty-exp').value)||0,
-      qty_counted: parseInt(document.getElementById('rcv-qty-cnt').value)||0,
-      bags_of: parseInt(document.getElementById('rcv-bag-size').value)||25,
-      notes: document.getElementById('rcv-line-notes').value.trim(),
+      box_count_expected: 1, box_count_received: 1,
+      weight_actual: parseFloat(document.getElementById('mark-single-weight').value)||null,
+      status: document.getElementById('mark-single-status').value,
+      notes: document.getElementById('mark-single-notes').value.trim()||null,
     }});
     if (res.ok) {
-      toast('Count saved','success');
-      ['rcv-part-code','rcv-part-name','rcv-qty-exp','rcv-qty-cnt','rcv-line-notes'].forEach(id => document.getElementById(id).value='');
+      toast('Mark added','success');
+      document.getElementById('mark-entry-form').style.display = 'none';
+      ['mark-single-code','mark-single-notes'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
       await refreshShipmentDetail();
     } else { toast(res.error||'Failed','error'); }
   } catch(e) { toast('Error','error'); }
-  finally { if (btn) { btn.textContent='SAVE COUNT'; btn.disabled=false; } }
-}
-let pendingFbuEditLineId = null;
-
-function editFbuLine(lineId, product, variant, color, qtyExp, qtyCnt, markId) {
-  pendingFbuEditLineId = lineId;
-  document.getElementById('add-fbu-line-form').style.display = '';
-  const prodSel = document.getElementById('rcv-fbu-product');
-  prodSel.value = product || '';
-  loadVariants('rcv-fbu');
-  // Set variant after variants load
-  setTimeout(() => {
-    const varSel = document.getElementById('rcv-fbu-variant');
-    if (varSel && variant) { varSel.value = variant; loadSubVariants('rcv-fbu'); }
-    setTimeout(() => {
-      const subSel = document.getElementById('rcv-fbu-subvariant');
-      if (subSel && color) subSel.value = color;
-    }, 50);
-  }, 50);
-  const markSel = document.getElementById('rcv-fbu-mark-select');
-  if (markSel && markId && markId !== 'null') markSel.value = markId;
-  document.getElementById('rcv-fbu-qty-exp').value = qtyExp || 0;
-  document.getElementById('rcv-fbu-qty-cnt').value = qtyCnt || 0;
-  // Change button label to indicate edit mode
-  const btn = document.querySelector('#add-fbu-line-form .btn-primary');
-  if (btn) btn.textContent = 'UPDATE UNIT COUNT';
+  finally { if (btn) { btn.textContent='ADD MARK'; btn.disabled=false; } }
 }
 
-let pendingBoxLineId = null;
-
-function toggleEntries(lineId) {
-  if (expandedLines.has(lineId)) expandedLines.delete(lineId);
-  else expandedLines.add(lineId);
-  renderShipmentDetail(currentShipmentData);
+// ── BOX INTAKE ────────────────────────────────────────────────────
+function openBoxIntake(markId) {
+  currentBoxIntakeMarkId = markId;
+  const mark = currentShipmentData?.marks?.find(m => m.mark_id === markId);
+  document.getElementById('box-intake-mark-label').textContent = mark ? mark.mark_code : markId;
+  document.getElementById('box-intake-panel').style.display = '';
+  document.getElementById('box-intake-unexpected').innerHTML = '';
+  renderBoxIntakeGrid();
+  // Auto-expand reconciliation
+  if (!reconciliationExpanded) {
+    reconciliationExpanded = true;
+    document.getElementById('reconciliation-body').style.display = '';
+    document.getElementById('reconciliation-toggle-icon').textContent = '▼ HIDE';
+  }
+  renderShipmentDetail(currentShipmentData); // refresh marks to show active highlight
+  document.getElementById('box-intake-panel').scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
-function showAddBoxForm(lineId) {
-  pendingBoxLineId = lineId;
-  const line = currentShipmentData?.lines?.find(l => l.line_id === lineId);
-  const label = line ? [line.product, line.variant, line.color].filter(Boolean).join(' ') : lineId;
-  document.getElementById('add-box-line-label').textContent = label;
-  // Populate mark select
-  const marks = currentShipmentData?.marks || [];
-  const markOpts = '<option value="">— select mark —</option>'
-    + marks.map(m => '<option value="'+m.mark_id+'">'+m.mark_code+'</option>').join('');
-  document.getElementById('box-mark-select').innerHTML = markOpts;
-  document.getElementById('box-qty').value = '';
-  document.getElementById('box-condition').value = 'OK';
-  document.getElementById('box-notes').value = '';
-  document.getElementById('add-box-form').style.display = '';
-  // Expand the line so entries are visible
-  expandedLines.add(lineId);
+function closeBoxIntake() {
+  currentBoxIntakeMarkId = null;
+  document.getElementById('box-intake-panel').style.display = 'none';
+  document.getElementById('box-intake-grid').innerHTML      = '';
+  document.getElementById('box-intake-unexpected').innerHTML= '';
+  renderShipmentDetail(currentShipmentData); // remove highlight from marks
 }
 
-async function submitBoxEntry() {
-  if (!pendingBoxLineId || !currentShipmentId) return;
-  const qty = parseInt(document.getElementById('box-qty').value) || 0;
-  if (qty <= 0) { toast('Enter qty', 'error'); return; }
-  const btn = document.querySelector('#add-box-form .btn-primary');
-  try {
-    if (btn) { btn.textContent = 'SAVING...'; btn.disabled = true; }
-    const res = await apiPost('postReceivingEntry', { data: {
-      line_id:    pendingBoxLineId,
-      shipment_id: currentShipmentId,
-      mark_id:    document.getElementById('box-mark-select').value || null,
-      qty,
-      condition:  document.getElementById('box-condition').value,
-      notes:      document.getElementById('box-notes').value.trim() || null,
-    }});
-    if (res.ok) {
-      toast('Box entry saved — total: ' + res.data.new_total, 'success');
-      document.getElementById('add-box-form').style.display = 'none';
-      await refreshShipmentDetail();
-    } else { toast(res.error || 'Failed', 'error'); }
-  } catch(e) { toast('Error', 'error'); }
-  finally { if (btn) { btn.textContent = 'SAVE BOX ENTRY'; btn.disabled = false; } }
-}
+function renderBoxIntakeGrid() {
+  const lines     = currentShipmentData?.lines || [];
+  const container = document.getElementById('box-intake-grid');
+  const poLines   = lines.filter(l => l.line_type !== 'unexpected');
+  if (!poLines.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">No expected items. Link a PO when creating the shipment, or use + ADD UNEXPECTED ITEM below.</div>';
+    return;
+  }
 
-async function markLineComplete(lineId) {
-  const btn = event.target;
-  try {
-    btn.textContent = '...'; btn.disabled = true;
-    const res = await apiPost('updateReceivingLine', { data: {
-      line_id: lineId, qty_counted: null, bags_of: 0, status: 'Counted', notes: null,
-    }});
-    if (res.ok) { toast('Line marked complete', 'success'); await refreshShipmentDetail(); }
-    else { toast(res.error || 'Failed', 'error'); }
-  } catch(e) { toast('Error', 'error'); }
-  finally { btn.textContent = '✓ DONE'; btn.disabled = false; }
-}
+  const cols = isFbuShipment ? '1fr 1fr 1fr 80px 80px 80px' : '80px 1fr 80px 80px 80px';
+  // Header
+  let html = '<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:4px;margin-bottom:2px">';
+  if (isFbuShipment) {
+    html += '<div class="form-label">Product</div><div class="form-label">Variant</div><div class="form-label">Color</div>';
+  } else {
+    html += '<div class="form-label">Code</div><div class="form-label">Part Name</div>';
+  }
+  html += '<div class="form-label" style="text-align:right">Expected</div>';
+  html += '<div class="form-label" style="text-align:center;color:var(--green)">✓ OK</div>';
+  html += '<div class="form-label" style="text-align:center;color:var(--red)">✕ Dmg</div>';
+  html += '</div>';
 
-async function submitFbuReceivingLine() {
-  if (!currentShipmentId) return;
-  const product = document.getElementById('rcv-fbu-product').value;
-  if (!product) { toast('Select a product', 'error'); return; }
-  const variant  = document.getElementById('rcv-fbu-variant').value || null;
-  const color    = document.getElementById('rcv-fbu-subvariant')?.value || null;
-  const markId   = document.getElementById('rcv-fbu-mark-select').value || null;
-  const qtyExp   = parseInt(document.getElementById('rcv-fbu-qty-exp').value) || 0;
-  const qtyCnt   = parseInt(document.getElementById('rcv-fbu-qty-cnt').value) || 0;
-  const notes    = document.getElementById('rcv-fbu-notes').value.trim();
-  if (qtyCnt <= 0) { toast('Enter qty counted', 'error'); return; }
-  const btn = document.querySelector('#add-fbu-line-form .btn-primary');
-  try {
-    if (btn) { btn.textContent = 'SAVING...'; btn.disabled = true; }
-    let res;
-    if (pendingFbuEditLineId) {
-      // Update existing line — set status to Counted
-      res = await apiPost('updateReceivingLine', { data: {
-        line_id: pendingFbuEditLineId,
-        qty_counted: qtyCnt, bags_of: 0, status: 'Counted', notes: notes || null,
-      }});
+  // Rows
+  poLines.forEach(l => {
+    html += '<div style="display:grid;grid-template-columns:'+cols+';gap:8px;align-items:center;padding:5px 4px;border-bottom:1px solid rgba(42,42,42,.5)">';
+    if (isFbuShipment) {
+      html += '<div style="font-size:12px">'+(l.product||'—')+'</div>';
+      html += '<div style="font-size:11px;color:var(--text2)">'+(l.variant||'—')+'</div>';
+      html += '<div style="font-size:11px;color:var(--text2)">'+(l.color||'—')+'</div>';
     } else {
-      // Insert new line
-      res = await apiPost('postReceivingLine', { data: {
-        shipment_id: currentShipmentId, mark_id: markId,
-        line_type: 'fbu', product, variant, color,
-        qty_expected: qtyExp, qty_counted: qtyCnt, notes: notes || null,
-      }});
+      html += '<div class="mono" style="font-size:10px;color:var(--yellow)">'+(l.part_code||'—')+'</div>';
+      html += '<div style="font-size:11px">'+(l.part_name||'—')+'</div>';
     }
-    if (res.ok) {
-      toast(pendingFbuEditLineId ? 'Unit count updated' : 'Unit count saved', 'success');
-      pendingFbuEditLineId = null;
-      ['rcv-fbu-qty-exp','rcv-fbu-qty-cnt','rcv-fbu-notes'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
-      document.getElementById('add-fbu-line-form').style.display = 'none';
-      const btn2 = document.querySelector('#add-fbu-line-form .btn-primary');
-      if (btn2) btn2.textContent = 'SAVE UNIT COUNT';
-      await refreshShipmentDetail();
-    } else { toast(res.error || 'Failed', 'error'); }
-  } catch(e) { toast('Error', 'error'); }
-  finally { if (btn) { btn.disabled = false; } }
+    html += '<div class="mono" style="text-align:right;font-size:11px;color:var(--text3)">'+(l.qty_expected||0)+'</div>';
+    html += '<div><input type="number" min="0" value="0" data-line-id="'+l.line_id+'" data-condition="OK" class="form-input box-intake-qty" style="text-align:center;padding:5px;font-size:13px"></div>';
+    html += '<div><input type="number" min="0" value="0" data-line-id="'+l.line_id+'" data-condition="Damaged" class="form-input box-intake-qty" style="text-align:center;padding:5px;font-size:13px;background:rgba(222,42,42,.06)"></div>';
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
 }
-async function generateBagsForLine(lineId) {
-  const marks = currentShipmentData?.marks||[];
-  const line = currentShipmentData?.lines?.find(l => l.line_id===lineId);
-  const mc = marks.find(m => m.mark_id===line?.mark_id)?.mark_code||null;
+
+function addUnexpectedRow() {
+  const container = document.getElementById('box-intake-unexpected');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 80px 24px;gap:8px;align-items:center;margin-top:6px';
+  div.innerHTML = '<input class="form-input unexpected-desc" placeholder="Description (e.g. Ghost Burnout Red extra)" style="font-size:12px">'
+    +'<input type="number" min="0" value="0" class="form-input unexpected-ok" placeholder="OK" style="text-align:center;padding:5px;font-size:12px">'
+    +'<input type="number" min="0" value="0" class="form-input unexpected-dmg" placeholder="Dmg" style="text-align:center;padding:5px;font-size:12px;background:rgba(222,42,42,.06)">'
+    +'<button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px">×</button>';
+  container.appendChild(div);
+}
+
+async function submitBoxIntake() {
+  if (!currentBoxIntakeMarkId || !currentShipmentId) return;
+  const btn = document.getElementById('box-intake-submit-btn');
+
+  const entries = [];
+  document.querySelectorAll('.box-intake-qty').forEach(inp => {
+    const qty = parseInt(inp.value) || 0;
+    if (qty <= 0) return;
+    entries.push({ line_id: inp.dataset.lineId, condition: inp.dataset.condition, qty });
+  });
+
+  const unexpected = [];
+  document.querySelectorAll('#box-intake-unexpected > div').forEach(row => {
+    const desc   = row.querySelector('.unexpected-desc')?.value?.trim() || '';
+    const okQty  = parseInt(row.querySelector('.unexpected-ok')?.value)  || 0;
+    const dmgQty = parseInt(row.querySelector('.unexpected-dmg')?.value) || 0;
+    if ((okQty + dmgQty) > 0 && desc) unexpected.push({ description: desc, ok_qty: okQty, damaged_qty: dmgQty });
+  });
+
+  if (!entries.length && !unexpected.length) { toast('Enter at least one qty','error'); return; }
+
   try {
-    const res = await apiPost('generateBags', { data: { line_id: lineId, mark_code: mc }});
-    if (res.ok) { toast(res.data.bags_created+' bags generated','success'); await refreshShipmentDetail(); viewBags(lineId, line?.part_code||''); }
-    else { toast(res.error||'Failed','error'); }
+    if (btn) { btn.textContent='SUBMITTING...'; btn.disabled=true; }
+    const res = await apiPost('postBoxIntake', { data: {
+      shipment_id: currentShipmentId,
+      mark_id:     currentBoxIntakeMarkId,
+      entries,
+      unexpected,
+    }});
+    if (res.ok) {
+      toast('Box recorded — '+res.data.entries_created+' entries', 'success');
+      closeBoxIntake();
+      await refreshShipmentDetail();
+    } else { toast(res.error||'Failed','error'); }
   } catch(e) { toast('Error','error'); }
+  finally { if (btn) { btn.textContent='SUBMIT BOX'; btn.disabled=false; } }
 }
-async function viewBags(lineId, partCode) {
-  document.getElementById('bags-panel').style.display = '';
-  document.getElementById('bags-panel-title').textContent = partCode;
-  const tbody = document.getElementById('bags-list');
-  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
-  const res = await api('getBags', { line_id: lineId });
-  if (!res.ok) { tbody.innerHTML='<tr><td colspan="8" class="empty">Error</td></tr>'; return; }
-  const bags = res.data||[];
-  tbody.innerHTML = bags.map(b => '<tr>'
-    +'<td class="mono" style="font-size:10px">'+b.bag_id+'</td>'
-    +'<td class="mono" style="font-size:11px">'+b.part_code+'</td>'
-    +'<td style="font-size:11px">'+b.part_name+'</td>'
-    +'<td style="font-size:11px;color:var(--text3)">'+(b.mark_code||'—')+'</td>'
-    +'<td class="mono">'+b.qty+'</td>'
-    +'<td style="font-size:11px;color:var(--text3)">Bag '+b.bag_seq+' of '+b.total_bags+'</td>'
-    +'<td style="font-size:11px">'+(b.bin_code||'—')+'</td>'
-    +'<td><span class="badge '+(b.label_printed?'badge-green':'badge-gray')+'" style="font-size:9px">'+(b.label_printed?'Printed':'Pending')+'</span></td>'
-    +'</tr>').join('');
+
+function lookupRcvPart(input) {
+  const code = input.value.trim().toUpperCase();
+  const ni   = document.getElementById('rcv-part-name');
+  const part = materialCache[code];
+  if (part) { ni.value=part.part_name||''; ni.style.color='var(--green)'; input.style.borderColor='var(--green)'; }
+  else if (code.length>=4) { ni.value='⚠ Not in material master'; ni.style.color='var(--red)'; input.style.borderColor='var(--red)'; }
 }
+
 async function raiseGRNFromCounted() {
-  if (!currentShipmentId||!currentShipmentData) return;
-  const ids = currentShipmentData.lines.filter(l=>l.status==='Counted').map(l=>l.line_id);
+  if (!currentShipmentId || !currentShipmentData) return;
+  const ids = currentShipmentData.lines
+    .filter(l => (parseInt(l.qty_counted)||0) > 0 && !l.grn_no)
+    .map(l => l.line_id);
   if (!ids.length) { toast('No counted lines','error'); return; }
+  const pending = currentShipmentData.lines.filter(l => (parseInt(l.qty_counted)||0) === 0 && !l.grn_no);
+  if (pending.length && !confirm(pending.length+' SKU(s) have 0 counted. Raise GRN anyway?')) return;
   const btn = document.getElementById('raise-grn-btn');
   try {
-    btn.textContent='RAISING GRN...'; btn.disabled=true;
+    btn.textContent='RAISING...'; btn.disabled=true;
     const res = await apiPost('raiseGRNFromReceiving', { data: { shipment_id: currentShipmentId, line_ids: ids }});
-    if (res.ok) { toast(res.data.grn_no+' raised — '+res.data.lines+' lines','success'); await refreshShipmentDetail(); loadGRNHistory(); loadDashboard(); }
-    else { toast(res.error||'GRN failed','error'); }
+    if (res.ok) {
+      toast(res.data.grn_no+' raised — '+res.data.lines+' lines','success');
+      await refreshShipmentDetail(); loadGRNHistory(); loadDashboard();
+    } else { toast(res.error||'GRN failed','error'); }
   } catch(e) { toast('Error','error'); }
-  finally { btn.textContent='RAISE GRN FOR COUNTED'; btn.disabled=false; }
+  finally { btn.textContent='RAISE GRN'; btn.disabled=false; }
 }
 async function printAllShipmentLabels() {
   if (!currentShipmentData) return;
