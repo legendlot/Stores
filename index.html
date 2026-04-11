@@ -8182,7 +8182,10 @@ async function loadPendingInwardPOs() {
     if (sel) {
       sel.innerHTML = '<option value="">— no PO link —</option>';
       (res.data||[]).forEach(p => {
-        sel.innerHTML += `<option value="${p.po_number}" data-vendor="${p.vendor_name}" data-source="${p.source}">${p.po_number} — ${p.vendor_name} (${p.source})</option>`;
+        const lines = p.outstanding_lines || [];
+        const allFbu = lines.length > 0 && lines.every(l => l.receive_format === 'FBU');
+        const fmt = allFbu ? 'fbu' : 'parts';
+        sel.innerHTML += `<option value="${p.po_number}" data-vendor="${p.vendor_name}" data-source="${p.source}" data-receive-format="${fmt}">${p.po_number} — ${p.vendor_name} (${p.source})</option>`;
       });
     }
   } catch(e) {}
@@ -8197,6 +8200,9 @@ function prefillShipmentFromPO() {
   if (vendorInput && opt.dataset.vendor) vendorInput.value = opt.dataset.vendor;
   const originSel = document.getElementById('shp-origin');
   if (originSel && opt.dataset.source) originSel.value = opt.dataset.source;
+  // Auto-select receive format from PO — toggle stays overrideable
+  const fmt = opt.dataset.receiveFormat || 'parts';
+  setShipmentFormat(fmt);
 }
 
 function showPOList() {
