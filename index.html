@@ -4323,6 +4323,8 @@ const PRODUCT_SUBVARIANTS = {
   'Atlas':   {},
 };
 
+const HAS_REMOTE = new Set(['Dash', 'Nitro']);
+
 // ══ STATE ════════════════════════════════════════════════════
 let currentToken       = '';
 let currentRole        = '';
@@ -8712,24 +8714,61 @@ async function loadUnitsGrid() {
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;
                   padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:6px">${product} — ${v}</div>`;
 
+    const isFbuRemote = fmt === 'FBU' && HAS_REMOTE.has(product);
+    if (isFbuRemote) {
+      html += `<div style="display:grid;grid-template-columns:160px 100px 100px 40px;gap:8px;align-items:center;margin-bottom:3px;padding:0 0 3px 0">
+        <div></div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-align:right;letter-spacing:.06em">CAR</div>
+        <div style="font-family:var(--mono);font-size:9px;color:#7b93ff;text-align:right;letter-spacing:.06em">REMOTE</div>
+        <div></div>
+      </div>`;
+    }
     if (colors.length) {
       colors.forEach(c => {
-        html += `<div style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
-          <div style="font-size:12px;color:var(--text2);padding-left:8px">${c}</div>
+        if (isFbuRemote) {
+          html += `<div class="po-units-row" style="display:grid;grid-template-columns:160px 100px 100px 40px;gap:8px;align-items:center;margin-bottom:4px">
+            <div style="font-size:12px;color:var(--text2);padding-left:8px">${c}</div>
+            <input type="number" value="" placeholder="0" min="0"
+                   data-product="${product}" data-variant="${v}" data-color="${c}" data-component="car"
+                   class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px"
+                   oninput="syncRemoteQty(this)">
+            <input type="number" value="" placeholder="0" min="0"
+                   data-product="${product}" data-variant="${v}" data-color="${c}" data-component="remote"
+                   class="form-input po-units-qty po-units-remote" style="font-size:12px;text-align:right;padding:5px 8px;background:rgba(33,60,226,.06)">
+            <div style="font-size:11px;color:var(--text3)">pcs</div>
+          </div>`;
+        } else {
+          html += `<div class="po-units-row" style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
+            <div style="font-size:12px;color:var(--text2);padding-left:8px">${c}</div>
+            <input type="number" value="" placeholder="0" min="0"
+                   data-product="${product}" data-variant="${v}" data-color="${c}"
+                   class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px">
+            <div style="font-size:11px;color:var(--text3)">pcs</div>
+          </div>`;
+        }
+      });
+    } else {
+      if (isFbuRemote) {
+        html += `<div class="po-units-row" style="display:grid;grid-template-columns:160px 100px 100px 40px;gap:8px;align-items:center;margin-bottom:4px">
+          <div style="font-size:12px;color:var(--text2);padding-left:8px">—</div>
           <input type="number" value="" placeholder="0" min="0"
-                 data-product="${product}" data-variant="${v}" data-color="${c}"
+                 data-product="${product}" data-variant="${v}" data-color="" data-component="car"
+                 class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px"
+                 oninput="syncRemoteQty(this)">
+          <input type="number" value="" placeholder="0" min="0"
+                 data-product="${product}" data-variant="${v}" data-color="" data-component="remote"
+                 class="form-input po-units-qty po-units-remote" style="font-size:12px;text-align:right;padding:5px 8px;background:rgba(33,60,226,.06)">
+          <div style="font-size:11px;color:var(--text3)">pcs</div>
+        </div>`;
+      } else {
+        html += `<div class="po-units-row" style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
+          <div style="font-size:12px;color:var(--text2);padding-left:8px">—</div>
+          <input type="number" value="" placeholder="0" min="0"
+                 data-product="${product}" data-variant="${v}" data-color=""
                  class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px">
           <div style="font-size:11px;color:var(--text3)">pcs</div>
         </div>`;
-      });
-    } else {
-      html += `<div style="display:grid;grid-template-columns:160px 110px 40px;gap:8px;align-items:center;margin-bottom:4px">
-        <div style="font-size:12px;color:var(--text2);padding-left:8px">—</div>
-        <input type="number" value="" placeholder="0" min="0"
-               data-product="${product}" data-variant="${v}" data-color=""
-               class="form-input po-units-qty" style="font-size:12px;text-align:right;padding:5px 8px">
-        <div style="font-size:11px;color:var(--text3)">pcs</div>
-      </div>`;
+      }
     }
     html += '</div>';
   });
@@ -8747,6 +8786,13 @@ function toggleUnitsFormat(product, fmt) {
   loadUnitsGrid(); // re-render grid with new effective format
 }
 
+function syncRemoteQty(carInput) {
+  const row = carInput.closest('.po-units-row');
+  if (!row) return;
+  const remoteInput = row.querySelector('.po-units-remote');
+  if (remoteInput) remoteInput.value = carInput.value;
+}
+
 function addUnitsToQueue() {
   const inputs = document.querySelectorAll('.po-units-qty');
   let added = 0;
@@ -8756,11 +8802,15 @@ function addUnitsToQueue() {
     const product = inp.dataset.product;
     const variant = inp.dataset.variant;
     const color   = inp.dataset.color || null;
-    const desc    = [product, variant, color].filter(Boolean).join(' ');
+    const component = inp.dataset.component || null;
+    const desc = component === 'remote'
+      ? [product, variant, color, 'Remote'].filter(Boolean).join(' ')
+      : [product, variant, color].filter(Boolean).join(' ');
     poUnitsLines.push({
       product, variant, color: color || null,
       description: desc, item_type: 'RC Car',
       qty_ordered: qty, unit: 'pcs', unit_price: null, part_code: null,
+      component_type: component,
       _receive_format: poUnitsFormatOverride[product] || receiveFormatCache[product] || null,
     });
     inp.value = '';
@@ -8790,7 +8840,7 @@ function renderUnitsQueue() {
     <thead><tr>
       <th style="width:28px">#</th>
       <th>Product</th><th>Model</th><th>Color</th>
-      <th>Format</th>
+      <th>Component</th><th>Format</th>
       <th style="text-align:right">Qty</th>
       <th style="text-align:right">Unit</th>
       <th style="width:28px"></th>
@@ -8804,6 +8854,7 @@ function renderUnitsQueue() {
           <td>${l.product}</td>
           <td>${l.variant || '—'}</td>
           <td>${l.color || '—'}</td>
+          <td>${l.component_type ? `<span style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:2px;background:${l.component_type==='remote'?'rgba(33,60,226,.15)':'rgba(34,197,94,.1)'};color:${l.component_type==='remote'?'#7b93ff':'var(--green)'}">${l.component_type.toUpperCase()}</span>` : '—'}</td>
           <td><span style="font-family:var(--mono);font-size:9px;color:${rfColor}">${rf}</span></td>
           <td class="mono" style="text-align:right;font-weight:700;color:var(--yellow)">${l.qty_ordered}</td>
           <td style="text-align:right;color:var(--text3)">${l.unit}</td>
