@@ -4561,6 +4561,11 @@ function buildProductList() {
       seen.set(key, canonical);
     }
   });
+  // Also include any products defined in PRODUCT_VARIANTS that have no BOM (e.g. FBU-only products)
+  Object.keys(PRODUCT_VARIANTS).forEach(p => {
+    const key = p.toLowerCase();
+    if (!seen.has(key)) seen.set(key, p);
+  });
   PRODUCTS = [...seen.values()].sort((a, b) => a.localeCompare(b));
   PRODUCTS_DISPLAY = {};
   PRODUCTS.forEach(p => { PRODUCTS_DISPLAY[p] = p; });
