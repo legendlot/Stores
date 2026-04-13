@@ -9320,7 +9320,8 @@ async function onPOProductChange() {
   const badge = document.getElementById('po-units-format-badge');
   if (badge) {
     await ensureReceiveFormatCache();
-    const fmt = receiveFormatCache[product] || 'CKD';
+    const productFmt = receiveFormatCache[product] || 'CKD';
+    const fmt = poCurrentCategory === 'fbu' ? 'FBU' : poCurrentCategory === 'ckd' ? 'CKD' : productFmt;
     badge.style.display = '';
     badge.textContent = fmt;
     badge.style.background = fmt==='FBU' ? 'rgba(33,60,226,.15)' : 'rgba(242,205,26,.12)';
