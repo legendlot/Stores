@@ -8780,7 +8780,7 @@ async function loadProcDashboard() {
     const allPOs   = poRes.data || [];
     const openPOs  = allPOs.filter(p => ['Draft','Approved','Sent'].includes(p.status));
     const pendAppr = allPOs.filter(p => p.status === 'Pending Approval');
-    const threshold = settings.po_approval_threshold ? parseFloat(settings.po_approval_threshold) : null;
+    const threshold = settings?.po_approval_threshold ? parseFloat(settings.po_approval_threshold) : null;
     const now = new Date();
     const in14 = new Date(now.getTime() + 14*24*60*60*1000);
     const arriving = allPOs.filter(p => {
