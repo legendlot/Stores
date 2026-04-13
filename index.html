@@ -9724,10 +9724,12 @@ async function loadUnitsGrid() {
     html += '</div>';
   });
 
+  // When a category is selected, format is locked — hide the toggle
+  const showToggle = !poCurrentCategory;
   const fmtHeader = `<div style="display:flex;align-items:center;margin-bottom:10px;padding:6px 8px;background:var(--bg3);border-radius:3px;border:1px solid var(--border)">
     <span style="font-size:11px;color:var(--text2)">Receive format</span>
     ${fmtBadge}
-    ${fmtToggle}
+    ${showToggle ? fmtToggle : ''}
   </div>`;
   container.innerHTML = fmtHeader + (fmtNote || '') + html;
 }
