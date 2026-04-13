@@ -8526,11 +8526,11 @@ function renderBoxIntakeGrid() {
     return;
   }
 
-  const cols = isFbuShipment ? '1fr 1fr 1fr 80px 80px 80px' : '80px 1fr 80px 80px 80px';
+  const cols = isFbuShipment ? '1.2fr 1fr 1fr 80px 80px 80px' : '80px 1fr 80px 80px 80px';
   // Header
   let html = '<div style="display:grid;grid-template-columns:'+cols+';gap:8px;padding:4px;margin-bottom:2px">';
   if (isFbuShipment) {
-    html += '<div class="form-label">Product</div><div class="form-label">Variant</div><div class="form-label">Color</div>';
+    html += '<div class="form-label">Product / Type</div><div class="form-label">Variant</div><div class="form-label">Color</div>';
   } else {
     html += '<div class="form-label">Code</div><div class="form-label">Part Name</div>';
   }
@@ -8543,7 +8543,12 @@ function renderBoxIntakeGrid() {
   poLines.forEach(l => {
     html += '<div style="display:grid;grid-template-columns:'+cols+';gap:8px;align-items:center;padding:5px 4px;border-bottom:1px solid rgba(42,42,42,.5)">';
     if (isFbuShipment) {
-      html += '<div style="font-size:12px">'+(l.product||'—')+'</div>';
+      const compLabel = l.component_type === 'remote'
+        ? '<span style="font-size:9px;font-family:var(--mono);color:#7b93ff;margin-left:4px">Remote</span>'
+        : l.component_type === 'car'
+        ? '<span style="font-size:9px;font-family:var(--mono);color:var(--green);margin-left:4px">Car</span>'
+        : '';
+      html += '<div style="font-size:12px">'+(l.product||'—')+compLabel+'</div>';
       html += '<div style="font-size:11px;color:var(--text2)">'+(l.variant||'—')+'</div>';
       html += '<div style="font-size:11px;color:var(--text2)">'+(l.color||'—')+'</div>';
     } else {
