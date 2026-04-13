@@ -4423,6 +4423,7 @@ let PRODUCTS_DISPLAY = {};
 
 const PRODUCT_VARIANTS = {
   'Flare':  ['Track','Race','Underground','Street','Burnout'],
+  'Flare LE': ['Race'],
   'Ghost':  ['Burnout','Street','Underground'],
   'Knox':   ['Adventure','Explorer'],
   'Shadow': ['Asphalt','Tarmac'],
@@ -4440,6 +4441,9 @@ const PRODUCT_SUBVARIANTS = {
     'Underground':['Silver','Blue'],
     'Street':     ['White','Red'],
     'Burnout':    ['Grey','Green','Red'],
+  },
+  'Flare LE': {
+    'Race': ['Black'],
   },
   'Ghost': {
     'Burnout':    ['Red','Yellow'],
@@ -4460,7 +4464,7 @@ const PRODUCT_SUBVARIANTS = {
   'Atlas':   {},
 };
 
-const HAS_REMOTE = new Set(['Dash', 'Nitro']);
+const HAS_REMOTE = new Set(['Dash', 'Nitro', 'Flare LE']);
 
 // ══ STATE ════════════════════════════════════════════════════
 let currentToken       = '';
