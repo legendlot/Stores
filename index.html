@@ -3572,12 +3572,47 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="panel-body">
                 <div id="vnd-supplied-list" style="margin-bottom:16px"></div>
                 <div style="border-top:1px solid var(--border);padding-top:12px">
-                  <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">ADD ITEM</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr 120px 120px 120px auto;gap:8px;align-items:end">
-                    <div class="form-group" style="margin-bottom:0">
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px">ADD SUPPLIED ITEM</div>
+
+                  <!-- Type selector -->
+                  <div style="display:flex;gap:6px;margin-bottom:12px">
+                    <button class="btn btn-primary"   id="vsi-type-product-btn"  onclick="setVSIType('product')"  style="padding:4px 14px;font-size:11px">Product</button>
+                    <button class="btn btn-secondary" id="vsi-type-part-btn"     onclick="setVSIType('part')"     style="padding:4px 14px;font-size:11px">Part</button>
+                    <button class="btn btn-secondary" id="vsi-type-category-btn" onclick="setVSIType('category')" style="padding:4px 14px;font-size:11px">Category</button>
+                  </div>
+
+                  <!-- Product type -->
+                  <div id="vsi-product-fields" style="display:flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="margin-bottom:0;flex:1">
+                      <label class="form-label">Product</label>
+                      <select class="form-select" id="vsi-product-sel" style="font-size:11px">
+                        <option value="">Select product...</option>
+                      </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="addVendorSuppliedItem()" style="padding:7px 14px;font-size:11px">+ ADD</button>
+                  </div>
+
+                  <!-- Part type -->
+                  <div id="vsi-part-fields" style="display:none;flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="margin-bottom:0;flex:1;position:relative">
+                      <label class="form-label">Part Code or Name</label>
+                      <input class="form-input" id="vsi-part-search" placeholder="Search e.g. PCB, spring, battery..." oninput="vsiPartSearch(this.value)" autocomplete="off" style="font-size:11px">
+                      <div id="vsi-part-suggestions" style="display:none;position:absolute;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:3px;max-height:200px;overflow-y:auto;min-width:320px;top:100%;left:0"></div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;width:200px">
+                      <label class="form-label">Selected</label>
+                      <div id="vsi-part-selected" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:11px;color:var(--text3)">—</div>
+                      <input type="hidden" id="vsi-part-code">
+                    </div>
+                    <button class="btn btn-primary" onclick="addVendorSuppliedItem()" style="padding:7px 14px;font-size:11px">+ ADD</button>
+                  </div>
+
+                  <!-- Category type -->
+                  <div id="vsi-category-fields" style="display:none;flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="margin-bottom:0;flex:1">
                       <label class="form-label">Category</label>
-                      <select class="form-select" id="vsi-category" style="font-size:11px">
-                        <option value="">Select...</option>
+                      <select class="form-select" id="vsi-category-sel" style="font-size:11px">
+                        <option value="">Select category...</option>
                         <option value="fbu">Full Units (FBU)</option>
                         <option value="ckd">Components (CKD)</option>
                         <option value="packaging">Packaging</option>
@@ -3588,31 +3623,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
                         <option value="other">Other</option>
                       </select>
                     </div>
-                    <div class="form-group" style="margin-bottom:0">
-                      <label class="form-label">Product (optional)</label>
-                      <select class="form-select" id="vsi-product" style="font-size:11px">
-                        <option value="">Any product</option>
-                      </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom:0">
-                      <label class="form-label">Variant</label>
-                      <input class="form-input" id="vsi-variant" placeholder="optional" style="font-size:11px">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0">
-                      <label class="form-label">Color</label>
-                      <input class="form-input" id="vsi-color" placeholder="optional" style="font-size:11px">
-                    </div>
-                    <div class="form-group" style="margin-bottom:0">
-                      <label class="form-label">Component</label>
-                      <select class="form-select" id="vsi-component-type" style="font-size:11px">
-                        <option value="all">All</option>
-                        <option value="car">Car only</option>
-                        <option value="remote">Remote only</option>
-                        <option value="parts">Parts only</option>
-                      </select>
-                    </div>
                     <button class="btn btn-primary" onclick="addVendorSuppliedItem()" style="padding:7px 14px;font-size:11px">+ ADD</button>
                   </div>
+
                 </div>
               </div>
             </div>
@@ -9351,6 +9364,55 @@ function selectPOVendor(name) {
 }
 
 // ── VENDOR SUPPLIED ITEMS ─────────────────────────────────────
+let vsiCurrentType = 'product';
+
+function setVSIType(type) {
+  vsiCurrentType = type;
+  ['product','part','category'].forEach(t => {
+    const fields = document.getElementById('vsi-' + t + '-fields');
+    const btn    = document.getElementById('vsi-type-' + t + '-btn');
+    if (fields) fields.style.display = t === type ? 'flex' : 'none';
+    if (btn)    btn.className = 'btn ' + (t === type ? 'btn-primary' : 'btn-secondary');
+  });
+  // Populate product dropdown if needed
+  if (type === 'product') {
+    const sel = document.getElementById('vsi-product-sel');
+    if (sel && PRODUCTS.length && sel.options.length <= 1) {
+      sel.innerHTML = '<option value="">Select product...</option>' +
+        PRODUCTS.map(p => `<option value="${p}">${p}</option>`).join('');
+    }
+  }
+}
+
+async function vsiPartSearch(val) {
+  const sugg = document.getElementById('vsi-part-suggestions');
+  if (!val || val.length < 2) { sugg.style.display = 'none'; return; }
+  try {
+    const res = await api('getMaterials', { search: val });
+    if (!res.ok || !res.data.length) { sugg.style.display = 'none'; return; }
+    sugg.style.display = '';
+    sugg.innerHTML = res.data.slice(0, 12).map(m =>
+      `<div style="padding:8px 12px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--border)"
+            onmousedown="selectVSIPart('${m.part_code}','${(m.part_name||'').replace(/'/g,"\\'")}')"
+            onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span style="font-family:var(--mono);color:var(--yellow)">${m.part_code}</span>
+        <span style="color:var(--text2);margin-left:8px">${m.part_name||''}</span>
+      </div>`
+    ).join('');
+  } catch(e) { sugg.style.display = 'none'; }
+}
+
+function selectVSIPart(code, name) {
+  document.getElementById('vsi-part-code').value    = code;
+  document.getElementById('vsi-part-selected').textContent = code + (name ? ' — ' + name : '');
+  document.getElementById('vsi-part-selected').style.color = 'var(--text2)';
+  document.getElementById('vsi-part-search').value  = '';
+  document.getElementById('vsi-part-suggestions').style.display = 'none';
+}
+
+const VSI_CAT_LABELS = { fbu:'Full Units (FBU)', ckd:'Components (CKD)', packaging:'Packaging', metal:'Metal Parts', electronics:'Electronics', consumables:'Consumables', para:'Para', other:'Other' };
+const VSI_TYPE_BADGES = { product:'badge-blue', part:'badge-yellow', category:'badge-green' };
+
 async function loadVendorSuppliedItems(vendorCode) {
   const listEl = document.getElementById('vnd-supplied-list');
   if (!listEl) return;
@@ -9362,18 +9424,20 @@ async function loadVendorSuppliedItems(vendorCode) {
       listEl.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 0">No items yet — add below to enable PO auto-fill.</div>';
       return;
     }
-    const catLabels = { fbu:'FBU', ckd:'CKD', packaging:'Packaging', metal:'Metal', electronics:'Electronics', consumables:'Consumables', para:'Para', other:'Other' };
-    const badgeColors = { fbu:'badge-blue', ckd:'badge-yellow', packaging:'badge-gray', metal:'badge-gray', electronics:'badge-green', consumables:'badge-gray', para:'badge-orange', other:'badge-gray' };
     listEl.innerHTML = `<table style="width:100%;font-size:11px">
-      <thead><tr><th>Category</th><th>Product</th><th>Variant</th><th>Color</th><th>Component</th><th></th></tr></thead>
-      <tbody>${items.map(i => `<tr>
-        <td><span class="badge ${badgeColors[i.po_category]||'badge-gray'}" style="font-size:9px">${catLabels[i.po_category]||i.po_category}</span></td>
-        <td style="font-size:12px">${i.product||'<span style="color:var(--text3)">Any</span>'}</td>
-        <td style="color:var(--text3)">${i.variant||'—'}</td>
-        <td style="color:var(--text3)">${i.color||'—'}</td>
-        <td style="color:var(--text3);font-family:var(--mono);font-size:10px">${i.component_type||'all'}</td>
-        <td style="text-align:right"><button onclick="deleteVendorSuppliedItem(${i.id},'${vendorCode}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1" title="Remove">×</button></td>
-      </tr>`).join('')}
+      <thead><tr><th>Type</th><th>Supplies</th><th></th></tr></thead>
+      <tbody>${items.map(i => {
+        const typeLabel = i.supply_type || 'product';
+        const typeBadge = VSI_TYPE_BADGES[typeLabel] || 'badge-gray';
+        const label = typeLabel === 'category'
+          ? VSI_CAT_LABELS[i.reference] || i.reference
+          : i.display_label || i.reference || i.product || '—';
+        return `<tr>
+          <td><span class="badge ${typeBadge}" style="font-size:9px">${typeLabel}</span></td>
+          <td style="font-size:12px">${label}</td>
+          <td style="text-align:right"><button onclick="deleteVendorSuppliedItem(${i.id},'${vendorCode}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0 4px;line-height:1" title="Remove">×</button></td>
+        </tr>`;
+      }).join('')}
       </tbody></table>`;
   } catch(e) {
     listEl.innerHTML = '<div style="font-size:11px;color:var(--red)">Error loading items</div>';
@@ -9383,24 +9447,42 @@ async function loadVendorSuppliedItems(vendorCode) {
 async function addVendorSuppliedItem() {
   const editingCode = document.getElementById('vnd-editing-code')?.value;
   if (!editingCode) { toast('Save vendor first before adding items', 'error'); return; }
-  const category = document.getElementById('vsi-category').value;
-  if (!category) { toast('Select a category', 'error'); return; }
-  const data = {
-    vendor_code:    editingCode,
-    po_category:    category,
-    product:        document.getElementById('vsi-product').value        || null,
-    variant:        document.getElementById('vsi-variant').value.trim() || null,
-    color:          document.getElementById('vsi-color').value.trim()   || null,
-    component_type: document.getElementById('vsi-component-type').value || 'all',
-  };
+
+  let reference, displayLabel, poCategory = null;
+
+  if (vsiCurrentType === 'product') {
+    reference = document.getElementById('vsi-product-sel')?.value;
+    if (!reference) { toast('Select a product', 'error'); return; }
+    displayLabel = reference;
+  } else if (vsiCurrentType === 'part') {
+    reference = document.getElementById('vsi-part-code')?.value;
+    if (!reference) { toast('Search and select a part first', 'error'); return; }
+    displayLabel = document.getElementById('vsi-part-selected')?.textContent || reference;
+  } else if (vsiCurrentType === 'category') {
+    reference = document.getElementById('vsi-category-sel')?.value;
+    if (!reference) { toast('Select a category', 'error'); return; }
+    displayLabel = VSI_CAT_LABELS[reference] || reference;
+    poCategory   = reference;
+  }
+
   try {
-    const res = await apiPost('postVendorSuppliedItem', { data });
+    const res = await apiPost('postVendorSuppliedItem', { data: {
+      vendor_code:   editingCode,
+      supply_type:   vsiCurrentType,
+      reference,
+      display_label: displayLabel,
+      po_category:   poCategory,
+    }});
     if (res.ok) {
       toast('Item added', 'success');
-      document.getElementById('vsi-category').value = '';
-      document.getElementById('vsi-product').value  = '';
-      document.getElementById('vsi-variant').value  = '';
-      document.getElementById('vsi-color').value    = '';
+      // Reset
+      if (vsiCurrentType === 'product') document.getElementById('vsi-product-sel').value = '';
+      if (vsiCurrentType === 'part') {
+        document.getElementById('vsi-part-code').value = '';
+        document.getElementById('vsi-part-selected').textContent = '—';
+        document.getElementById('vsi-part-selected').style.color = 'var(--text3)';
+      }
+      if (vsiCurrentType === 'category') document.getElementById('vsi-category-sel').value = '';
       loadVendorSuppliedItems(editingCode);
     } else toast(res.error || 'Failed', 'error');
   } catch(e) { toast('Error', 'error'); }
