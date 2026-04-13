@@ -9756,31 +9756,52 @@ function syncRemoteQty(carInput) {
 
 function addUnitsToQueue() {
   const inputs = document.querySelectorAll('.po-units-qty');
-  let added = 0;
+  let carAdded = 0;
+  const remoteByProduct = {}; // product → total remote qty
+
   inputs.forEach(inp => {
     const qty = parseInt(inp.value) || 0;
     if (qty <= 0) return;
-    const product = inp.dataset.product;
-    const variant = inp.dataset.variant;
-    const color   = inp.dataset.color || null;
+    const product   = inp.dataset.product;
+    const variant   = inp.dataset.variant;
+    const color     = inp.dataset.color || null;
     const component = inp.dataset.component || null;
-    const desc = component === 'remote'
-      ? [product, variant, color, 'Remote'].filter(Boolean).join(' ')
-      : [product, variant, color].filter(Boolean).join(' ');
+
+    if (component === 'remote') {
+      // Accumulate remote qty at product level only
+      remoteByProduct[product] = (remoteByProduct[product] || 0) + qty;
+    } else {
+      // Car (or no component type) — keep per variant/color
+      const desc = [product, variant, color].filter(Boolean).join(' ');
+      poUnitsLines.push({
+        product, variant, color: color || null,
+        description: desc, item_type: 'RC Car',
+        qty_ordered: qty, unit: 'pcs', unit_price: null, part_code: null,
+        component_type: component || 'car',
+        _receive_format: poUnitsFormatOverride[product] || receiveFormatCache[product] || null,
+      });
+      carAdded++;
+    }
+    inp.value = '';
+  });
+
+  // Add one collapsed remote line per product
+  Object.entries(remoteByProduct).forEach(([product, totalQty]) => {
     poUnitsLines.push({
-      product, variant, color: color || null,
-      description: desc, item_type: 'RC Car',
-      qty_ordered: qty, unit: 'pcs', unit_price: null, part_code: null,
-      component_type: component,
+      product, variant: null, color: null,
+      description: product + ' Remote',
+      item_type: 'RC Car',
+      qty_ordered: totalQty, unit: 'pcs', unit_price: null, part_code: null,
+      component_type: 'remote',
       _receive_format: poUnitsFormatOverride[product] || receiveFormatCache[product] || null,
     });
-    inp.value = '';
-    added++;
   });
+
+  const added = carAdded + Object.keys(remoteByProduct).length;
   if (!added) { toast('Enter at least one quantity', 'error'); return; }
   renderUnitsQueue();
   detectAndSetOrderType();
-  toast(`${added} line${added !== 1 ? 's' : ''} added`, 'success');
+  toast(`${carAdded} car line${carAdded !== 1 ? 's' : ''} + ${Object.keys(remoteByProduct).length} remote line${Object.keys(remoteByProduct).length !== 1 ? 's' : ''} added`, 'success');
 }
 
 function removeUnitLine(idx) {
