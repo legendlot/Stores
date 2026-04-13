@@ -9621,7 +9621,9 @@ async function loadUnitsGrid() {
   const container = document.getElementById('po-units-grid');
   if (!product) { container.innerHTML = ''; return; }
   await ensureReceiveFormatCache();
-  const defaultFmt   = receiveFormatCache[product] || null;
+  // If a category is selected, it dictates the format — ignore product default
+  const categoryFmt  = poCurrentCategory === 'fbu' ? 'FBU' : poCurrentCategory === 'ckd' ? 'CKD' : null;
+  const defaultFmt   = categoryFmt || receiveFormatCache[product] || null;
   const fmt          = poUnitsFormatOverride[product] || defaultFmt;
   const isOverridden = poUnitsFormatOverride[product] && poUnitsFormatOverride[product] !== defaultFmt;
 
