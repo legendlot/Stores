@@ -10037,7 +10037,11 @@ async function submitNewPO() {
     if (!poUnitsLines.length) { toast('Add at least one line to the order', 'error'); return; }
     // CKD lines: explode BOM. FBU lines: keep as unit line.
     for (const l of poUnitsLines) {
-      if (l._receive_format === 'CKD' || l._receive_format === 'SKD') {
+      // Category always overrides product default format
+      const effectiveFmt = poCurrentCategory === 'fbu' ? 'FBU'
+        : poCurrentCategory === 'ckd' ? 'CKD'
+        : l._receive_format;
+      if (effectiveFmt === 'CKD' || effectiveFmt === 'SKD') {
         // BOM explosion
         try {
           const kitRes = await api('calcKit', {
@@ -10066,7 +10070,7 @@ async function submitNewPO() {
       } else {
         // FBU or unset — unit-level line
         const { _receive_format, ...cleanLine } = l;
-        lines.push({ ...cleanLine, receive_format: _receive_format || null });
+        lines.push({ ...cleanLine, receive_format: effectiveFmt || _receive_format || null });
       }
     }
   } else {
