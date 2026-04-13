@@ -9377,7 +9377,7 @@ function setVSIType(type) {
   // Populate product dropdown if needed
   if (type === 'product') {
     const sel = document.getElementById('vsi-product-sel');
-    if (sel && PRODUCTS.length && sel.options.length <= 1) {
+    if (sel && PRODUCTS.length) {
       sel.innerHTML = '<option value="">Select product...</option>' +
         PRODUCTS.map(p => `<option value="${p}">${p}</option>`).join('');
     }
