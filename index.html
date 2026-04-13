@@ -3148,91 +3148,98 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div class="panel" style="margin-bottom:16px">
           <div class="panel-header"><div class="panel-title">ORDER DETAILS</div></div>
           <div class="panel-body">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-
-              <!-- LEFT — auto-filled, display only -->
-              <div>
-                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;text-transform:uppercase">Auto-filled from category — edit only if needed</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                  <div class="form-group">
-                    <label class="form-label">Order Type</label>
-                    <select class="form-select" id="po-order-type" style="color:var(--text3)">
-                      <option value="">Select...</option>
-                      <option>Product</option><option>Packaging</option><option>Para</option>
-                      <option>Consumable</option><option>Component</option>
-                      <option>Tools</option><option>Machines</option>
-                    </select>
-                    <div id="po-order-type-auto-label" style="display:none;font-size:9px;color:var(--yellow);font-family:var(--mono);margin-top:3px;letter-spacing:.05em">auto-set</div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Source</label>
-                    <select class="form-select" id="po-source" style="color:var(--text3)">
-                      <option>China</option><option>India</option><option>USA</option>
-                      <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
-                      <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
-                      <option>UK</option><option>Italy</option><option>Turkey</option><option>Other</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Currency</label>
-                    <select class="form-select" id="po-currency" style="color:var(--text3)">
-                      <option>INR</option><option>USD</option><option>RMB</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Incoterms</label>
-                    <select class="form-select" id="po-incoterms" style="color:var(--text3)">
-                      <option value="">Select...</option>
-                      <option>FOB</option><option>CIF</option><option>DDP</option>
-                      <option>Ex-Works</option><option>Local delivery</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <!-- RIGHT — user fills -->
-              <div>
-                <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);letter-spacing:.1em;margin-bottom:10px;text-transform:uppercase">Fill in these details</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                  <div class="form-group" style="grid-column:1/-1">
-                    <label class="form-label">Vendor <span style="color:var(--red)">*</span></label>
-                    <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
-                           list="vendor-datalist" autocomplete="off"
-                           oninput="prefillVendorFields(this.value)">
-                    <datalist id="vendor-datalist"></datalist>
-                    <div id="po-vendor-picker" style="display:none;margin-top:4px;flex-wrap:wrap;gap:4px"></div>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Payment Terms</label>
-                    <select class="form-select" id="po-payment-terms">
-                      <option value="">Select...</option>
-                      <option>Advance</option><option>Credit 30</option>
-                      <option>Credit 60</option><option>LC</option><option>TT</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Expected Delivery</label>
-                    <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Lead Time</label>
-                    <div id="po-lead-time-display" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--text2)">— days</div>
-                    <input type="hidden" id="po-lead-time">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Port of Loading</label>
-                    <input class="form-input" id="po-port" placeholder="e.g. Ningbo">
-                  </div>
-                  <div class="form-group" style="grid-column:1/-1">
-                    <label class="form-label">Notes</label>
-                    <input class="form-input" id="po-notes" placeholder="Any notes about this order">
-                  </div>
-                </div>
-              </div>
-
+            <!-- Auto-fill context strip — compact, not editable by default -->
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:3px">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em;margin-right:4px">AUTO-SET:</span>
+              <span id="po-ctx-type"     style="font-family:var(--mono);font-size:11px;color:var(--text2)">—</span>
+              <span style="color:var(--border)">·</span>
+              <span id="po-ctx-source"   style="font-family:var(--mono);font-size:11px;color:var(--text2)">—</span>
+              <span style="color:var(--border)">·</span>
+              <span id="po-ctx-currency" style="font-family:var(--mono);font-size:11px;color:var(--text2)">—</span>
+              <span style="color:var(--border)">·</span>
+              <span id="po-ctx-incoterms" style="font-family:var(--mono);font-size:11px;color:var(--text2)">—</span>
+              <button onclick="togglePOAutoFields()" id="po-ctx-edit-btn" style="margin-left:auto;font-size:9px;font-family:var(--mono);background:none;border:1px solid var(--border);border-radius:2px;color:var(--text3);padding:2px 8px;cursor:pointer;letter-spacing:.05em">EDIT ↓</button>
             </div>
 
-            <!-- Approval status indicator — shown after save -->
+            <!-- Hidden auto fields — shown only if user clicks EDIT -->
+            <div id="po-auto-fields" style="display:none;margin-bottom:16px">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+                <div class="form-group">
+                  <label class="form-label">Order Type</label>
+                  <select class="form-select" id="po-order-type" onchange="updatePOCtxStrip()">
+                    <option value="">Select...</option>
+                    <option>Product</option><option>Packaging</option><option>Para</option>
+                    <option>Consumable</option><option>Component</option>
+                    <option>Tools</option><option>Machines</option>
+                  </select>
+                  <div id="po-order-type-auto-label" style="display:none"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Source</label>
+                  <select class="form-select" id="po-source" onchange="updatePOCtxStrip()">
+                    <option>China</option><option>India</option><option>USA</option>
+                    <option>Germany</option><option>Taiwan</option><option>Vietnam</option>
+                    <option>Bangladesh</option><option>Japan</option><option>South Korea</option>
+                    <option>UK</option><option>Italy</option><option>Turkey</option><option>Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Currency</label>
+                  <select class="form-select" id="po-currency" onchange="updatePOCtxStrip()">
+                    <option>INR</option><option>USD</option><option>RMB</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Incoterms</label>
+                  <select class="form-select" id="po-incoterms" onchange="updatePOCtxStrip()">
+                    <option value="">Select...</option>
+                    <option>FOB</option><option>CIF</option><option>DDP</option>
+                    <option>Ex-Works</option><option>Local delivery</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- User fills — always visible, this is the primary form -->
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group">
+                <label class="form-label">Vendor <span style="color:var(--red)">*</span></label>
+                <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
+                       list="vendor-datalist" autocomplete="off"
+                       oninput="prefillVendorFields(this.value)">
+                <datalist id="vendor-datalist"></datalist>
+                <div id="po-vendor-picker" style="display:none;margin-top:4px;flex-wrap:wrap;gap:4px"></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Payment Terms</label>
+                <select class="form-select" id="po-payment-terms">
+                  <option value="">Select...</option>
+                  <option>Advance</option><option>Credit 30</option>
+                  <option>Credit 60</option><option>LC</option><option>TT</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Expected Delivery</label>
+                <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+              <div class="form-group">
+                <label class="form-label">Lead Time</label>
+                <div id="po-lead-time-display" style="padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-family:var(--mono);font-size:12px;color:var(--text2)">— days</div>
+                <input type="hidden" id="po-lead-time">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Port of Loading</label>
+                <input class="form-input" id="po-port" placeholder="e.g. Ningbo">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Notes</label>
+                <input class="form-input" id="po-notes" placeholder="Any notes about this order">
+              </div>
+            </div>
+
+            <!-- Approval status indicator -->
             <div id="po-approval-status" style="display:none;margin-top:12px;padding:8px 12px;border-radius:3px;font-family:var(--mono);font-size:11px"></div>
           </div>
         </div>
@@ -3313,20 +3320,31 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
           <!-- Units mode selector -->
           <div id="po-units-selector" style="display:none">
-            <div style="padding:12px;border-bottom:1px solid var(--border)">
-              <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
-                <div class="form-group" style="flex:0 0 220px">
-                  <label class="form-label">Product</label>
-                  <select class="form-select" id="po-units-product" onchange="onPOProductChange()">
+            <div style="padding:16px;border-bottom:1px solid var(--border)">
+
+              <!-- Step 1: Pick product -->
+              <div style="margin-bottom:16px">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase">Step 1 — Select product</div>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <select class="form-select" id="po-units-product" onchange="onPOProductChange()" style="max-width:260px">
                     <option value="">Select product...</option>
                   </select>
+                  <span id="po-units-format-badge" style="display:none;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:3px"></span>
                 </div>
               </div>
-              <div id="po-units-grid" style="margin-bottom:16px"></div>
-              <button class="btn btn-primary" onclick="addUnitsToQueue()" style="padding:5px 16px;font-size:11px">+ ADD TO ORDER</button>
+
+              <!-- Step 2: Variant/color + quantities (shown after product selected) -->
+              <div id="po-units-grid-wrap" style="display:none">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase">Step 2 — Enter quantities</div>
+                <div id="po-units-grid" style="margin-bottom:12px"></div>
+                <button class="btn btn-primary" onclick="addUnitsToQueue()" style="padding:6px 18px;font-size:11px">+ ADD TO ORDER</button>
+              </div>
+
             </div>
-            <div id="po-units-queue-wrap" style="display:none;padding:12px;border-bottom:1px solid var(--border)">
-              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase">Added to this PO</div>
+
+            <!-- Queue of added lines -->
+            <div id="po-units-queue-wrap" style="display:none;padding:16px;border-bottom:1px solid var(--border)">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:10px;text-transform:uppercase">Lines added to this PO</div>
               <div id="po-units-queue"></div>
             </div>
           </div>
@@ -9209,6 +9227,31 @@ async function ensureProductMetaCache() {
   } catch(e) {}
 }
 
+function updatePOCtxStrip() {
+  const ot  = document.getElementById('po-order-type')?.value  || '—';
+  const src = document.getElementById('po-source')?.value      || '—';
+  const cur = document.getElementById('po-currency')?.value    || '—';
+  const inc = document.getElementById('po-incoterms')?.value   || '—';
+  const el = id => { const e = document.getElementById(id); if(e) e.textContent = id==='po-ctx-type'?ot:id==='po-ctx-source'?src:id==='po-ctx-currency'?cur:inc; };
+  ['po-ctx-type','po-ctx-source','po-ctx-currency','po-ctx-incoterms'].forEach(id => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    if (id==='po-ctx-type')      e.textContent = ot;
+    if (id==='po-ctx-source')    e.textContent = src;
+    if (id==='po-ctx-currency')  e.textContent = cur;
+    if (id==='po-ctx-incoterms') e.textContent = inc;
+  });
+}
+
+function togglePOAutoFields() {
+  const el  = document.getElementById('po-auto-fields');
+  const btn = document.getElementById('po-ctx-edit-btn');
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  if (btn) btn.textContent = open ? 'EDIT ↓' : 'DONE ↑';
+}
+
 async function selectPOCategory(cat) {
   poCurrentCategory = cat;
   const cfg = PO_CATEGORY_CONFIG[cat];
@@ -9216,19 +9259,24 @@ async function selectPOCategory(cat) {
   document.getElementById('po-category-picker').style.display  = 'none';
   document.getElementById('po-form-content').style.display     = '';
   document.getElementById('po-category-badge').textContent     = cfg.label;
-  // Auto-fill header
+  // Set hidden auto fields
   const otSel = document.getElementById('po-order-type');
-  if (otSel && cfg.order_type) { otSel.value = cfg.order_type; otSel.style.borderColor = 'var(--yellow)'; }
-  const otLabel = document.getElementById('po-order-type-auto-label');
-  if (otLabel && cfg.order_type) otLabel.style.display = '';
+  if (otSel && cfg.order_type) otSel.value = cfg.order_type;
   document.getElementById('po-source').value   = cfg.source;
   document.getElementById('po-currency').value = cfg.currency;
   const incEl = document.getElementById('po-incoterms');
   if (incEl && (cat === 'fbu' || cat === 'ckd')) incEl.value = 'FOB';
+  // Update context strip
+  updatePOCtxStrip();
+  // Hide auto fields panel by default
+  const autoFields = document.getElementById('po-auto-fields');
+  if (autoFields) autoFields.style.display = 'none';
+  const editBtn = document.getElementById('po-ctx-edit-btn');
+  if (editBtn) editBtn.textContent = 'EDIT ↓';
   // Show/hide shipping timeline
   const shipPanel = document.getElementById('po-shipping-timeline-panel');
   if (shipPanel) shipPanel.style.display = cfg.shipping ? '' : 'none';
-  // Hide mode buttons — mode is set by category
+  // Hide mode buttons
   const modeBtns = document.getElementById('po-mode-buttons');
   if (modeBtns) modeBtns.style.display = 'none';
   setPOLineMode(cfg.mode);
@@ -9245,9 +9293,28 @@ function resetPOCategory() {
 }
 
 async function onPOProductChange() {
-  await loadUnitsGrid();
   const product = document.getElementById('po-units-product').value;
-  if (product && poCurrentCategory) await lookupVendorForProduct(product);
+  const gridWrap = document.getElementById('po-units-grid-wrap');
+  if (!product) {
+    if (gridWrap) gridWrap.style.display = 'none';
+    const badge = document.getElementById('po-units-format-badge');
+    if (badge) badge.style.display = 'none';
+    return;
+  }
+  await loadUnitsGrid();
+  if (gridWrap) gridWrap.style.display = '';
+  // Show format badge
+  const badge = document.getElementById('po-units-format-badge');
+  if (badge) {
+    await ensureReceiveFormatCache();
+    const fmt = receiveFormatCache[product] || 'CKD';
+    badge.style.display = '';
+    badge.textContent = fmt;
+    badge.style.background = fmt==='FBU' ? 'rgba(33,60,226,.15)' : 'rgba(242,205,26,.12)';
+    badge.style.color       = fmt==='FBU' ? '#7b93ff'            : 'var(--yellow)';
+    badge.style.border      = '1px solid ' + (fmt==='FBU' ? 'rgba(33,60,226,.3)' : 'rgba(242,205,26,.3)');
+  }
+  if (poCurrentCategory) await lookupVendorForProduct(product);
 }
 
 async function lookupVendorForProduct(product) {
