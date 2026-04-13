@@ -10429,6 +10429,7 @@ function switchProcTab(tab) {
     if (btn) btn.className = 'nav-btn' + (t === tab ? ' active' : '');
   });
   if (tab === 'dashboard')  loadProcDashboard();
+  if (tab === 'po')         { loadPOs(); loadPendingInwardPOs(); }
   if (tab === 'reorders')   loadReorderRequests();
   if (tab === 'vendors')    loadVendors();
   if (tab === 'forwarders') loadForwarders();
