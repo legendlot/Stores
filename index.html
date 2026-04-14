@@ -3146,22 +3146,53 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <span id="po-category-badge" style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;background:rgba(33,60,226,.15);color:#7b93ff;border:1px solid rgba(33,60,226,.3)"></span>
         </div>
 
-        <!-- ── Product Selector top (units/FBU mode only) ── -->
+        <!-- ── Product Selector top ── -->
         <div id="po-product-selector-top" style="display:none">
-          <div class="panel" style="margin-bottom:16px">
-            <div class="panel-header"><div class="panel-title">SELECT PRODUCT</div></div>
-            <div class="panel-body">
-              <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-                <div class="form-group" style="flex:0 0 280px;margin-bottom:0">
-                  <label class="form-label">Product</label>
-                  <select class="form-select" id="po-units-product" onchange="onPOProductChange()">
-                    <option value="">Select product...</option>
-                  </select>
+
+          <!-- FBU: single product dropdown -->
+          <div id="po-fbu-selector" style="display:none">
+            <div class="panel" style="margin-bottom:16px">
+              <div class="panel-header"><div class="panel-title">SELECT PRODUCT</div></div>
+              <div class="panel-body">
+                <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                  <div class="form-group" style="flex:0 0 280px;margin-bottom:0">
+                    <label class="form-label">Product</label>
+                    <select class="form-select" id="po-units-product" onchange="onPOProductChange()">
+                      <option value="">Select product...</option>
+                    </select>
+                  </div>
+                  <span id="po-units-format-badge" style="display:none;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:3px;margin-bottom:1px"></span>
                 </div>
-                <span id="po-units-format-badge" style="display:none;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:3px;margin-bottom:1px"></span>
               </div>
             </div>
           </div>
+
+          <!-- CKD: multi-product queue with variant qty grid -->
+          <div id="po-ckd-selector" style="display:none">
+            <div class="panel" style="margin-bottom:16px">
+              <div class="panel-header">
+                <div class="panel-title">SELECT PRODUCTS</div>
+                <div id="po-ckd-explode-btn-wrap" style="display:none">
+                  <button class="btn btn-primary" onclick="explodeCKDBOM()" id="po-ckd-explode-btn" style="padding:4px 16px;font-size:11px">EXPLODE BOM →</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px">
+                  <div class="form-group" style="flex:0 0 220px;margin-bottom:0">
+                    <label class="form-label">Add product</label>
+                    <select class="form-select" id="po-ckd-product-sel">
+                      <option value="">Select product...</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-secondary" onclick="addCKDProduct()" style="padding:6px 16px;font-size:11px;margin-bottom:1px">+ ADD</button>
+                </div>
+                <div id="po-ckd-queue">
+                  <div style="font-size:12px;color:var(--text3)">No products added yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- PO Header — split left (auto) / right (user fills) -->
@@ -3359,6 +3390,13 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div id="po-lines-container" style="padding:12px;display:none">
             <!-- lines added dynamically -->
           </div>
+
+          <!-- CKD explosion results -->
+          <div id="po-ckd-explosion" style="display:none">
+            <div id="po-ckd-summary" style="padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--border)"></div>
+            <div id="po-ckd-bom-groups" style="padding:12px 16px"></div>
+          </div>
+
           <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
             <span style="font-family:var(--mono);font-size:13px">Total: <span id="po-total-value" style="color:var(--yellow)">—</span></span>
           </div>
@@ -9192,18 +9230,28 @@ function showNewPOForm() {
   const ugrid = document.getElementById('po-units-grid');
   if (ugrid) ugrid.innerHTML = '';
   renderUnitsQueue();
+  // Reset CKD state
+  ckdProductQueue = [];
+  ckdExplosionResult = null;
+  const ckdExpEl = document.getElementById('po-ckd-explosion');
+  if (ckdExpEl) ckdExpEl.style.display = 'none';
+  const ckdQueue = document.getElementById('po-ckd-queue');
+  if (ckdQueue) ckdQueue.innerHTML = '<div style="font-size:12px;color:var(--text3)">No products added yet.</div>';
 }
 
 // ── PO LINE MODE ─────────────────────────────────────────────
 function setPOLineMode(mode) {
   currentPOLineMode = mode;
-  const isBOM    = mode === 'bom';
-  const isManual = mode === 'manual';
-  const isUnits  = mode === 'units';
+  const isBOM      = mode === 'bom';
+  const isManual   = mode === 'manual';
+  const isUnits    = mode === 'units';
+  const isCKDUnits = mode === 'ckd-units';
   document.getElementById('po-bom-selector').style.display    = isBOM    ? '' : 'none';
   document.getElementById('po-units-selector').style.display  = isUnits  ? '' : 'none';
   document.getElementById('po-lines-container').style.display = isManual ? '' : 'none';
   document.getElementById('po-add-line-btn').style.display    = isManual ? '' : 'none';
+  // CKD explosion div is managed by explodeCKDBOM/resetCKDExplosion — hide on mode change
+  if (isCKDUnits) { const el = document.getElementById('po-ckd-explosion'); if (el) el.style.display = 'none'; }
   document.getElementById('po-mode-bom').className    = 'btn ' + (isBOM    ? 'btn-primary' : 'btn-secondary');
   document.getElementById('po-mode-manual').className = 'btn ' + (isManual ? 'btn-primary' : 'btn-secondary');
   document.getElementById('po-mode-units').className  = 'btn ' + (isUnits  ? 'btn-primary' : 'btn-secondary');
@@ -9224,7 +9272,11 @@ const PO_BOM_GROUPS = {
 
 let poBOMData = []; // full BOM for current product/variant
 let poBOMGroup = ''; // current active group
-let currentPOLineMode = 'bom'; // 'bom' | 'manual' | 'units'
+let currentPOLineMode = 'bom'; // 'bom' | 'manual' | 'units' | 'ckd-units'
+
+// ── CKD UNITS STATE ───────────────────────────────────────────
+let ckdProductQueue   = []; // ['Knox', 'Shadow', ...]
+let ckdExplosionResult = null; // null until explodeCKDBOM() runs
 let poUnitsLines = []; // accumulated lines from units mode
 let poUnitsFormatOverride = {}; // product → 'FBU'|'CKD' — user override per product
 let receiveFormatCache = {}; // product → 'FBU'|'CKD'|'SKD'|null
@@ -9234,7 +9286,7 @@ let productMetaCache   = {}; // product → { has_remote }
 
 const PO_CATEGORY_CONFIG = {
   fbu:         { label: '🚗 Full Units (FBU)', order_type: 'Product',    source: 'China', currency: 'RMB', mode: 'units',  shipping: true  },
-  ckd:         { label: '🔧 Components (CKD)', order_type: 'Component',  source: 'China', currency: 'RMB', mode: 'bom',    shipping: true  },
+  ckd:         { label: '🔧 Components (CKD)', order_type: 'Component',  source: 'China', currency: 'RMB', mode: 'ckd-units', shipping: true  },
   packaging:   { label: '📦 Packaging',        order_type: 'Packaging',  source: 'India', currency: 'INR', mode: 'manual', shipping: false },
   metal:       { label: '⚙️ Metal Parts',      order_type: 'Component',  source: 'India', currency: 'INR', mode: 'manual', shipping: false },
   electronics: { label: '🔋 Electronics',      order_type: 'Component',  source: 'India', currency: 'INR', mode: 'manual', shipping: false },
@@ -9303,12 +9355,19 @@ async function selectPOCategory(cat) {
   // Hide mode buttons
   const modeBtns = document.getElementById('po-mode-buttons');
   if (modeBtns) modeBtns.style.display = 'none';
-  // Show product selector at top for units (FBU) mode
+  // Show product selector top for units (FBU) and ckd-units modes
   const prodSelectorTop = document.getElementById('po-product-selector-top');
-  if (prodSelectorTop) prodSelectorTop.style.display = cfg.mode === 'units' ? '' : 'none';
+  if (prodSelectorTop) prodSelectorTop.style.display = (cfg.mode === 'units' || cfg.mode === 'ckd-units') ? '' : 'none';
+  // Show correct sub-selector
+  const fbuSel = document.getElementById('po-fbu-selector');
+  const ckdSel = document.getElementById('po-ckd-selector');
+  if (fbuSel) fbuSel.style.display = cfg.mode === 'units'     ? '' : 'none';
+  if (ckdSel) ckdSel.style.display = cfg.mode === 'ckd-units' ? '' : 'none';
   setPOLineMode(cfg.mode);
   // Load caches
   await Promise.all([ensureProductMetaCache(), ensureVendorCache(), ensureReceiveFormatCache()]);
+  // Init CKD selector after caches are ready
+  if (cfg.mode === 'ckd-units') initCKDSelector();
 }
 
 function resetPOCategory() {
@@ -9319,6 +9378,12 @@ function resetPOCategory() {
   if (modeBtns) modeBtns.style.display = '';
   const prodSelectorTop = document.getElementById('po-product-selector-top');
   if (prodSelectorTop) prodSelectorTop.style.display = 'none';
+  const fbuSel = document.getElementById('po-fbu-selector');
+  const ckdSel = document.getElementById('po-ckd-selector');
+  if (fbuSel) fbuSel.style.display = 'none';
+  if (ckdSel) ckdSel.style.display = 'none';
+  ckdProductQueue = [];
+  ckdExplosionResult = null;
 }
 
 async function onPOProductChange() {
@@ -9765,6 +9830,346 @@ function syncRemoteQty(carInput) {
   if (remoteInput) remoteInput.value = carInput.value;
 }
 
+// ── CKD UNITS MODE ────────────────────────────────────────────
+
+const CKD_EXCLUDED_PRODUCTS = new Set(['Dash', 'Nitro', 'Flare LE']); // FBU-only
+
+const CKD_DISPLAY_GROUPS = [
+  { key: 'car',       label: 'CAR PARTS',    cats: new Set(['Car','Remote/Car','Accessories','Sticker','Charger Cable']),  defaultOn: true  },
+  { key: 'remote',    label: 'REMOTE PARTS', cats: new Set(['Remote']),                                                    defaultOn: true  },
+  { key: 'fastener',  label: 'FASTENERS',    cats: new Set(['Fastener']),                                                  defaultOn: true  },
+  { key: 'battery',   label: 'BATTERIES',    cats: new Set(['Battery','RC Battery']),                                      defaultOn: true  },
+  { key: 'packaging', label: 'PACKAGING',    cats: new Set(['Packaging','Primary Packaging']),                             defaultOn: false },
+  { key: 'para',      label: 'PARA',         cats: new Set(['Para']),                                                      defaultOn: false },
+  { key: 'other',     label: 'OTHER',        cats: null,                                                                   defaultOn: true  },
+];
+
+function initCKDSelector() {
+  ckdProductQueue   = [];
+  ckdExplosionResult = null;
+  const expEl = document.getElementById('po-ckd-explosion');
+  if (expEl) expEl.style.display = 'none';
+  // Populate product dropdown — exclude FBU-only products
+  const sel = document.getElementById('po-ckd-product-sel');
+  if (sel) {
+    const products = Object.keys(PRODUCT_VARIANTS).filter(p => !CKD_EXCLUDED_PRODUCTS.has(p));
+    sel.innerHTML = '<option value="">Select product...</option>' +
+      products.map(p => `<option value="${p}">${p}</option>`).join('');
+  }
+  renderCKDQueue();
+}
+
+function addCKDProduct() {
+  const sel = document.getElementById('po-ckd-product-sel');
+  const product = sel?.value;
+  if (!product) { toast('Select a product first', 'error'); return; }
+  if (ckdProductQueue.includes(product)) { toast(product + ' already added', 'info'); return; }
+  ckdProductQueue.push(product);
+  ckdExplosionResult = null;
+  const expEl = document.getElementById('po-ckd-explosion');
+  if (expEl) expEl.style.display = 'none';
+  if (sel) sel.value = '';
+  renderCKDQueue();
+}
+
+function removeCKDProduct(product) {
+  ckdProductQueue = ckdProductQueue.filter(p => p !== product);
+  ckdExplosionResult = null;
+  const expEl = document.getElementById('po-ckd-explosion');
+  if (expEl) expEl.style.display = 'none';
+  renderCKDQueue();
+}
+
+function renderCKDQueue() {
+  const container = document.getElementById('po-ckd-queue');
+  if (!container) return;
+  const explodeWrap = document.getElementById('po-ckd-explode-btn-wrap');
+  if (!ckdProductQueue.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3)">No products added yet.</div>';
+    if (explodeWrap) explodeWrap.style.display = 'none';
+    return;
+  }
+  if (explodeWrap) explodeWrap.style.display = '';
+  container.innerHTML = ckdProductQueue.map(product => {
+    const variants    = PRODUCT_VARIANTS[product]    || [];
+    const subvariants = PRODUCT_SUBVARIANTS[product] || {};
+    const hasRemote   = !!(productMetaCache[product]?.has_remote) || HAS_REMOTE.has(product);
+    let rows = '';
+    if (!variants.length) {
+      rows = `<div style="font-size:11px;color:var(--text3);padding:4px 0">No variants configured.</div>`;
+    } else {
+      variants.forEach(v => {
+        const colors = subvariants[v] || [];
+        if (colors.length) {
+          colors.forEach(c => rows += ckdVariantRow(product, v, c, v + ' ' + c, hasRemote));
+        } else {
+          rows += ckdVariantRow(product, v, '', v, hasRemote);
+        }
+      });
+    }
+    const remoteHdr = hasRemote
+      ? `<div style="font-family:var(--mono);font-size:9px;color:#7b93ff;text-align:right;letter-spacing:.06em">REMOTES</div>`
+      : `<div></div>`;
+    const cols = hasRemote ? '180px 100px 100px' : '180px 100px';
+    return `
+      <div class="po-ckd-block" data-product="${product}" style="margin-bottom:12px;border:1px solid var(--border);border-radius:3px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--bg3);border-bottom:1px solid var(--border)">
+          <div style="font-family:var(--cond);font-weight:700;font-size:13px;letter-spacing:.08em">${product.toUpperCase()}</div>
+          <button onclick="removeCKDProduct('${product}')" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;padding:0 4px">×</button>
+        </div>
+        <div style="padding:10px 12px">
+          <div style="display:grid;grid-template-columns:${cols};gap:8px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border)">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em">VARIANT</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:right;letter-spacing:.06em">CARS</div>
+            ${remoteHdr}
+          </div>
+          ${rows}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function ckdVariantRow(product, variant, colour, label, hasRemote) {
+  const colAttr = colour ? ` data-colour="${colour}"` : '';
+  const cols    = hasRemote ? '180px 100px 100px' : '180px 100px';
+  const remoteCell = hasRemote
+    ? `<input type="number" value="" placeholder="0" min="0"
+             data-product="${product}" data-variant="${variant}"${colAttr} data-component="remote"
+             class="form-input ckd-qty-input ckd-remote-input" style="font-size:12px;text-align:right;padding:5px 8px;background:rgba(33,60,226,.06)">`
+    : '';
+  return `
+    <div style="display:grid;grid-template-columns:${cols};gap:8px;align-items:center;margin-bottom:4px">
+      <div style="font-size:12px;color:var(--text2);padding-left:4px">${label}</div>
+      <input type="number" value="" placeholder="0" min="0"
+             data-product="${product}" data-variant="${variant}"${colAttr} data-component="car"
+             class="form-input ckd-qty-input" style="font-size:12px;text-align:right;padding:5px 8px"
+             oninput="syncCKDRemote(this)">
+      ${remoteCell}
+    </div>`;
+}
+
+function syncCKDRemote(carInput) {
+  const row = carInput.closest('div[style*="grid-template-columns"]');
+  if (!row) return;
+  const remoteInput = row.querySelector('.ckd-remote-input');
+  if (remoteInput && !remoteInput.dataset.edited) remoteInput.value = carInput.value;
+}
+
+async function explodeCKDBOM() {
+  const inputs = document.querySelectorAll('.ckd-qty-input');
+  const carByVariant   = {}; // "product|variant|colour" → qty
+  const remoteByProduct = {}; // product → total remote qty
+  let hasAny = false;
+  inputs.forEach(inp => {
+    const qty = parseInt(inp.value) || 0;
+    if (qty <= 0) return;
+    hasAny = true;
+    const product = inp.dataset.product;
+    const variant = inp.dataset.variant || '';
+    const colour  = inp.dataset.colour  || '';
+    const comp    = inp.dataset.component;
+    if (comp === 'remote') {
+      remoteByProduct[product] = (remoteByProduct[product] || 0) + qty;
+    } else {
+      const key = [product, variant, colour].join('|');
+      carByVariant[key] = (carByVariant[key] || 0) + qty;
+    }
+  });
+  if (!hasAny) { toast('Enter at least one quantity', 'error'); return; }
+
+  const btn = document.getElementById('po-ckd-explode-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Exploding...'; }
+
+  try {
+    const partsMap = {}; // part_code → { part_code, part_name, category, qty }
+
+    // Car calls — all categories except Remote
+    for (const [key, qty] of Object.entries(carByVariant)) {
+      const [product, variant, colour] = key.split('|');
+      const res = await api('calcKit', { product, variant, colour, qty });
+      if (!res.ok) { toast(`BOM fetch failed for ${product} ${variant} ${colour}`, 'error'); return; }
+      (res.data.kit || []).forEach(p => {
+        if (p.category === 'Remote') return;
+        const ex = partsMap[p.part_code];
+        if (ex) { ex.qty += p.total_qty; }
+        else    { partsMap[p.part_code] = { part_code: p.part_code, part_name: p.part_name, category: p.category, qty: p.total_qty }; }
+      });
+    }
+
+    // Remote calls — only Remote category, product-level
+    for (const [product, totalQty] of Object.entries(remoteByProduct)) {
+      if (totalQty <= 0) continue;
+      const res = await api('calcKit', { product, variant: '', colour: '', qty: totalQty });
+      if (!res.ok) { toast(`Remote BOM fetch failed for ${product}`, 'error'); return; }
+      (res.data.kit || []).forEach(p => {
+        if (p.category !== 'Remote') return;
+        const ex = partsMap[p.part_code];
+        if (ex) { ex.qty += p.total_qty; }
+        else    { partsMap[p.part_code] = { part_code: p.part_code, part_name: p.part_name, category: p.category, qty: p.total_qty }; }
+      });
+    }
+
+    // Build summary
+    const summaryByProduct = {};
+    inputs.forEach(inp => {
+      const qty = parseInt(inp.value) || 0;
+      if (qty <= 0) return;
+      const product = inp.dataset.product;
+      const variant = inp.dataset.variant || '';
+      const colour  = inp.dataset.colour  || '';
+      const comp    = inp.dataset.component;
+      if (!summaryByProduct[product]) summaryByProduct[product] = { cars: [], totalCars: 0, totalRemotes: 0 };
+      if (comp === 'remote') {
+        summaryByProduct[product].totalRemotes += qty;
+      } else {
+        const lbl = [variant, colour].filter(Boolean).join(' ');
+        summaryByProduct[product].cars.push({ label: lbl, qty });
+        summaryByProduct[product].totalCars += qty;
+      }
+    });
+
+    // Group parts
+    const grouped = {};
+    CKD_DISPLAY_GROUPS.forEach(g => { grouped[g.key] = []; });
+    Object.values(partsMap).forEach(p => {
+      let placed = false;
+      for (const g of CKD_DISPLAY_GROUPS) {
+        if (g.cats && g.cats.has(p.category)) {
+          grouped[g.key].push({ ...p, checked: g.defaultOn });
+          placed = true; break;
+        }
+      }
+      if (!placed) grouped['other'].push({ ...p, checked: true });
+    });
+
+    ckdExplosionResult = { summaryByProduct, grouped };
+    renderCKDExplosion();
+  } catch(e) {
+    toast('Explosion failed: ' + (e.message || e), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'EXPLODE BOM →'; }
+  }
+}
+
+function renderCKDExplosion() {
+  if (!ckdExplosionResult) return;
+  const { summaryByProduct, grouped } = ckdExplosionResult;
+  const expEl = document.getElementById('po-ckd-explosion');
+  if (expEl) expEl.style.display = '';
+
+  // Summary bar
+  let totalCars = 0, totalRemotes = 0;
+  const productSummaries = Object.entries(summaryByProduct).map(([product, d]) => {
+    totalCars    += d.totalCars;
+    totalRemotes += d.totalRemotes;
+    const varStr = d.cars.map(c => (c.label ? c.label + ' ' : '') + '×' + c.qty).join(', ');
+    const remStr = d.totalRemotes > 0 ? ` · ${d.totalRemotes} remotes` : '';
+    return `<span style="color:var(--text2);font-size:11px"><span style="color:var(--text);font-weight:600">${product}</span> (${varStr})${remStr}</span>`;
+  });
+
+  const summaryEl = document.getElementById('po-ckd-summary');
+  if (summaryEl) summaryEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;gap:16px;flex-shrink:0">
+        <span style="font-family:var(--mono);font-size:12px;color:var(--yellow)">${totalCars.toLocaleString()} cars</span>
+        ${totalRemotes > 0 ? `<span style="font-family:var(--mono);font-size:12px;color:#7b93ff">${totalRemotes.toLocaleString()} remotes</span>` : ''}
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;flex:1">${productSummaries.join('<span style="color:var(--border)"> · </span>')}</div>
+      <button onclick="resetCKDExplosion()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);border-radius:2px;color:var(--text3);padding:3px 10px;cursor:pointer;letter-spacing:.05em;flex-shrink:0">← RE-SELECT</button>
+    </div>`;
+
+  // BOM groups
+  const groupsEl = document.getElementById('po-ckd-bom-groups');
+  if (!groupsEl) return;
+  groupsEl.innerHTML = CKD_DISPLAY_GROUPS.map(g => {
+    const lines = grouped[g.key] || [];
+    if (!lines.length) return '';
+    const isOn = g.defaultOn;
+    return `
+      <div class="ckd-group" data-group="${g.key}" style="border:1px solid var(--border);border-radius:3px;margin-bottom:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg3);cursor:pointer" onclick="toggleCKDGroup('${g.key}')">
+          <input type="checkbox" class="ckd-group-cb" data-group="${g.key}" ${isOn ? 'checked' : ''}
+                 style="accent-color:var(--yellow);flex-shrink:0" onclick="event.stopPropagation();toggleCKDGroup('${g.key}')">
+          <span style="font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.08em;flex:1">${g.label}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${lines.length} parts</span>
+          <span class="ckd-group-chevron" data-group="${g.key}" style="font-size:10px;color:var(--text3);margin-left:4px">${isOn ? '▼' : '▶'}</span>
+        </div>
+        <div class="ckd-group-body" data-group="${g.key}" style="${isOn ? '' : 'display:none'}">
+          <table style="width:100%;font-size:11px">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="padding:5px 12px;text-align:left;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.06em">PART CODE</th>
+                <th style="padding:5px 12px;text-align:left;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.06em">PART NAME</th>
+                <th style="padding:5px 12px;text-align:right;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.06em">QTY</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lines.map((p, i) => `
+                <tr style="border-bottom:1px solid rgba(255,255,255,.03)">
+                  <td style="padding:5px 12px;font-family:var(--mono);font-size:10px;color:var(--yellow)">${p.part_code}</td>
+                  <td style="padding:5px 12px;font-size:11px;color:var(--text2)">${p.part_name}</td>
+                  <td style="padding:5px 12px;text-align:right">
+                    <input type="number" value="${p.qty}" min="0"
+                           class="ckd-exploded-qty" data-group="${g.key}" data-idx="${i}"
+                           style="width:80px;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:2px 6px;color:var(--text);font-family:var(--mono);font-size:11px;text-align:right">
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleCKDGroup(groupKey) {
+  if (!ckdExplosionResult) return;
+  const cb    = document.querySelector(`.ckd-group-cb[data-group="${groupKey}"]`);
+  const body  = document.querySelector(`.ckd-group-body[data-group="${groupKey}"]`);
+  const chevr = document.querySelector(`.ckd-group-chevron[data-group="${groupKey}"]`);
+  const isNowOn = cb ? cb.checked : false;
+  const { grouped } = ckdExplosionResult;
+  if (grouped[groupKey]) grouped[groupKey].forEach(p => p.checked = isNowOn);
+  if (body)  body.style.display  = isNowOn ? '' : 'none';
+  if (chevr) chevr.textContent   = isNowOn ? '▼' : '▶';
+}
+
+function resetCKDExplosion() {
+  ckdExplosionResult = null;
+  const expEl = document.getElementById('po-ckd-explosion');
+  if (expEl) expEl.style.display = 'none';
+}
+
+function getCKDLines() {
+  if (!ckdExplosionResult) return [];
+  const { grouped } = ckdExplosionResult;
+  const catMap = {
+    'Car':'Part','Remote':'Part','Remote/Car':'Part','Accessories':'Other',
+    'Fastener':'Part','Battery':'Part','RC Battery':'Part','Charger Cable':'Part',
+    'Sticker':'Other','Packaging':'Ecom Packaging','Primary Packaging':'Ecom Packaging',
+    'Para':'Comic',
+  };
+  const lines = [];
+  CKD_DISPLAY_GROUPS.forEach(g => {
+    const parts = grouped[g.key] || [];
+    parts.forEach((p, i) => {
+      if (!p.checked) return;
+      const input = document.querySelector(`.ckd-exploded-qty[data-group="${g.key}"][data-idx="${i}"]`);
+      const qty   = input ? (parseInt(input.value) || 0) : p.qty;
+      if (qty <= 0) return;
+      lines.push({
+        part_code:      p.part_code,
+        description:    p.part_name,
+        item_type:      catMap[p.category] || 'Part',
+        qty_ordered:    qty,
+        unit:           'pcs',
+        unit_price:     null,
+        receive_format: 'CKD',
+      });
+    });
+  });
+  return lines;
+}
+
 function addUnitsToQueue() {
   const inputs = document.querySelectorAll('.po-units-qty');
   let carAdded = 0;
@@ -10071,7 +10476,12 @@ async function submitNewPO() {
   if (!vendor)    { toast('Enter vendor name', 'error'); return; }
 
   const lines = [];
-  if (currentPOLineMode === 'units') {
+  if (currentPOLineMode === 'ckd-units') {
+    if (!ckdExplosionResult) { toast('Explode BOM before submitting', 'error'); return; }
+    const ckdLines = getCKDLines();
+    if (!ckdLines.length) { toast('No parts selected — check at least one group', 'error'); return; }
+    lines.push(...ckdLines);
+  } else if (currentPOLineMode === 'units') {
     if (!poUnitsLines.length) { toast('Add at least one line to the order', 'error'); return; }
     // CKD lines: explode BOM. FBU lines: keep as unit line.
     for (const l of poUnitsLines) {
