@@ -3138,10 +3138,30 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
         <!-- ── Form Content (shown after category selected) ── -->
         <div id="po-form-content" style="display:none">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <button class="btn btn-secondary" onclick="resetPOCategory()" style="padding:4px 12px">← Categories</button>
-          <div style="font-family:var(--cond);font-weight:700;font-size:20px">NEW PURCHASE ORDER</div>
+        <!-- PO breadcrumb header -->
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="resetPOCategory()" style="padding:4px 12px;font-size:11px;font-family:var(--mono);letter-spacing:.05em">← CATEGORIES</button>
+          <div style="width:1px;height:18px;background:var(--border);flex-shrink:0"></div>
+          <div style="font-family:var(--cond);font-weight:700;font-size:17px;letter-spacing:.04em">NEW PURCHASE ORDER</div>
           <span id="po-category-badge" style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;background:rgba(33,60,226,.15);color:#7b93ff;border:1px solid rgba(33,60,226,.3)"></span>
+        </div>
+
+        <!-- ── Product Selector top (units/FBU mode only) ── -->
+        <div id="po-product-selector-top" style="display:none">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-header"><div class="panel-title">SELECT PRODUCT</div></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+                <div class="form-group" style="flex:0 0 280px;margin-bottom:0">
+                  <label class="form-label">Product</label>
+                  <select class="form-select" id="po-units-product" onchange="onPOProductChange()">
+                    <option value="">Select product...</option>
+                  </select>
+                </div>
+                <span id="po-units-format-badge" style="display:none;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:3px;margin-bottom:1px"></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- PO Header — split left (auto) / right (user fills) -->
@@ -3201,7 +3221,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </div>
 
             <!-- User fills — always visible, this is the primary form -->
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px">
+            <input type="hidden" id="po-delivery">
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
               <div class="form-group">
                 <label class="form-label">Vendor <span style="color:var(--red)">*</span></label>
                 <input class="form-input" id="po-vendor" placeholder="Type to search vendors..."
@@ -3217,10 +3238,6 @@ tr:hover td { background:rgba(255,255,255,.02); }
                   <option>Advance</option><option>Credit 30</option>
                   <option>Credit 60</option><option>LC</option><option>TT</option>
                 </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Expected Delivery</label>
-                <input class="form-input" type="date" id="po-delivery" oninput="calcLeadTime()">
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
@@ -3322,20 +3339,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div id="po-units-selector" style="display:none">
             <div style="padding:16px;border-bottom:1px solid var(--border)">
 
-              <!-- Step 1: Pick product -->
-              <div style="margin-bottom:16px">
-                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase">Step 1 — Select product</div>
-                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                  <select class="form-select" id="po-units-product" onchange="onPOProductChange()" style="max-width:260px">
-                    <option value="">Select product...</option>
-                  </select>
-                  <span id="po-units-format-badge" style="display:none;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:3px"></span>
-                </div>
-              </div>
-
-              <!-- Step 2: Variant/color + quantities (shown after product selected) -->
+              <!-- Quantities (shown after product selected at top) -->
               <div id="po-units-grid-wrap" style="display:none">
-                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase">Step 2 — Enter quantities</div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:8px;text-transform:uppercase">Enter quantities per variant</div>
                 <div id="po-units-grid" style="margin-bottom:12px"></div>
                 <button class="btn btn-primary" onclick="addUnitsToQueue()" style="padding:6px 18px;font-size:11px">+ ADD TO ORDER</button>
               </div>
@@ -9297,6 +9303,9 @@ async function selectPOCategory(cat) {
   // Hide mode buttons
   const modeBtns = document.getElementById('po-mode-buttons');
   if (modeBtns) modeBtns.style.display = 'none';
+  // Show product selector at top for units (FBU) mode
+  const prodSelectorTop = document.getElementById('po-product-selector-top');
+  if (prodSelectorTop) prodSelectorTop.style.display = cfg.mode === 'units' ? '' : 'none';
   setPOLineMode(cfg.mode);
   // Load caches
   await Promise.all([ensureProductMetaCache(), ensureVendorCache(), ensureReceiveFormatCache()]);
@@ -9308,6 +9317,8 @@ function resetPOCategory() {
   document.getElementById('po-form-content').style.display    = 'none';
   const modeBtns = document.getElementById('po-mode-buttons');
   if (modeBtns) modeBtns.style.display = '';
+  const prodSelectorTop = document.getElementById('po-product-selector-top');
+  if (prodSelectorTop) prodSelectorTop.style.display = 'none';
 }
 
 async function onPOProductChange() {
