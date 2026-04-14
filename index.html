@@ -1788,36 +1788,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
         </div>
 
-        <!-- GRN Detail Modal -->
-        <div id="grn-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;overflow-y:auto" onclick="if(event.target===this)closeGRNDetail()">
-          <div style="max-width:860px;margin:40px auto;background:var(--bg2);border:1px solid var(--border);border-radius:4px;overflow:hidden">
-            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
-              <div style="font-family:var(--cond);font-weight:700;font-size:18px;letter-spacing:.04em" id="grn-detail-title">GRN</div>
-              <span id="grn-detail-meta" style="font-size:11px;color:var(--text3)"></span>
-              <button onclick="closeGRNDetail()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);padding:3px 10px;font-family:var(--mono);font-size:10px;cursor:pointer">✕ CLOSE</button>
-            </div>
-            <div style="padding:16px 20px">
-              <div id="grn-detail-summary" style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:3px"></div>
-              <div class="tbl-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Part Code</th>
-                      <th>Part Name</th>
-                      <th>Product</th>
-                      <th style="text-align:right">Ordered</th>
-                      <th style="text-align:right;color:var(--green)">Received</th>
-                      <th style="text-align:right;color:var(--red)">Rejected</th>
-                      <th>Inspection</th>
-                      <th>PO Ref</th>
-                    </tr>
-                  </thead>
-                  <tbody id="grn-detail-lines"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- GRN Detail Modal — moved to app root -->
 
         <!-- Bags Panel -->
         <div class="panel" id="bags-panel" style="display:none;margin-top:16px">
@@ -4735,6 +4706,37 @@ tr:hover td { background:rgba(255,255,255,.02); }
     </div>
   </div>
 </div>
+
+  <!-- GRN Detail Modal — global, accessible from any view -->
+  <div id="grn-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;overflow-y:auto" onclick="if(event.target===this)closeGRNDetail()">
+    <div style="max-width:860px;margin:40px auto;background:var(--bg2);border:1px solid var(--border);border-radius:4px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+        <div style="font-family:var(--cond);font-weight:700;font-size:18px;letter-spacing:.04em" id="grn-detail-title">GRN</div>
+        <span id="grn-detail-meta" style="font-size:11px;color:var(--text3)"></span>
+        <button onclick="closeGRNDetail()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);padding:3px 10px;font-family:var(--mono);font-size:10px;cursor:pointer">✕ CLOSE</button>
+      </div>
+      <div style="padding:16px 20px">
+        <div id="grn-detail-summary" style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:3px"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part Code</th>
+                <th>Part Name</th>
+                <th>Product</th>
+                <th style="text-align:right">Ordered</th>
+                <th style="text-align:right;color:var(--green)">Received</th>
+                <th style="text-align:right;color:var(--red)">Rejected</th>
+                <th>Inspection</th>
+                <th>PO Ref</th>
+              </tr>
+            </thead>
+            <tbody id="grn-detail-lines"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div><!-- /app -->
 
