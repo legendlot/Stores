@@ -8481,7 +8481,7 @@ async function generateAllBags() {
   const btn = document.getElementById('gen-all-bags-btn');
   const orig = btn.textContent; btn.textContent = 'Generating...'; btn.disabled = true;
   try {
-    const res = await apiPost('generateBagsForShipment', { data: { shipment_id: currentShipmentData.shipment_id } });
+    const res = await apiPost('generateBagsForShipment', { data: { shipment_id: currentShipmentData.shipment.shipment_id } });
     if (!res.ok) { toast(res.error || 'Failed to generate bags', 'error'); return; }
     const { bags_created } = res.data;
     // Refresh bag counts for all lines
