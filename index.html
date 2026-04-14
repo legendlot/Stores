@@ -6104,18 +6104,17 @@ async function submitGRN() {
 
 async function loadGRNHistory() {
   try {
-    // Use GRN summary endpoint — groups server-side, no row limit issue
     const res = await api('getGRNSummary');
     if (!res.ok) return;
     const tbody = document.getElementById('grn-history');
     const grns  = res.data || [];
     tbody.innerHTML = grns.length
-      ? grns.map(r => `<tr>
-          <td class="mono">${r.grn_no||''}</td>
+      ? grns.map(r => `<tr style="cursor:pointer" onclick="openGRNDetail('${r.grn_no}')">
+          <td class="mono" style="color:var(--yellow)">${r.grn_no||''}</td>
           <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
-          <td>${r.supplier||''}</td>
-          <td class="mono" style="font-size:11px">${r.product||''}</td>
-          <td class="mono">${r.lines} lines · ${r.total_qty||0} pcs</td>
+          <td style="font-size:11px">${r.supplier||'—'}</td>
+          <td style="font-size:11px">${r.product||'—'}</td>
+          <td class="mono">${r.lines} lines · ${(r.total_qty||0).toLocaleString()} pcs</td>
           <td><span class="badge ${r.has_fail?'badge-red':'badge-green'}" style="font-size:9px">${r.has_fail?'ISSUES':'DONE'}</span></td>
         </tr>`).join('')
       : '<tr><td colspan="6" class="empty">No GRNs yet</td></tr>';
