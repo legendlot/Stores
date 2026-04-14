@@ -1751,8 +1751,9 @@ tr:hover td { background:rgba(255,255,255,.02); }
             <div class="panel-title">RECONCILIATION</div>
             <div style="display:flex;gap:8px;align-items:center">
               <span id="reconciliation-toggle-icon" style="font-size:11px;color:var(--text3)">▶ SHOW</span>
-              <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="event.stopPropagation();printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT LABELS</button>
-              <button class="btn btn-primary"   id="raise-grn-btn" onclick="event.stopPropagation();raiseGRNFromCounted()" style="padding:2px 10px;font-size:10px;display:none">RAISE GRN</button>
+              <button class="btn btn-secondary" id="gen-all-bags-btn"       onclick="event.stopPropagation();generateAllBags()"       style="padding:2px 10px;font-size:10px;display:none">⬡ GEN ALL BAGS</button>
+              <button class="btn btn-secondary" id="print-all-shipment-btn" onclick="event.stopPropagation();printAllShipmentLabels()" style="padding:2px 10px;font-size:10px;display:none">🖨 PRINT ALL</button>
+              <button class="btn btn-primary"   id="raise-grn-btn"          onclick="event.stopPropagation();raiseGRNFromCounted()"    style="padding:2px 10px;font-size:10px;display:none">RAISE GRN</button>
             </div>
           </div>
           <div id="reconciliation-body" style="display:none">
@@ -1767,6 +1768,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
                     <th style="text-align:right">Total</th>
                     <th style="text-align:right">Short / Over</th>
                     <th>GRN</th><th>Status</th>
+                    <th id="reconciliation-bags-th" style="display:none;text-align:center;min-width:220px">Bags</th>
                   </tr>
                 </thead>
                 <tbody id="lines-list"></tbody>
@@ -8346,15 +8348,22 @@ function renderShipmentDetail(data) {
 
   const hasQty = lines.some(l => (parseInt(l.qty_counted)||0) > 0 && !l.grn_no);
   document.getElementById('raise-grn-btn').style.display = hasQty ? '' : 'none';
-  document.getElementById('print-all-shipment-btn').style.display =
-    (!isFbuShipment && lines.some(l => l.status==='Counted'||l.status==='GRN Raised')) ? '' : 'none';
+  const showBagBtns = !isFbuShipment && lines.some(l => l.status==='Counted'||l.status==='GRN Raised');
+  document.getElementById('gen-all-bags-btn').style.display       = showBagBtns ? '' : 'none';
+  document.getElementById('print-all-shipment-btn').style.display = showBagBtns ? '' : 'none';
+  const bagsTh = document.getElementById('reconciliation-bags-th');
+  if (bagsTh) bagsTh.style.display = showBagBtns ? '' : 'none';
 }
 
+// bag counts cache: line_id → { count, total_bags } — refreshed on demand
+let bagCountCache = {};
+
 function renderReconciliation(data) {
-  const { marks, lines } = data;
+  const { lines } = data;
   const lt = document.getElementById('lines-list');
+  const colSpan = isFbuShipment ? 8 : 9;
   if (!lines.length) {
-    lt.innerHTML = '<tr><td colspan="8" class="empty">No expected items — link a PO when creating shipment</td></tr>';
+    lt.innerHTML = `<tr><td colspan="${colSpan}" class="empty">No expected items — link a PO when creating shipment</td></tr>`;
     return;
   }
   lt.innerHTML = lines.map(l => {
@@ -8368,15 +8377,15 @@ function renderReconciliation(data) {
 
     const skuLabel = isFbuShipment
       ? [l.product, l.variant, l.color].filter(Boolean).join(' ')
-      : (l.part_code ? '<span class="mono" style="font-size:10px;color:var(--yellow)">'+l.part_code+'</span> '+( l.part_name||'') : l.part_name||'—');
+      : (l.part_code ? '<span class="mono" style="font-size:10px;color:var(--yellow)">'+l.part_code+'</span> '+(l.part_name||'') : l.part_name||'—');
 
     let statusBadge, statusClass;
-    if (l.grn_no)          { statusBadge='GRN Raised';  statusClass='badge-green'; }
-    else if (totalCounted===0) { statusBadge='Pending';  statusClass='badge-gray'; }
-    else if (short>0)      { statusBadge='Short';        statusClass='badge-red'; }
-    else if (over>0)       { statusBadge='Over';         statusClass='badge-orange'; }
-    else if (damagedQty>0) { statusBadge='Has Damage';   statusClass='badge-orange'; }
-    else                   { statusBadge='Matched';      statusClass='badge-green'; }
+    if (l.grn_no)              { statusBadge='GRN Raised'; statusClass='badge-green'; }
+    else if (totalCounted===0) { statusBadge='Pending';    statusClass='badge-gray'; }
+    else if (short>0)          { statusBadge='Short';      statusClass='badge-red'; }
+    else if (over>0)           { statusBadge='Over';       statusClass='badge-orange'; }
+    else if (damagedQty>0)     { statusBadge='Has Damage'; statusClass='badge-orange'; }
+    else                       { statusBadge='Matched';    statusClass='badge-green'; }
 
     const variance = short>0 ? '<span style="color:var(--red)">-'+short+'</span>'
                    : over>0  ? '<span style="color:var(--yellow)">+'+over+'</span>'
@@ -8385,17 +8394,128 @@ function renderReconciliation(data) {
     const unexpectedTag = l.line_type==='unexpected'
       ? ' <span class="badge badge-orange" style="font-size:8px">UNEXPECTED</span>' : '';
 
-    return '<tr>'
-      +'<td style="font-size:11px">'+skuLabel+unexpectedTag+'</td>'
-      +'<td class="mono" style="text-align:right;color:var(--text3)">'+(expected||'—')+'</td>'
-      +'<td class="mono" style="text-align:right;color:var(--green)">'+okQty+'</td>'
-      +'<td class="mono" style="text-align:right;color:'+(damagedQty>0?'var(--red)':'var(--text3)')+'">'+damagedQty+'</td>'
-      +'<td class="mono" style="text-align:right;font-weight:700">'+totalCounted+'</td>'
-      +'<td class="mono" style="text-align:right">'+variance+'</td>'
-      +'<td class="mono" style="font-size:10px;color:var(--green)">'+(l.grn_no||'')+'</td>'
-      +'<td><span class="badge '+statusClass+'" style="font-size:9px">'+statusBadge+'</span></td>'
-      +'</tr>';
+    // Bags column — only for parts shipments
+    let bagsCell = '';
+    if (!isFbuShipment && totalCounted > 0) {
+      const bagsOf    = l.bags_of || 25;
+      const bagInfo   = bagCountCache[l.line_id];
+      const genCount  = bagInfo ? bagInfo.total_bags : '—';
+      const expBags   = Math.ceil(totalCounted / bagsOf);
+      bagsCell = `<td style="display:none" class="rcv-bags-cell" data-line-id="${l.line_id}" style="text-align:center;padding:4px 8px">
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+          <input type="number" value="${bagsOf}" min="1"
+                 style="width:52px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;padding:2px 5px;font-family:var(--mono);font-size:10px;text-align:right;color:var(--text)"
+                 title="Bag size (pcs per bag)"
+                 onchange="updateLineBagSize('${l.line_id}', this.value, this)"
+                 onclick="event.stopPropagation()">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--text3)">/ bag</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--yellow);min-width:28px;text-align:right"
+                id="bags-count-${l.line_id}">${genCount === '—' ? expBags+' exp' : genCount+' gen'}</span>
+          <button onclick="event.stopPropagation();generateBagsForLine('${l.line_id}')"
+                  style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text2);font-size:9px;font-family:var(--mono);padding:2px 6px;cursor:pointer;white-space:nowrap"
+                  title="Generate bags for this line">GEN</button>
+          <button onclick="event.stopPropagation();printLineLabels('${l.line_id}')"
+                  style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text2);font-size:9px;font-family:var(--mono);padding:2px 6px;cursor:pointer"
+                  title="Print labels for this line">🖨</button>
+        </div>
+      </td>`;
+    } else if (!isFbuShipment) {
+      bagsCell = `<td class="rcv-bags-cell" style="display:none"></td>`;
+    }
+
+    return `<tr>
+      <td style="font-size:11px">${skuLabel}${unexpectedTag}</td>
+      <td class="mono" style="text-align:right;color:var(--text3)">${expected||'—'}</td>
+      <td class="mono" style="text-align:right;color:var(--green)">${okQty}</td>
+      <td class="mono" style="text-align:right;color:${damagedQty>0?'var(--red)':'var(--text3)'}">${damagedQty}</td>
+      <td class="mono" style="text-align:right;font-weight:700">${totalCounted}</td>
+      <td class="mono" style="text-align:right">${variance}</td>
+      <td class="mono" style="font-size:10px;color:var(--green)">${l.grn_no||''}</td>
+      <td><span class="badge ${statusClass}" style="font-size:9px">${statusBadge}</span></td>
+      ${bagsCell}
+    </tr>`;
   }).join('');
+
+  // Show bag cells only for parts shipments
+  if (!isFbuShipment) {
+    document.querySelectorAll('.rcv-bags-cell').forEach(td => td.style.display = '');
+    const bagsTh = document.getElementById('reconciliation-bags-th');
+    if (bagsTh) bagsTh.style.display = '';
+  }
+}
+
+async function updateLineBagSize(lineId, newSize, inputEl) {
+  const size = parseInt(newSize);
+  if (!size || size < 1) { toast('Bag size must be at least 1', 'error'); return; }
+  try {
+    const res = await apiPost('updateLineBagSize', { data: { line_id: lineId, bags_of: size } });
+    if (!res.ok) { toast('Failed to update bag size', 'error'); return; }
+    toast('Bag size updated — applies to new bags only', 'info');
+    // Refresh expected bag count display
+    const line = currentShipmentData?.lines?.find(l => l.line_id === lineId);
+    if (line) {
+      const counted = line.qty_counted || 0;
+      const expBags = Math.ceil(counted / size);
+      const bagInfo = bagCountCache[lineId];
+      const countEl = document.getElementById('bags-count-' + lineId);
+      if (countEl) countEl.textContent = bagInfo ? bagInfo.total_bags + ' gen' : expBags + ' exp';
+    }
+  } catch(e) { toast('Error updating bag size', 'error'); }
+}
+
+async function generateBagsForLine(lineId) {
+  try {
+    const res = await apiPost('generateBags', { data: { line_id: lineId } });
+    if (!res.ok) { toast(res.error || 'Failed to generate bags', 'error'); return; }
+    const { bags_created, total_bags, already_complete } = res.data;
+    if (already_complete) { toast('All bags already generated for this line', 'info'); return; }
+    bagCountCache[lineId] = { total_bags };
+    const countEl = document.getElementById('bags-count-' + lineId);
+    if (countEl) countEl.textContent = total_bags + ' gen';
+    toast(`${bags_created} bag${bags_created !== 1 ? 's' : ''} generated`, 'success');
+  } catch(e) { toast('Error generating bags', 'error'); }
+}
+
+async function generateAllBags() {
+  if (!currentShipmentData) return;
+  const btn = document.getElementById('gen-all-bags-btn');
+  const orig = btn.textContent; btn.textContent = 'Generating...'; btn.disabled = true;
+  try {
+    const res = await apiPost('generateBagsForShipment', { data: { shipment_id: currentShipmentData.shipment_id } });
+    if (!res.ok) { toast(res.error || 'Failed to generate bags', 'error'); return; }
+    const { bags_created } = res.data;
+    // Refresh bag counts for all lines
+    await refreshBagCounts();
+    toast(bags_created > 0 ? `${bags_created} bags generated` : 'All bags already up to date', bags_created > 0 ? 'success' : 'info');
+  } catch(e) { toast('Error generating bags', 'error'); }
+  finally { btn.textContent = orig; btn.disabled = false; }
+}
+
+async function refreshBagCounts() {
+  if (!currentShipmentData) return;
+  const lines = (currentShipmentData.lines || []).filter(l => !isFbuShipment && (l.qty_counted || 0) > 0);
+  await Promise.all(lines.map(async l => {
+    try {
+      const r = await api('getBags', { line_id: l.line_id });
+      if (r.ok && r.data.length) {
+        const total = r.data[r.data.length - 1]?.total_bags || r.data.length;
+        bagCountCache[l.line_id] = { total_bags: total };
+        const countEl = document.getElementById('bags-count-' + l.line_id);
+        if (countEl) countEl.textContent = total + ' gen';
+      }
+    } catch(e) {}
+  }));
+}
+
+async function printLineLabels(lineId) {
+  try {
+    const r = await api('getBags', { line_id: lineId });
+    if (!r.ok || !r.data.length) {
+      toast('No bags generated yet — click GEN first', 'error');
+      return;
+    }
+    openLabelPrintWindow(r.data, currentShipmentData?.shipment?.shipment_id);
+  } catch(e) { toast('Error loading bags', 'error'); }
 }
 
 function toggleBoxContents() {
@@ -8691,17 +8811,20 @@ async function printAllShipmentLabels() {
   );
   if (!countedLines.length) { toast('No counted lines to print', 'error'); return; }
   const btn = document.getElementById('print-all-shipment-btn');
-  const origText = btn.textContent; btn.textContent = 'Loading...'; btn.disabled = true;
+  const orig = btn.textContent; btn.textContent = 'Loading...'; btn.disabled = true;
   try {
     const allBagArrays = await Promise.all(
       countedLines.map(l => api('getBags', { line_id: l.line_id })
         .then(r => r.ok ? r.data || [] : []).catch(() => []))
     );
     const allBags = allBagArrays.flat();
-    if (!allBags.length) { toast('No bags generated yet', 'error'); return; }
-    openLabelPrintWindow(allBags);
+    if (!allBags.length) {
+      toast('No bags generated yet — click GEN ALL first', 'error');
+      return;
+    }
+    openLabelPrintWindow(allBags, currentShipmentData?.shipment?.shipment_id);
   } catch(e) { toast('Error loading bags', 'error'); }
-  finally { btn.textContent = origText; btn.disabled = false; }
+  finally { btn.textContent = orig; btn.disabled = false; }
 }
 
 function printBagLabels() {
@@ -8718,56 +8841,66 @@ function printBagLabels() {
   openLabelPrintWindow(bags);
 }
 
-function openLabelPrintWindow(bags) {
+function openLabelPrintWindow(bags, shipmentId) {
+  const shipRef = shipmentId || '—';
   const labelHTML = bags.map(b => {
     const qrData = encodeURIComponent(b.bag_id || '');
-    const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&margin=2&data=${qrData}`;
+    const qrUrl  = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&margin=2&data=${qrData}`;
     return '<div class="label">'
-      // Header: LOT + part code
-      +'<div class="lh"><span class="lp">LOT</span><span class="lc">'+(b.part_code||'')+'</span></div>'
-      // Body: left side (name + qty + bag info) | right side (QR)
+      // Header: LOT logo + part code
+      +'<div class="lh">'
+        +'<span class="lp">LOT</span>'
+        +'<span class="lc">'+(b.part_code||'')+'</span>'
+        +'<span class="ls">'+shipRef+'</span>'
+      +'</div>'
+      // Body: left (name + qty + bag info) | right (QR)
       +'<div class="lb">'
         +'<div class="ll">'
           +'<div class="ln">'+(b.part_name||b.name||'')+'</div>'
-          +'<div class="lr">'
-            +'<div><span class="lqn">'+(b.qty||0)+'</span><span class="lqu">pcs</span></div>'
-            +'<div class="lm">'
-              +'<div>Bag '+(b.bag_seq||'')+(b.total_bags?' of '+b.total_bags:'')+'</div>'
-              +((b.mark_code&&b.mark_code!=='—')?'<div class="lsub">'+b.mark_code+'</div>':'')
-              +((b.bin_code&&b.bin_code!=='—')?'<div class="lsub">'+b.bin_code+'</div>':'')
-            +'</div>'
+          +'<div class="lqr">'
+            +'<span class="lqn">'+(b.qty||0)+'</span>'
+            +'<span class="lqu"> pcs</span>'
+          +'</div>'
+          +'<div class="lm">'
+            +'<div>Bag '+(b.bag_seq||'')+(b.total_bags?' of '+b.total_bags:'')+'</div>'
+            +((b.mark_code&&b.mark_code!=='—')?' <div class="lsub">'+b.mark_code+'</div>':'')
+            +((b.bin_code&&b.bin_code!=='—')?' <div class="lsub">Bin: '+b.bin_code+'</div>':'')
           +'</div>'
         +'</div>'
-        +'<div class="lq"><img src="'+qrUrl+'" width="52" height="52" alt="QR"></div>'
+        +'<div class="lq"><img src="'+qrUrl+'" width="60" height="60" alt="QR"></div>'
       +'</div>'
-      // Footer: bag ID + date
-      +'<div class="lf"><span>'+(b.bag_id||'')+'</span><span>'+new Date().toLocaleDateString('en-IN')+'</span></div>'
+      // Footer: unique bag ID + date
+      +'<div class="lf">'
+        +'<span class="lid">'+(b.bag_id||'')+'</span>'
+        +'<span>'+new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})+'</span>'
+      +'</div>'
     +'</div>';
   }).join('');
 
-  const win = window.open('','_blank');
-  win.document.write('<!DOCTYPE html><html><head><title>Labels ('+bags.length+')</title><style>'
-    +'*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}'
-    +'.page{display:flex;flex-wrap:wrap;gap:4mm;padding:5mm}'
-    +'.label{width:110mm;height:52mm;border:1px solid #000;padding:3mm;display:flex;flex-direction:column;page-break-inside:avoid}'
-    +'.lh{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm}'
-    +'.lp{font-weight:900;font-size:14pt;letter-spacing:2px}'
-    +'.lc{font-family:monospace;font-size:11pt;font-weight:700}'
-    // Body row: left content + right QR
-    +'.lb{display:flex;justify-content:space-between;align-items:flex-start;flex:1;gap:2mm}'
-    +'.ll{display:flex;flex-direction:column;flex:1;min-width:0}'
-    +'.ln{font-size:9pt;font-weight:600;margin-bottom:2mm}'
-    +'.lr{display:flex;justify-content:space-between;align-items:center}'
-    +'.lqn{font-size:20pt;font-weight:900}.lqu{font-size:8pt;color:#666;margin-left:1mm}'
-    +'.lm{text-align:right;font-size:8pt;font-weight:600}'
-    +'.lsub{font-size:7pt;color:#666}'
-    // QR container
-    +'.lq{display:flex;align-items:center;justify-content:center;flex-shrink:0}'
-    +'.lq img{display:block;image-rendering:pixelated}'
-    +'.lf{display:flex;justify-content:space-between;border-top:1px solid #ccc;padding-top:1mm;font-size:7pt;color:#666;font-family:monospace;margin-top:2mm}'
-    +'@media print{@page{size:A4;margin:5mm}}'
-    +'</style></head><body><div class="page">'+labelHTML+'</div>'
-    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Bag Labels (${bags.length})</title><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;background:#fff}
+    .page{display:flex;flex-wrap:wrap;gap:4mm;padding:5mm}
+    .label{width:110mm;height:55mm;border:1px solid #000;padding:3mm;display:flex;flex-direction:column;page-break-inside:avoid}
+    .lh{display:flex;align-items:center;gap:6px;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm}
+    .lp{font-weight:900;font-size:14pt;letter-spacing:2px;margin-right:2px}
+    .lc{font-family:monospace;font-size:12pt;font-weight:700;flex:1}
+    .ls{font-family:monospace;font-size:8pt;color:#555}
+    .lb{display:flex;gap:2mm;flex:1;align-items:flex-start}
+    .ll{display:flex;flex-direction:column;flex:1;min-width:0;gap:1mm}
+    .ln{font-size:9pt;font-weight:600;line-height:1.2}
+    .lqr{display:flex;align-items:baseline;gap:2px}
+    .lqn{font-size:18pt;font-weight:900;font-family:monospace;line-height:1}
+    .lqu{font-size:9pt;color:#555}
+    .lm{font-size:7pt;color:#444;line-height:1.4}
+    .lsub{color:#666}
+    .lq{flex-shrink:0;display:flex;align-items:center}
+    .lf{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #000;padding-top:1.5mm;margin-top:auto}
+    .lid{font-family:monospace;font-size:7pt;font-weight:700}
+    @media print{body{margin:0}.page{padding:3mm;gap:3mm}}
+  </style></head><body><div class="page">${labelHTML}</div>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`);
   win.document.close();
 }
 
