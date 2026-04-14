@@ -1119,8 +1119,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
           <div class="panel-header"><div class="panel-title">Recent GRNs — Last 7 Days</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>GRN</th><th>Date</th><th>Product</th><th>Lines</th></tr></thead>
-              <tbody id="recent-grns"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+              <thead><tr><th>GRN</th><th>Date</th><th>Supplier</th><th>Product</th><th>Lines</th></tr></thead>
+              <tbody id="recent-grns"><tr><td colspan="5" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1785,6 +1785,37 @@ tr:hover td { background:rgba(255,255,255,.02); }
           </div>
           <div id="box-contents-body" style="display:none;padding:16px">
             <div id="box-contents-grid"></div>
+          </div>
+        </div>
+
+        <!-- GRN Detail Modal -->
+        <div id="grn-detail-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;overflow-y:auto" onclick="if(event.target===this)closeGRNDetail()">
+          <div style="max-width:860px;margin:40px auto;background:var(--bg2);border:1px solid var(--border);border-radius:4px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg3)">
+              <div style="font-family:var(--cond);font-weight:700;font-size:18px;letter-spacing:.04em" id="grn-detail-title">GRN</div>
+              <span id="grn-detail-meta" style="font-size:11px;color:var(--text3)"></span>
+              <button onclick="closeGRNDetail()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--text2);padding:3px 10px;font-family:var(--mono);font-size:10px;cursor:pointer">✕ CLOSE</button>
+            </div>
+            <div style="padding:16px 20px">
+              <div id="grn-detail-summary" style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:3px"></div>
+              <div class="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Part Code</th>
+                      <th>Part Name</th>
+                      <th>Product</th>
+                      <th style="text-align:right">Ordered</th>
+                      <th style="text-align:right;color:var(--green)">Received</th>
+                      <th style="text-align:right;color:var(--red)">Rejected</th>
+                      <th>Inspection</th>
+                      <th>PO Ref</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grn-detail-lines"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -5179,15 +5210,16 @@ async function loadDashboard() {
         return !isNaN(dd) && dd >= cutoff7;
       });
       rg.innerHTML = recentGRNs.length
-        ? recentGRNs.map(r => `<tr>
-            <td class="mono">${r.grn_no||''}</td>
+        ? recentGRNs.map(r => `<tr style="cursor:pointer" onclick="openGRNDetail('${r.grn_no}')">
+            <td class="mono" style="color:var(--yellow)">${r.grn_no||''}</td>
             <td style="font-size:11px;color:var(--text3)">${formatDisplayDate(r.grn_date)}</td>
-            <td>${r.product||''}</td>
-            <td class="mono">${r.lines||0} lines</td>
+            <td style="font-size:11px">${r.supplier||'—'}</td>
+            <td style="font-size:11px">${r.product||'—'}</td>
+            <td class="mono">${r.lines||0} · ${(r.total_qty||0).toLocaleString()} pcs</td>
           </tr>`).join('')
-        : '<tr><td colspan="4" class="empty">No GRNs in the last 7 days</td></tr>';
+        : '<tr><td colspan="5" class="empty">No GRNs in the last 7 days</td></tr>';
     } else {
-      rg.innerHTML = '<tr><td colspan="4" class="empty">No GRNs yet</td></tr>';
+      rg.innerHTML = '<tr><td colspan="5" class="empty">No GRNs yet</td></tr>';
     }
 
     // Issues — split Planned (7d) vs Ad Hoc (3d)
@@ -8825,6 +8857,66 @@ async function printAllShipmentLabels() {
     openLabelPrintWindow(allBags, currentShipmentData?.shipment?.shipment_id);
   } catch(e) { toast('Error loading bags', 'error'); }
   finally { btn.textContent = orig; btn.disabled = false; }
+}
+
+async function openGRNDetail(grnNo) {
+  const overlay = document.getElementById('grn-detail-overlay');
+  const titleEl = document.getElementById('grn-detail-title');
+  const metaEl  = document.getElementById('grn-detail-meta');
+  const summEl  = document.getElementById('grn-detail-summary');
+  const tbody   = document.getElementById('grn-detail-lines');
+  if (!overlay) return;
+  titleEl.textContent = grnNo;
+  metaEl.textContent  = 'Loading...';
+  summEl.innerHTML    = '';
+  tbody.innerHTML     = '<tr><td colspan="8" style="padding:12px;color:var(--text3);font-size:11px">Loading...</td></tr>';
+  overlay.style.display = '';
+  try {
+    const res = await api('getGRNDetail', { grn_no: grnNo });
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="8" class="empty">Failed to load</td></tr>`; return; }
+    const { summary, lines } = res.data;
+    // Header meta
+    metaEl.textContent = summary
+      ? `${formatDisplayDate(summary.grn_date)} · ${summary.supplier||'—'} · ${summary.lines||0} lines · ${(summary.total_qty||0).toLocaleString()} pcs`
+      : '';
+    // Summary chips
+    if (summary) {
+      summEl.innerHTML = [
+        { label: 'Supplier',  value: summary.supplier || '—' },
+        { label: 'Date',      value: formatDisplayDate(summary.grn_date) },
+        { label: 'Product',   value: summary.product  || '—' },
+        { label: 'Lines',     value: (summary.lines||0) + ' lines' },
+        { label: 'Total Qty', value: (summary.total_qty||0).toLocaleString() + ' pcs' },
+        { label: 'PO Ref',    value: lines[0]?.po_reference || '—' },
+      ].map(c => `<div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em;margin-bottom:2px">${c.label.toUpperCase()}</div>
+                       <div style="font-size:12px;font-weight:600">${c.value}</div></div>`).join('');
+    }
+    // Lines table
+    if (!lines.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No lines found</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lines.map(l => {
+      const inspColor = l.inspection === 'Fail' ? 'var(--red)' : 'var(--green)';
+      return `<tr>
+        <td class="mono" style="font-size:10px;color:var(--yellow)">${l.part_code||'—'}</td>
+        <td style="font-size:11px">${l.part_name||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${l.product||'—'}</td>
+        <td class="mono" style="text-align:right;color:var(--text3)">${l.qty_ordered||0}</td>
+        <td class="mono" style="text-align:right;color:var(--green);font-weight:700">${l.qty_received||0}</td>
+        <td class="mono" style="text-align:right;color:var(--red)">${l.qty_rejected||0}</td>
+        <td><span style="font-family:var(--mono);font-size:9px;color:${inspColor}">${l.inspection||'—'}</span></td>
+        <td class="mono" style="font-size:10px;color:var(--text3)">${l.po_reference||'—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Error loading GRN</td></tr>';
+  }
+}
+
+function closeGRNDetail() {
+  const overlay = document.getElementById('grn-detail-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 function printBagLabels() {
