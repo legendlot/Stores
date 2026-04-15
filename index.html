@@ -2149,7 +2149,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <!-- Issue detail modal -->
     <div id="sh-issue-detail-modal" style="display:none;position:fixed;inset:0;z-index:500;
          background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
-      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:10px;
                   width:760px;max-width:calc(100vw - 32px);max-height:calc(100vh - 60px);
                   display:flex;flex-direction:column;overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;
@@ -2166,7 +2166,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <div style="overflow-y:auto;flex:1">
           <table style="width:100%;border-collapse:collapse">
             <thead>
-              <tr style="background:var(--surface2)">
+              <tr style="background:var(--bg3)">
                 <th style="padding:8px 16px;text-align:left;font-size:9px;color:var(--text3);
                             letter-spacing:0.12em;font-weight:600">PART CODE</th>
                 <th style="padding:8px 16px;text-align:left;font-size:9px;color:var(--text3);
@@ -6973,7 +6973,7 @@ function shShowIssueDetail(issueNo) {
   const totalVariance = totalActual - totalBomIssue;
   const totVarColor   = totalVariance > 0 ? 'var(--orange)' : totalVariance < 0 ? 'var(--red)' : 'var(--text3)';
   document.getElementById('sh-detail-footer').innerHTML = `
-    <tr style="border-top:2px solid var(--border2);background:var(--surface2)">
+    <tr style="border-top:2px solid var(--border2);background:var(--bg3)">
       <td colspan="3" style="padding:10px 16px;font-size:11px;font-weight:700;color:var(--text2)">
         ${lines.length} part${lines.length !== 1 ? 's' : ''}
       </td>
