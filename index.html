@@ -2146,6 +2146,48 @@ tr:hover td { background:rgba(255,255,255,.02); }
     </div>
     <!-- /view-storehistory -->
 
+    <!-- Issue detail modal -->
+    <div id="sh-issue-detail-modal" style="display:none;position:fixed;inset:0;z-index:500;
+         background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:10px;
+                  width:760px;max-width:calc(100vw - 32px);max-height:calc(100vh - 60px);
+                  display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:16px 20px;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-family:var(--mono);font-weight:700;font-size:14px;color:var(--yellow)"
+                 id="sh-detail-issue-no">—</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px" id="sh-detail-meta">—</div>
+          </div>
+          <button onclick="shCloseIssueDetail()"
+            style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;
+                   line-height:1;padding:0 4px">×</button>
+        </div>
+        <div style="overflow-y:auto;flex:1">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--surface2)">
+                <th style="padding:8px 16px;text-align:left;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">PART CODE</th>
+                <th style="padding:8px 16px;text-align:left;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">PART NAME</th>
+                <th style="padding:8px 16px;text-align:right;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">BOM QTY</th>
+                <th style="padding:8px 16px;text-align:right;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">BOM ISSUE</th>
+                <th style="padding:8px 16px;text-align:right;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">ACTUAL ISSUED</th>
+                <th style="padding:8px 16px;text-align:right;font-size:9px;color:var(--text3);
+                            letter-spacing:0.12em;font-weight:600">VARIANCE</th>
+              </tr>
+            </thead>
+            <tbody id="sh-detail-lines"></tbody>
+            <tfoot id="sh-detail-footer"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ── RETURNS ── -->
     <div class="view" id="view-returns">
       <div class="page-header">
@@ -6864,8 +6906,11 @@ async function shLoadIssues() {
   const issues = Object.values(issueMap).sort((a,b) => (b.issue_date||'').localeCompare(a.issue_date||''));
   countEl.textContent = issues.length + ' issues';
 
+  // Cache raw rows for detail lookup
+  window._shIssueRows = rows;
+
   tbody.innerHTML = issues.map(r => `
-    <tr>
+    <tr style="cursor:pointer" onclick="shShowIssueDetail('${r.issue_no}')">
       <td style="font-family:var(--mono);color:var(--yellow);font-size:11px">${r.issue_no||'—'}</td>
       <td style="font-size:11px">${r.issue_date ? new Date(r.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
       <td><span class="badge ${r.issue_type==='Planned'?'badge-blue':r.issue_type==='Rework'?'badge-red':'badge-yellow'}" style="font-size:9px">${r.issue_type||'—'}</span></td>
@@ -6885,6 +6930,66 @@ function shClearIssueFilters() {
   document.getElementById('sh-iss-from').value    = '';
   document.getElementById('sh-iss-to').value      = '';
   shLoadIssues();
+}
+
+function shShowIssueDetail(issueNo) {
+  const lines = (window._shIssueRows || []).filter(r => r.issue_no === issueNo);
+  if (!lines.length) return;
+
+  const first = lines[0];
+  document.getElementById('sh-detail-issue-no').textContent = issueNo;
+  document.getElementById('sh-detail-meta').textContent = [
+    first.issue_date ? new Date(first.issue_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : null,
+    first.issue_type,
+    first.wo_no   ? `WO: ${first.wo_no}`   : null,
+    first.run_no  ? `Run: ${first.run_no}`  : null,
+    first.product,
+    first.variant,
+    first.colour,
+    first.issued_by ? `Issued by ${first.issued_by}` : null,
+  ].filter(Boolean).join(' · ');
+
+  let totalBomIssue = 0, totalActual = 0;
+
+  document.getElementById('sh-detail-lines').innerHTML = lines.map(l => {
+    const bom      = l.bom_issue_qty  || 0;
+    const actual   = l.actual_issued  || 0;
+    const variance = actual - bom;
+    totalBomIssue += bom;
+    totalActual   += actual;
+    const varColor = variance > 0 ? 'var(--orange)' : variance < 0 ? 'var(--red)' : 'var(--text3)';
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:8px 16px;font-family:var(--mono);font-size:11px;color:var(--yellow)">${l.part_code||'—'}</td>
+      <td style="padding:8px 16px;font-size:11px">${l.part_name||'—'}</td>
+      <td style="padding:8px 16px;font-family:var(--mono);font-size:11px;text-align:right;color:var(--text3)">${l.bom_qty||0}</td>
+      <td style="padding:8px 16px;font-family:var(--mono);font-size:11px;text-align:right;color:var(--text3)">${bom}</td>
+      <td style="padding:8px 16px;font-family:var(--mono);font-size:11px;text-align:right;font-weight:700">${actual}</td>
+      <td style="padding:8px 16px;font-family:var(--mono);font-size:11px;text-align:right;color:${varColor}">
+        ${variance === 0 ? '—' : (variance > 0 ? '+' : '') + variance}
+      </td>
+    </tr>`;
+  }).join('');
+
+  const totalVariance = totalActual - totalBomIssue;
+  const totVarColor   = totalVariance > 0 ? 'var(--orange)' : totalVariance < 0 ? 'var(--red)' : 'var(--text3)';
+  document.getElementById('sh-detail-footer').innerHTML = `
+    <tr style="border-top:2px solid var(--border2);background:var(--surface2)">
+      <td colspan="3" style="padding:10px 16px;font-size:11px;font-weight:700;color:var(--text2)">
+        ${lines.length} part${lines.length !== 1 ? 's' : ''}
+      </td>
+      <td style="padding:10px 16px;font-family:var(--mono);font-size:12px;text-align:right;font-weight:700">${totalBomIssue}</td>
+      <td style="padding:10px 16px;font-family:var(--mono);font-size:12px;text-align:right;font-weight:700">${totalActual}</td>
+      <td style="padding:10px 16px;font-family:var(--mono);font-size:12px;text-align:right;font-weight:700;color:${totVarColor}">
+        ${totalVariance === 0 ? '—' : (totalVariance > 0 ? '+' : '') + totalVariance}
+      </td>
+    </tr>`;
+
+  const modal = document.getElementById('sh-issue-detail-modal');
+  modal.style.display = 'flex';
+}
+
+function shCloseIssueDetail() {
+  document.getElementById('sh-issue-detail-modal').style.display = 'none';
 }
 
 async function shLoadFlushes() {
