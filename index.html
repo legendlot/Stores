@@ -4837,7 +4837,8 @@ const PRODUCT_SUBVARIANTS = {
 const HAS_REMOTE = new Set(['Dash', 'Nitro', 'Flare LE']);
 
 // ══ STATE ════════════════════════════════════════════════════
-let currentToken       = '';
+let currentToken        = '';
+let currentRefreshToken = '';
 let currentRole        = '';
 let currentUser        = {};
 let currentPermissions = {};  // granular permissions from roles table
@@ -4872,6 +4873,7 @@ async function submitLogin() {
     const data = await res.json();
     if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
     currentToken       = data.data.access_token;
+    currentRefreshToken = data.data.refresh_token || '';
     currentRole        = data.data.role;
     currentPermissions = data.data.permissions || {};
     currentUser        = { email, full_name: data.data.full_name, role: data.data.role };
@@ -5087,12 +5089,39 @@ async function api(action, params = {}) {
   catch(e) { console.error('[API PARSE ERROR]', action, text.slice(0, 300)); throw e; }
 }
 
+async function refreshAuthToken() {
+  if (!currentRefreshToken) return false;
+  try {
+    const res = await fetch(`${API}?action=refreshToken`, {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: currentRefreshToken }),
+    });
+    const data = await res.json();
+    if (data.ok && data.data?.access_token) {
+      currentToken        = data.data.access_token;
+      currentRefreshToken = data.data.refresh_token || currentRefreshToken;
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
 async function apiPost(action, data = {}) {
-  const res = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
+  let res = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${currentToken}` },
     body: JSON.stringify({ action, ...data }),
   });
+  if (res.status === 401 && currentRefreshToken) {
+    const refreshed = await refreshAuthToken();
+    if (refreshed) {
+      res = await fetch(`${API}?action=${encodeURIComponent(action)}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${currentToken}` },
+        body: JSON.stringify({ action, ...data }),
+      });
+    }
+  }
   return res.json();
 }
 
