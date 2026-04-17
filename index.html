@@ -3979,6 +3979,17 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <input class="form-input" type="text" id="pr-notes" placeholder="Optional">
             </div>
 
+            <div id="pr-repair-manifest-section" style="display:none;margin-top:12px">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">PRODUCTS TO REPAIR</div>
+              <div style="display:flex;gap:6px;margin-bottom:10px">
+                <select class="form-select" id="pr-repair-product-sel" style="flex:1;font-size:12px">
+                  <option value="">Select product to add...</option>
+                </select>
+                <button class="btn btn-secondary" onclick="addRepairProductBlock()" style="padding:4px 14px;font-size:11px;white-space:nowrap">+ Add</button>
+              </div>
+              <div id="pr-repair-product-blocks"></div>
+            </div>
+
             <div class="btn-row" style="margin-top:12px">
               <button class="btn btn-primary" id="pr-submit-btn" onclick="createProductionRun()">CREATE &amp; SUBMIT RUN</button>
             </div>
@@ -12506,21 +12517,165 @@ async function cancelProductionRun() {
 
 // ── REPAIR RUN FUNCTIONS ──────────────────────────────────────
 let currentRepairRunId = null;
+let repairPickerAdded  = new Set();
+
+function addRepairProductBlock() {
+  const sel     = document.getElementById('pr-repair-product-sel');
+  const product = sel.value;
+  if (!product) return;
+  if (repairPickerAdded.has(product)) { toast(`${product} already added`, 'error'); return; }
+  repairPickerAdded.add(product);
+  sel.value = '';
+
+  const hasRemote  = HAS_REMOTE.has(product);
+  const variants   = PRODUCT_VARIANTS[product] || [];
+  const subvars    = PRODUCT_SUBVARIANTS[product] || {};
+  const container  = document.getElementById('pr-repair-product-blocks');
+
+  // Build rows: variant×color combos, or just variant if no colors, or just product if no variants
+  const rows = [];
+  if (variants.length) {
+    for (const v of variants) {
+      const colors = subvars[v] || [];
+      if (colors.length) {
+        for (const c of colors) rows.push({ model: v, color: c });
+      } else {
+        rows.push({ model: v, color: null });
+      }
+    }
+  } else {
+    rows.push({ model: null, color: null });
+  }
+
+  // Group rows by model for visual headers
+  const byModel = {};
+  for (const r of rows) {
+    const key = r.model || '__none__';
+    if (!byModel[key]) byModel[key] = [];
+    byModel[key].push(r);
+  }
+
+  let html = `
+    <div class="repair-product-block" data-product="${product}" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg2)">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em">${product.toUpperCase()}</div>
+        <button onclick="removeRepairProductBlock('${product}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;line-height:1">×</button>
+      </div>`;
+
+  let firstOfModel = true;
+  for (const [modelKey, modelRows] of Object.entries(byModel)) {
+    const modelLabel = modelKey === '__none__' ? null : modelKey;
+    if (modelLabel) {
+      html += `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em;padding:8px 12px 4px">${product.toUpperCase()} — ${modelLabel.toUpperCase()}</div>`;
+    }
+    html += `<div style="padding:0 12px">`;
+    if (firstOfModel && hasRemote) {
+      html += `<div style="display:grid;grid-template-columns:1fr 90px 90px 30px;gap:6px;align-items:center;margin-bottom:4px">
+        <div></div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:center">CAR</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:center">REMOTE</div>
+        <div></div>
+      </div>`;
+      firstOfModel = false;
+    } else if (firstOfModel) {
+      html += `<div style="display:grid;grid-template-columns:1fr 90px 30px;gap:6px;align-items:center;margin-bottom:4px">
+        <div></div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:center">CAR</div>
+        <div></div>
+      </div>`;
+      firstOfModel = false;
+    }
+    for (const row of modelRows) {
+      const label    = row.color || row.model || product;
+      const dataAttr = `data-product="${product}" data-model="${row.model||''}" data-color="${row.color||''}"`;
+      if (hasRemote) {
+        html += `<div style="display:grid;grid-template-columns:1fr 90px 90px 30px;gap:6px;align-items:center;margin-bottom:6px">
+          <div style="font-size:12px">${label}</div>
+          <input class="form-input rrl-car" type="number" min="0" placeholder="0"
+            ${dataAttr}
+            oninput="syncRepairRemote(this)"
+            style="font-size:12px;text-align:center;padding:4px 6px">
+          <input class="form-input rrl-remote" type="number" min="0" placeholder="0"
+            ${dataAttr}
+            style="font-size:12px;text-align:center;padding:4px 6px">
+          <div style="font-size:10px;color:var(--text3)">pcs</div>
+        </div>`;
+      } else {
+        html += `<div style="display:grid;grid-template-columns:1fr 90px 30px;gap:6px;align-items:center;margin-bottom:6px">
+          <div style="font-size:12px">${label}</div>
+          <input class="form-input rrl-car" type="number" min="0" placeholder="0"
+            ${dataAttr}
+            style="font-size:12px;text-align:center;padding:4px 6px">
+          <div style="font-size:10px;color:var(--text3)">pcs</div>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  container.appendChild(div.firstElementChild);
+}
+
+function syncRepairRemote(carInput) {
+  const row        = carInput.closest('div[style*="grid"]');
+  const remoteInput = row.querySelector('.rrl-remote');
+  if (remoteInput && !remoteInput.value) {
+    remoteInput.value = carInput.value;
+  }
+}
+
+function removeRepairProductBlock(product) {
+  repairPickerAdded.delete(product);
+  const block = document.querySelector(`.repair-product-block[data-product="${product}"]`);
+  if (block) block.remove();
+}
+
+function getRepairLines() {
+  const lines = [];
+  document.querySelectorAll('.rrl-car').forEach(input => {
+    const carQty    = parseInt(input.value) || 0;
+    const row       = input.closest('div[style*="grid"]');
+    const remoteInput = row?.querySelector('.rrl-remote');
+    const remoteQty = remoteInput ? (parseInt(remoteInput.value) || 0) : 0;
+    if (carQty > 0 || remoteQty > 0) {
+      lines.push({
+        product:           input.dataset.product,
+        model:             input.dataset.model   || null,
+        color:             input.dataset.color   || null,
+        target_car_qty:    carQty,
+        target_remote_qty: remoteQty,
+      });
+    }
+  });
+  return lines;
+}
 
 function setPRRunType(type) {
   const isFresh = type === 'fresh';
-  document.getElementById('pr-product-group').style.display   = isFresh ? '' : 'none';
-  document.getElementById('pr-variants-section').style.display = isFresh ? '' : 'none';
-  document.getElementById('pr-fresh-info').style.display       = isFresh ? '' : 'none';
-  document.getElementById('pr-repair-info').style.display      = isFresh ? 'none' : '';
-  document.getElementById('pr-submit-btn').textContent         = isFresh ? 'CREATE & SUBMIT RUN' : 'CREATE REPAIR RUN';
-  document.getElementById('pr-submit-btn').onclick             = isFresh
-    ? createProductionRun
-    : createRepairRunStore;
-  document.getElementById('pr-type-fresh').style.background    = isFresh ? 'var(--yellow)' : 'var(--bg3)';
-  document.getElementById('pr-type-fresh').style.color         = isFresh ? '#000' : 'var(--text3)';
-  document.getElementById('pr-type-repair').style.background   = isFresh ? 'var(--bg3)' : 'var(--yellow)';
-  document.getElementById('pr-type-repair').style.color        = isFresh ? 'var(--text3)' : '#000';
+  document.getElementById('pr-product-group').style.display        = isFresh ? '' : 'none';
+  document.getElementById('pr-variants-section').style.display      = isFresh ? '' : 'none';
+  document.getElementById('pr-fresh-info').style.display            = isFresh ? '' : 'none';
+  document.getElementById('pr-repair-info').style.display           = isFresh ? 'none' : '';
+  document.getElementById('pr-repair-manifest-section').style.display = isFresh ? 'none' : '';
+  document.getElementById('pr-submit-btn').textContent              = isFresh ? 'CREATE & SUBMIT RUN' : 'CREATE REPAIR RUN';
+  document.getElementById('pr-submit-btn').onclick                  = isFresh ? createProductionRun : createRepairRunStore;
+  document.getElementById('pr-type-fresh').style.background         = isFresh ? 'var(--yellow)' : 'var(--bg3)';
+  document.getElementById('pr-type-fresh').style.color              = isFresh ? '#000' : 'var(--text3)';
+  document.getElementById('pr-type-repair').style.background        = isFresh ? 'var(--bg3)' : 'var(--yellow)';
+  document.getElementById('pr-type-repair').style.color             = isFresh ? 'var(--text3)' : '#000';
+  if (!isFresh) {
+    // Populate product dropdown
+    const sel = document.getElementById('pr-repair-product-sel');
+    sel.innerHTML = '<option value="">Select product to add...</option>';
+    Object.keys(PRODUCT_VARIANTS).forEach(p => {
+      sel.innerHTML += `<option value="${p}">${p}</option>`;
+    });
+    repairPickerAdded = new Set();
+    document.getElementById('pr-repair-product-blocks').innerHTML = '';
+  }
 }
 
 async function createRepairRunStore() {
@@ -12528,13 +12683,16 @@ async function createRepairRunStore() {
   const date  = document.getElementById('pr-date').value;
   const notes = document.getElementById('pr-notes').value;
   if (!line) return toast('Select a line', 'error');
+  const lines = getRepairLines();
   const btn = document.getElementById('pr-submit-btn');
   btn.textContent = 'CREATING...'; btn.disabled = true;
   try {
-    const res = await apiPost('createRepairRun', { data: { line, run_date: date, notes } });
+    const res = await apiPost('createRepairRun', { data: { line, run_date: date, notes, lines } });
     if (!res.ok) { toast(res.error || 'Failed to create repair run', 'error'); return; }
     toast('Repair run ' + res.data.run_no + ' created', 'success');
     document.getElementById('pr-notes').value = '';
+    document.getElementById('pr-repair-product-blocks').innerHTML = '';
+    repairPickerAdded = new Set();
     loadProductionRuns();
   } catch(e) {
     toast('Error creating repair run', 'error');
@@ -12589,6 +12747,29 @@ async function openRepairRun(runId, runNo) {
     </div>
     ${run.notes ? `<div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text3)">${run.notes}</div>` : ''}
   `;
+
+  // Show planned lines if available
+  const linesData = res.data.lines || [];
+  if (linesData.length) {
+    const linesHtml = linesData.map(l =>
+      `<tr>
+        <td>${l.product}</td>
+        <td style="font-size:11px;color:var(--text2)">${l.model||'—'}</td>
+        <td style="font-size:11px;color:var(--text2)">${l.color||'—'}</td>
+        <td style="font-family:var(--mono);text-align:right">${l.target_car_qty}</td>
+        <td style="font-family:var(--mono);text-align:right">${l.target_remote_qty}</td>
+      </tr>`
+    ).join('');
+    document.getElementById('pr-repair-stats').insertAdjacentHTML('afterend', `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin:12px 0 6px">PLANNED UNITS</div>
+      <div class="tbl-wrap" style="margin-bottom:12px">
+        <table>
+          <thead><tr><th>Product</th><th>Model</th><th>Color</th><th style="text-align:right">Cars</th><th style="text-align:right">Remotes</th></tr></thead>
+          <tbody>${linesHtml}</tbody>
+        </table>
+      </div>
+    `);
+  }
 
   const canComplete = run.status === 'active';
   const canCancel   = ['planned','active'].includes(run.status);
