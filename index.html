@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LOT OPS — Store Control</title>
+<title>GARAGE — Inventory</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='6' width='26' height='20' rx='2' fill='none' stroke='%23F2CD1A' stroke-width='2'/><line x1='3' y1='12' x2='29' y2='12' stroke='%23F2CD1A' stroke-width='1.5' opacity='0.6'/><line x1='3' y1='17' x2='29' y2='17' stroke='%23F2CD1A' stroke-width='1.5' opacity='0.6'/><line x1='3' y1='22' x2='29' y2='22' stroke='%23F2CD1A' stroke-width='1.5' opacity='0.6'/><circle cx='16' cy='27' r='1.5' fill='%23F2CD1A' opacity='0.5'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tomorrow:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:       #0e0e0e;
@@ -22,9 +23,9 @@
   --text:     #e8e8e8;
   --text2:    #999;
   --text3:    #555;
-  --mono:     'Share Tech Mono', monospace;
-  --sans:     'Barlow', sans-serif;
-  --cond:     'Barlow Condensed', sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --sans:     'Tomorrow', sans-serif;
+  --cond:     'Tomorrow', sans-serif;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -32,7 +33,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--sans);
+  font-family: var(--mono);
   font-size: 14px;
   min-height: 100vh;
   overflow-x: hidden;
@@ -77,7 +78,42 @@ body::before {
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
   z-index:1000;
-  gap:0;
+}
+
+.login-lot {
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 28px;
+}
+.login-lot-box {
+  width: 36px; height: 36px; background: #F2CD1A; border-radius: 4px;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1px; padding: 5px;
+}
+.login-lot-line {
+  font-family: 'Tomorrow', sans-serif; font-weight: 900; font-size: 7px;
+  color: #080808; letter-spacing: .04em; line-height: 1; text-align: center;
+}
+.login-brand {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0; margin-bottom: 40px;
+}
+.login-brand-icon { margin-bottom: 12px; }
+.login-title {
+  font-family: 'Tomorrow', sans-serif; font-weight: 900; font-size: 36px;
+  letter-spacing: .04em; text-transform: uppercase; color: #f0f0f0;
+  line-height: 1; margin-bottom: 6px;
+}
+.login-sub {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: .3em; text-transform: uppercase; color: #444;
+}
+.login-divider {
+  width: 320px; height: 1px; background: #1e1e1e; margin-bottom: 28px;
+}
+.login-footer {
+  margin-top: 24px; font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: #2a2a2a; letter-spacing: .15em;
+  text-transform: uppercase;
 }
 
 .pin-logo {
@@ -192,6 +228,9 @@ body::before {
   letter-spacing:.08em;
   color: var(--yellow);
   white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
 .topbar-sep { width:1px; height:20px; background:var(--border); }
@@ -906,9 +945,31 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
 <!-- ══ PIN SCREEN ══════════════════════════════════════════ -->
 <div id="pin-screen">
-  <div class="pin-logo">LEGEND OF TOYS &nbsp;·&nbsp; <span>OPS</span></div>
-  <div class="pin-title">STORE CONTROL</div>
-  <div class="pin-sub" id="login-sub">SIGN IN TO CONTINUE</div>
+  <!-- LOT logo -->
+  <div class="login-lot">
+    <div class="login-lot-box">
+      <div class="login-lot-line">LEGEND</div>
+      <div class="login-lot-line" style="font-size:5px;letter-spacing:.06em">OF</div>
+      <div class="login-lot-line">TOYS</div>
+    </div>
+  </div>
+
+  <!-- Garage brand -->
+  <div class="login-brand">
+    <div class="login-brand-icon">
+      <svg width="40" height="32" viewBox="0 0 40 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="36" height="26" rx="2" stroke="#F2CD1A" stroke-width="2"/>
+        <line x1="2" y1="10" x2="38" y2="10" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+        <line x1="2" y1="17" x2="38" y2="17" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+        <line x1="2" y1="23" x2="38" y2="23" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="20" cy="28" r="1.5" fill="#F2CD1A" opacity="0.5"/>
+      </svg>
+    </div>
+    <div class="login-title">Garage</div>
+    <div class="login-sub" id="login-sub">Inventory · Store</div>
+  </div>
+
+  <div class="login-divider"></div>
 
   <div id="login-form" style="width:320px;display:flex;flex-direction:column;gap:12px">
     <div class="form-group">
@@ -949,6 +1010,8 @@ tr:hover td { background:rgba(255,255,255,.02); }
     <button class="btn btn-primary" onclick="submitChangePassword()" style="width:100%;padding:12px;font-size:14px">SET PASSWORD &amp; CONTINUE</button>
     <div class="pin-error" id="change-pwd-error" style="text-align:center"></div>
   </div>
+
+  <div class="login-footer">@legendoftoys.com</div>
 </div>
 
 <!-- ══ APP ══════════════════════════════════════════════════ -->
@@ -956,7 +1019,15 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
   <!-- Topbar -->
   <div class="topbar">
-    <div class="topbar-logo">LOT OPS</div>
+    <div class="topbar-logo">
+      <svg width="20" height="16" viewBox="0 0 40 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+        <rect x="2" y="2" width="36" height="26" rx="2" stroke="#F2CD1A" stroke-width="2.5"/>
+        <line x1="2" y1="10" x2="38" y2="10" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+        <line x1="2" y1="17" x2="38" y2="17" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+        <line x1="2" y1="23" x2="38" y2="23" stroke="#F2CD1A" stroke-width="1.5" opacity="0.5"/>
+      </svg>
+      <span style="font-family:'Tomorrow',sans-serif;font-weight:900;font-size:13px;letter-spacing:.2em;color:#F2CD1A;text-transform:uppercase">Garage</span>
+    </div>
     <div class="topbar-sep"></div>
     <nav class="topbar-nav">
 
