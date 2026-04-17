@@ -940,11 +940,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
 .disp-opt-title { font-family:var(--cond); font-weight:700; font-size:13px; letter-spacing:.04em; }
 .disp-opt-sub { font-size:11px; color:var(--text3); margin-top:3px; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 
 <!-- ══ PIN SCREEN ══════════════════════════════════════════ -->
-<div id="pin-screen">
+<div id="pin-screen" style="display:none">
   <!-- LOT logo -->
   <div class="login-lot">
     <img src="lot-logo.png" alt="Legend of Toys" style="height:40px;width:auto">
@@ -968,22 +969,7 @@ tr:hover td { background:rgba(255,255,255,.02); }
   <div class="login-divider"></div>
 
   <div id="login-form" style="width:320px;display:flex;flex-direction:column;gap:12px">
-    <div class="form-group">
-      <label class="form-label" style="color:var(--text3)">Email</label>
-      <input class="form-input" type="email" id="login-email" placeholder="your@email.com"
-             onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()"
-             style="background:var(--bg3);border-color:var(--border2)">
-    </div>
-    <div class="form-group">
-      <label class="form-label" style="color:var(--text3)">Password</label>
-      <div style="position:relative">
-        <input class="form-input" type="password" id="login-password" placeholder="••••••••"
-               onkeydown="if(event.key==='Enter')submitLogin()"
-               style="background:var(--bg3);border-color:var(--border2);padding-right:40px">
-        <button onclick="toggleLoginPwd()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" id="pwd-eye">👁</button>
-      </div>
-    </div>
-    <button class="btn btn-primary" onclick="submitLogin()" id="login-btn" style="width:100%;padding:12px;font-size:14px;margin-top:4px">SIGN IN</button>
+    <button class="btn btn-primary" id="login-btn" onclick="doGoogleLogin()" style="width:100%;padding:12px;font-size:14px;margin-top:4px">Sign in with Google</button>
     <div class="pin-error" id="pin-error" style="text-align:center"></div>
   </div>
 
@@ -4907,7 +4893,11 @@ tr:hover td { background:rgba(255,255,255,.02); }
 
 <script>
 // ══ CONFIG ══════════════════════════════════════════════════
-const API = 'https://lotopsproxy.afshaan.workers.dev';
+const API   = 'https://lotopsproxy.afshaan.workers.dev';
+const _supa = supabase.createClient(
+  'https://jkxcnjabmrkteanzoofj.supabase.co',
+  'sb_publishable_1Dd-r3h9Mou2Wqgn6t24Dw_lmWdBtLh'
+);
 
 let PRODUCTS = [];
 let PRODUCTS_DISPLAY = {};
@@ -4980,35 +4970,58 @@ function showLoginError(msg) {
   setTimeout(() => { el.classList.remove('show'); el.textContent = ''; }, 3000);
 }
 
-async function submitLogin() {
-  const email    = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const btn      = document.getElementById('login-btn');
-  if (!email || !password) { showLoginError('Enter email and password'); return; }
-  btn.textContent = 'SIGNING IN...'; btn.disabled = true;
-  try {
-    const res = await fetch(`${API}?action=login`, {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!data.ok) { showLoginError(data.error || 'Invalid credentials'); return; }
-    currentToken       = data.data.access_token;
-    currentRefreshToken = data.data.refresh_token || '';
-    currentRole        = data.data.role;
-    currentPermissions = data.data.permissions || {};
-    currentUser        = { email, full_name: data.data.full_name, role: data.data.role };
-    if (data.data.must_change_password) {
-      showChangePasswordScreen();
-    } else {
-      launchApp();
-    }
-  } catch(e) {
-    showLoginError('Network error — check connection');
-  } finally {
-    btn.textContent = 'SIGN IN'; btn.disabled = false;
+async function doGoogleLogin() {
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Redirecting...'; btn.disabled = true;
+  const { error } = await _supa.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+      queryParams: { hd: 'legendoftoys.com' },
+    },
+  });
+  if (error) {
+    showLoginError(error.message);
+    btn.textContent = 'Sign in with Google'; btn.disabled = false;
   }
 }
+
+async function initAuth() {
+  const { data: { session } } = await _supa.auth.getSession();
+  if (session) {
+    await handleSession(session);
+    return;
+  }
+  _supa.auth.onAuthStateChange(async (_event, session) => {
+    if (session) await handleSession(session);
+  });
+  document.getElementById('pin-screen').style.display = 'flex';
+}
+
+async function handleSession(session) {
+  try {
+    const res = await fetch(`${API}?action=ping`, {
+      headers: { 'Authorization': `Bearer ${session.access_token}` }
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      showLoginError(data.error || 'Access denied — contact admin');
+      document.getElementById('pin-screen').style.display = 'flex';
+      await _supa.auth.signOut();
+      return;
+    }
+    currentToken       = session.access_token;
+    currentRole        = data.data.role;
+    currentPermissions = data.data.permissions || {};
+    currentUser        = { email: session.user.email, full_name: data.data.full_name, role: data.data.role };
+    launchApp();
+  } catch(e) {
+    showLoginError('Connection error');
+    document.getElementById('pin-screen').style.display = 'flex';
+  }
+}
+
+async function submitLogin() {} // kept for backwards compat
 
 function showChangePasswordScreen() {
   document.getElementById('login-form').style.display      = 'none';
@@ -5030,11 +5043,10 @@ async function submitChangePassword() {
   } catch(e) { showErr('Network error'); }
 }
 
-function logout() {
+async function logout() {
+  await _supa.auth.signOut();
   currentToken = ''; currentRole = ''; currentUser = {}; currentView = 'dashboard';
   stockData = []; bomCache = {};
-  document.getElementById('login-email').value    = '';
-  document.getElementById('login-password').value = '';
   document.getElementById('login-form').style.display      = 'flex';
   document.getElementById('change-pwd-form').style.display = 'none';
   document.getElementById('app').style.display   = 'none';
@@ -15081,6 +15093,9 @@ function clearChannelForm() {
 // Keep old submitReturn/clearReturn/loadReturnsHistory for backwards compat
 function clearReturn() { clearShipmentForm(); }
 async function loadReturnsHistory() { if (currentReturnsTab === 'shipments') await loadShipmentsTab(); }
+
+// ── STARTUP ──────────────────────────────────────────────────
+initAuth();
 
 
 </script>
