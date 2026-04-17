@@ -12527,7 +12527,7 @@ function addRepairProductBlock() {
   repairPickerAdded.add(product);
   sel.value = '';
 
-  const hasRemote  = HAS_REMOTE.has(product);
+  const hasRemote  = true; // all repair units have remotes
   const variants   = PRODUCT_VARIANTS[product] || [];
   const subvars    = PRODUCT_SUBVARIANTS[product] || {};
   const container  = document.getElementById('pr-repair-product-blocks');
