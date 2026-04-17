@@ -3927,11 +3927,23 @@ tr:hover td { background:rgba(255,255,255,.02); }
         <!-- Left: Create Run -->
         <div class="panel" id="prodrun-form-panel">
           <div class="panel-header">
-            <div class="panel-title" id="prodrun-form-title">New Production Run</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="panel-title">New Run</div>
+              <div style="display:flex;gap:4px">
+                <button id="pr-type-fresh"  onclick="setPRRunType('fresh')"
+                  style="padding:3px 12px;border-radius:4px;border:1px solid var(--border2);background:var(--yellow);color:#000;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">
+                  FRESH
+                </button>
+                <button id="pr-type-repair" onclick="setPRRunType('repair')"
+                  style="padding:3px 12px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);color:var(--text3);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer">
+                  REPAIR
+                </button>
+              </div>
+            </div>
           </div>
           <div class="panel-body">
             <div class="form-grid" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
+              <div class="form-group" id="pr-product-group">
                 <label class="form-label">Product</label>
                 <select class="form-select" id="pr-product" onchange="prProductChanged()">
                   <option value="">Select...</option>
@@ -3955,10 +3967,12 @@ tr:hover td { background:rgba(255,255,255,.02); }
               </div>
             </div>
 
+            <div id="pr-variants-section">
             <!-- Variant rows -->
             <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin:12px 0 6px">VARIANTS TO BUILD</div>
             <div id="pr-variant-rows"></div>
             <button class="btn btn-secondary" onclick="addPRVariantRow()" style="padding:3px 10px;font-size:11px;margin-bottom:12px">+ ADD VARIANT</button>
+            </div>
 
             <div class="form-group" style="margin-top:8px">
               <label class="form-label">Notes</label>
@@ -3966,10 +3980,13 @@ tr:hover td { background:rgba(255,255,255,.02); }
             </div>
 
             <div class="btn-row" style="margin-top:12px">
-              <button class="btn btn-primary" onclick="createProductionRun()">CREATE &amp; SUBMIT RUN</button>
+              <button class="btn btn-primary" id="pr-submit-btn" onclick="createProductionRun()">CREATE &amp; SUBMIT RUN</button>
             </div>
-            <div style="margin-top:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
+            <div id="pr-fresh-info" style="margin-top:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
               ℹ Run is created and immediately submitted to store. Store will see it in their issue queue.
+            </div>
+            <div id="pr-repair-info" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;font-size:11px;color:var(--text3)">
+              ℹ Repair run created as Planned. No parts issue — operators scan units at the Repair station.
             </div>
           </div>
         </div>
@@ -4057,6 +4074,32 @@ tr:hover td { background:rgba(255,255,255,.02); }
               <div class="btn-row" style="margin-top:12px">
                 <button class="btn btn-primary" onclick="submitRunIssue()">CONFIRM ISSUE</button>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Repair Run detail panel -->
+      <div id="pr-repair-detail-panel" style="display:none;margin-top:16px">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title" id="pr-repair-detail-title">Repair Run</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary"   id="pr-repair-btn-complete" onclick="updateRepairRunStatusStore('complete')" style="display:none">MARK COMPLETE</button>
+              <button class="btn btn-secondary" id="pr-repair-btn-cancel"   onclick="updateRepairRunStatusStore('cancel')"   style="display:none">CANCEL</button>
+              <button class="btn btn-secondary" onclick="document.getElementById('pr-repair-detail-panel').style.display='none'">✕ Close</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="pr-repair-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">UNITS IN THIS RUN</div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>UPC</th><th>Product</th><th>Model</th><th>Color</th><th>Status</th><th>Started</th><th>Completed</th></tr></thead>
+                <tbody id="pr-repair-units-body">
+                  <tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -12028,20 +12071,53 @@ async function createProductionRun() {
 async function loadProductionRuns() {
   const status = document.getElementById('pr-filter-status')?.value || '';
   const tbody  = document.getElementById('pr-list');
-  tbody.innerHTML = '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9"><div class="loading"><div class="spinner"></div></div></td></tr>';
   const params = {};
   if (status) params.status = status;
-  const res = await api('getProductionRuns', params);
-  if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty">Error loading runs</td></tr>`; return; }
-  if (!res.data.length) { tbody.innerHTML = `<tr><td colspan="7" class="empty">No production runs yet</td></tr>`; return; }
 
-  const statusColour = {
+  const [freshRes, repairRes] = await Promise.all([
+    api('getProductionRuns', params),
+    api('getRepairRunsDash', {}),
+  ]);
+
+  const freshRuns  = (freshRes.ok  ? freshRes.data  : []).map(r => ({ ...r, _type: 'fresh' }));
+  const repairRuns = (repairRes.ok ? repairRes.data : []).map(r => ({ ...r, _type: 'repair' }));
+  const allRuns    = [...freshRuns, ...repairRuns].sort((a,b) =>
+    new Date(b.created_at || b.run_date || 0) - new Date(a.created_at || a.run_date || 0)
+  );
+
+  if (!allRuns.length) { tbody.innerHTML = `<tr><td colspan="9" class="empty">No runs yet</td></tr>`; return; }
+
+  const freshStatusCol = {
     'Draft':'var(--text3)', 'Submitted':'var(--blue)', 'Issued':'var(--yellow)',
     'In Progress':'var(--yellow)', 'Completed':'var(--green)',
     'Rejected':'#ff5252', 'Cancelled':'var(--text3)',
   };
+  const repairStatusCol = { planned:'var(--text3)', active:'var(--yellow)', completed:'var(--green)', cancelled:'var(--text3)' };
 
-  tbody.innerHTML = res.data.map(r => {
+  tbody.innerHTML = allRuns.map(r => {
+    if (r._type === 'repair') {
+      const c = r._counts || {};
+      const col = repairStatusCol[r.status] || 'var(--text)';
+      const createdAt = r.created_at
+        ? new Date(r.created_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})
+        : '—';
+      return '<tr>'
+        + '<td style="font-family:var(--mono);color:var(--yellow)">' + r.run_no
+        +   ' <span style="font-size:8px;background:rgba(255,255,255,.1);color:var(--text3);padding:1px 5px;border-radius:3px;vertical-align:middle">REPAIR</span></td>'
+        + '<td style="font-size:11px">' + (r.run_date ? formatDisplayDate(r.run_date) : formatDisplayDate(r.created_at?.split('T')[0])) + '</td>'
+        + '<td style="font-size:10px;color:var(--text3)">' + createdAt + '</td>'
+        + '<td style="color:var(--text3)">—</td>'
+        + '<td style="font-size:10px;color:var(--text3)">'
+        +   (c.total ? `${c.in_repair||0} in repair · ${c.repaired||0} done · ${c.scrapped||0} scrapped` : 'No units yet')
+        + '</td>'
+        + '<td style="font-family:var(--mono)">' + (r._counts?.total||0) + '</td>'
+        + '<td style="font-family:var(--mono);font-size:11px;color:var(--text2)">' + (r.line||'—') + '</td>'
+        + '<td style="color:' + col + ';font-family:var(--mono);font-size:10px">' + r.status.toUpperCase() + '</td>'
+        + '<td><button class="btn btn-secondary" style="padding:2px 8px;font-size:10px" '
+        +   'onclick="openRepairRun(\'' + r.id + '\',\'' + r.run_no + '\')">VIEW</button></td>'
+        + '</tr>';
+    }
     const variantStr = (r.variants||[]).map(v => {
       const base  = `${v.variant||'Common'}${v.colour?' '+v.colour:''}`;
       const split = (v.qty_ecomm || v.qty_retail)
@@ -12049,7 +12125,7 @@ async function loadProductionRuns() {
         : ` ×${v.qty}`;
       return base + split;
     }).join(', ');
-    const colour = statusColour[r.status] || 'var(--text)';
+    const colour = freshStatusCol[r.status] || 'var(--text)';
     const subAt = r.released_at
       ? new Date(r.released_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})
       : '—';
@@ -12425,6 +12501,128 @@ async function cancelProductionRun() {
     loadProductionRuns();
   } else {
     toast(res.error || 'Failed to cancel run', 'error');
+  }
+}
+
+// ── REPAIR RUN FUNCTIONS ──────────────────────────────────────
+let currentRepairRunId = null;
+
+function setPRRunType(type) {
+  const isFresh = type === 'fresh';
+  document.getElementById('pr-product-group').style.display   = isFresh ? '' : 'none';
+  document.getElementById('pr-variants-section').style.display = isFresh ? '' : 'none';
+  document.getElementById('pr-fresh-info').style.display       = isFresh ? '' : 'none';
+  document.getElementById('pr-repair-info').style.display      = isFresh ? 'none' : '';
+  document.getElementById('pr-submit-btn').textContent         = isFresh ? 'CREATE & SUBMIT RUN' : 'CREATE REPAIR RUN';
+  document.getElementById('pr-submit-btn').onclick             = isFresh
+    ? createProductionRun
+    : createRepairRunStore;
+  document.getElementById('pr-type-fresh').style.background    = isFresh ? 'var(--yellow)' : 'var(--bg3)';
+  document.getElementById('pr-type-fresh').style.color         = isFresh ? '#000' : 'var(--text3)';
+  document.getElementById('pr-type-repair').style.background   = isFresh ? 'var(--bg3)' : 'var(--yellow)';
+  document.getElementById('pr-type-repair').style.color        = isFresh ? 'var(--text3)' : '#000';
+}
+
+async function createRepairRunStore() {
+  const line  = document.getElementById('pr-line').value;
+  const date  = document.getElementById('pr-date').value;
+  const notes = document.getElementById('pr-notes').value;
+  if (!line) return toast('Select a line', 'error');
+  const btn = document.getElementById('pr-submit-btn');
+  btn.textContent = 'CREATING...'; btn.disabled = true;
+  try {
+    const res = await apiPost('createRepairRun', { data: { line, run_date: date, notes } });
+    if (!res.ok) { toast(res.error || 'Failed to create repair run', 'error'); return; }
+    toast('Repair run ' + res.data.run_no + ' created', 'success');
+    document.getElementById('pr-notes').value = '';
+    loadProductionRuns();
+  } catch(e) {
+    toast('Error creating repair run', 'error');
+  } finally {
+    btn.textContent = 'CREATE REPAIR RUN'; btn.disabled = false;
+  }
+}
+
+async function openRepairRun(runId, runNo) {
+  currentRepairRunId = runId;
+  document.getElementById('pr-detail-panel').style.display = 'none';
+  const panel = document.getElementById('pr-repair-detail-panel');
+  panel.style.display = 'block';
+  document.getElementById('pr-repair-detail-title').textContent = runNo + ' — Loading...';
+  document.getElementById('pr-repair-units-body').innerHTML =
+    '<tr><td colspan="7"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const res = await api('getRepairRunDetail', { run_id: runId });
+  if (!res.ok) { toast('Failed to load repair run', 'error'); return; }
+  const { run, units } = res.data;
+
+  document.getElementById('pr-repair-detail-title').textContent =
+    run.run_no + ' — ' + run.line + ' — ' + run.status.toUpperCase();
+
+  const c = run._counts || { total: units.length,
+    repaired: units.filter(u=>u.status==='repaired').length,
+    scrapped: units.filter(u=>u.status==='scrapped_repair').length,
+    in_repair: units.filter(u=>u.status==='in_repair').length };
+
+  const statColor = { planned:'var(--text3)', active:'var(--yellow)', completed:'var(--green)', cancelled:'#ff5252' };
+  document.getElementById('pr-repair-stats').innerHTML = `
+    <div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px">
+      <div style="color:var(--text3);font-size:9px;font-family:var(--mono);margin-bottom:2px">STATUS</div>
+      <div style="font-weight:700;color:${statColor[run.status]||'var(--text)'}">${run.status.toUpperCase()}</div>
+    </div>
+    <div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px">
+      <div style="color:var(--text3);font-size:9px;font-family:var(--mono);margin-bottom:2px">TOTAL</div>
+      <div style="font-weight:700;font-family:var(--mono)">${c.total}</div>
+    </div>
+    <div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px">
+      <div style="color:var(--text3);font-size:9px;font-family:var(--mono);margin-bottom:2px">IN REPAIR</div>
+      <div style="font-weight:700;font-family:var(--mono);color:var(--yellow)">${c.in_repair}</div>
+    </div>
+    <div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px">
+      <div style="color:var(--text3);font-size:9px;font-family:var(--mono);margin-bottom:2px">REPAIRED</div>
+      <div style="font-weight:700;font-family:var(--mono);color:var(--green)">${c.repaired}</div>
+    </div>
+    <div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px">
+      <div style="color:var(--text3);font-size:9px;font-family:var(--mono);margin-bottom:2px">SCRAPPED</div>
+      <div style="font-weight:700;font-family:var(--mono);color:#ff5252">${c.scrapped}</div>
+    </div>
+    ${run.notes ? `<div style="padding:8px 14px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text3)">${run.notes}</div>` : ''}
+  `;
+
+  const canComplete = run.status === 'active';
+  const canCancel   = ['planned','active'].includes(run.status);
+  document.getElementById('pr-repair-btn-complete').style.display = canComplete ? '' : 'none';
+  document.getElementById('pr-repair-btn-cancel').style.display   = canCancel   ? '' : 'none';
+
+  const fmt = ts => ts ? new Date(ts).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
+  const statusCol = { in_repair:'var(--yellow)', repaired:'var(--green)', scrapped_repair:'#ff5252', queued:'var(--text3)' };
+
+  document.getElementById('pr-repair-units-body').innerHTML = units.length
+    ? units.map(u => `<tr>
+        <td style="font-family:var(--mono);font-size:10px">${u.unit_upc||'—'}</td>
+        <td style="font-size:11px">${u.product||'—'}</td>
+        <td style="font-size:11px">${u.model||'—'}</td>
+        <td style="font-size:11px">${u.color||'—'}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:${statusCol[u.status]||'var(--text)'}">${u.status}</td>
+        <td style="font-size:10px;color:var(--text3)">${fmt(u.started_at)}</td>
+        <td style="font-size:10px;color:var(--text3)">${fmt(u.completed_at)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" class="empty">No units scanned yet — operators scan at the Repair station</td></tr>';
+}
+
+async function updateRepairRunStatusStore(action) {
+  if (!currentRepairRunId) return;
+  const status = action === 'complete' ? 'completed' : 'cancelled';
+  const confirmed = confirm(`Mark repair run as ${status}?`);
+  if (!confirmed) return;
+  const res = await apiPost('updateRepairRunStatus', { data: { run_id: currentRepairRunId, status } });
+  if (res.ok) {
+    toast('Repair run ' + status, 'success');
+    document.getElementById('pr-repair-detail-panel').style.display = 'none';
+    loadProductionRuns();
+  } else {
+    toast(res.error || 'Failed to update repair run', 'error');
   }
 }
 
