@@ -10326,7 +10326,8 @@ function syncRemoteQty(carInput) {
 
 // ── CKD UNITS MODE ────────────────────────────────────────────
 
-const CKD_EXCLUDED_PRODUCTS = new Set(['Dash', 'Nitro', 'Flare LE']); // FBU-only
+const CKD_EXCLUDED_PRODUCTS    = new Set(['Flare LE']);          // fully FBU — no CKD component at all
+const CKD_REMOTE_ONLY_PRODUCTS = new Set(['Dash', 'Nitro']);     // FBU car, CKD remote only
 
 const CKD_DISPLAY_GROUPS = [
   { key: 'car',       label: 'CAR PARTS',    cats: new Set(['Car','Remote/Car','Accessories','Sticker','Charger Cable']),  defaultOn: true  },
@@ -10385,9 +10386,10 @@ function renderCKDQueue() {
   }
   if (explodeWrap) explodeWrap.style.display = '';
   container.innerHTML = ckdProductQueue.map(product => {
-    const variants    = PRODUCT_VARIANTS[product]    || [];
-    const subvariants = PRODUCT_SUBVARIANTS[product] || {};
-    const hasRemote   = !!(productMetaCache[product]?.has_remote) || HAS_REMOTE.has(product);
+    const variants     = PRODUCT_VARIANTS[product]    || [];
+    const subvariants  = PRODUCT_SUBVARIANTS[product] || {};
+    const hasRemote    = !!(productMetaCache[product]?.has_remote) || HAS_REMOTE.has(product);
+    const isRemoteOnly = CKD_REMOTE_ONLY_PRODUCTS.has(product);
     let rows = '';
     if (!variants.length) {
       rows = `<div style="font-size:11px;color:var(--text3);padding:4px 0">No variants configured.</div>`;
@@ -10395,16 +10397,19 @@ function renderCKDQueue() {
       variants.forEach(v => {
         const colors = subvariants[v] || [];
         if (colors.length) {
-          colors.forEach(c => rows += ckdVariantRow(product, v, c, v + ' ' + c, hasRemote));
+          colors.forEach(c => rows += ckdVariantRow(product, v, c, v + ' ' + c, hasRemote, isRemoteOnly));
         } else {
-          rows += ckdVariantRow(product, v, '', v, hasRemote);
+          rows += ckdVariantRow(product, v, '', v, hasRemote, isRemoteOnly);
         }
       });
     }
-    const remoteHdr = hasRemote
+    // Remote-only: 2-col grid (variant + remotes), no cars column at all
+    const carsHdr   = isRemoteOnly ? '' :
+      `<div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:right;letter-spacing:.06em">CARS</div>`;
+    const remoteHdr = (hasRemote || isRemoteOnly)
       ? `<div style="font-family:var(--mono);font-size:9px;color:#7b93ff;text-align:right;letter-spacing:.06em">REMOTES</div>`
       : `<div></div>`;
-    const cols = hasRemote ? '180px 100px 100px' : '180px 100px';
+    const cols = isRemoteOnly ? '180px 100px' : (hasRemote ? '180px 100px 100px' : '180px 100px');
     return `
       <div class="po-ckd-block" data-product="${product}" style="margin-bottom:12px;border:1px solid var(--border);border-radius:3px;overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--bg3);border-bottom:1px solid var(--border)">
@@ -10414,7 +10419,7 @@ function renderCKDQueue() {
         <div style="padding:10px 12px">
           <div style="display:grid;grid-template-columns:${cols};gap:8px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--border)">
             <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em">VARIANT</div>
-            <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);text-align:right;letter-spacing:.06em">CARS</div>
+            ${carsHdr}
             ${remoteHdr}
           </div>
           ${rows}
@@ -10423,8 +10428,18 @@ function renderCKDQueue() {
   }).join('');
 }
 
-function ckdVariantRow(product, variant, colour, label, hasRemote) {
+function ckdVariantRow(product, variant, colour, label, hasRemote, isRemoteOnly) {
   const colAttr = colour ? ` data-colour="${colour}"` : '';
+  // Remote-only products (e.g. Dash, Nitro): show only the remote qty input, no car input, no syncCKDRemote
+  if (isRemoteOnly) {
+    return `
+    <div style="display:grid;grid-template-columns:180px 100px;gap:8px;align-items:center;margin-bottom:4px">
+      <div style="font-size:12px;color:var(--text2);padding-left:4px">${label}</div>
+      <input type="number" value="" placeholder="0" min="0"
+             data-product="${product}" data-variant="${variant}"${colAttr} data-component="remote"
+             class="form-input ckd-qty-input ckd-remote-input" style="font-size:12px;text-align:right;padding:5px 8px;background:rgba(33,60,226,.06)">
+    </div>`;
+  }
   const cols    = hasRemote ? '180px 100px 100px' : '180px 100px';
   const remoteCell = hasRemote
     ? `<input type="number" value="" placeholder="0" min="0"
